@@ -1,0 +1,190 @@
+
+Onion Route Token Datagram Protocol
+
+
+Onion Route Tokens provide high-latency uni-directional delivery
+for a small number of message, while keeping them message's sender and
+destination anonymous to both the network and one another.
+
+
+\section{Idea}
+
+Servers identify themselves by a Curve25519 key pair server_key,
+possibly the same as their Tor hidden service key.  
+
+We accomplish onion routing via the usual trick of encrypting all 
+messsage data and routing instrutions to a symetric keys that are 
+in turn encrypted to a server_key. 
+
+We should do this seperately for the route token and data however
+since we do not want the sender decrypting their token.  It is this
+fact that would make adding tokenized routes to Tor slightly tricky.
+
+
+\section{Wrappers}
+
+An OR packet is built from a series of wrappers that we hope remain as
+orthogonal and disconnected as possible. 
+We describe these using protobufs below but in most cases we do not need
+protobuf's extensibility.
+
+\subsection{HMACs}
+
+We use the standard HMAC formulation to avoid length extension attacks :
+
+	hmac hash k m = hash $ (k `xor` opad) ++ (hash $ (k `xor` ipad) ++ m)
+
+In our case hash will probably be sha256 or maybe sha512.  
+See technicalities about blocksizes in http://hackage.haskell.org/package/Crypto-4.2.5.1/docs/src/Data-HMAC.html#hmac 
+https://gist.github.com/112188/acdbf002acf454bd60c355a776b9a5b58b6dff5e
+There are references for length extension attacks and the claim that HMAC are needlessly complcated if we use SHA-2 here : 
+https://en.wikipedia.org/wiki/Hash-based_message_authentication_code#Design_principles
+
+We store data protected by an HMAC in an hmac_bytes message : 
+
+\begin{proto}
+message hmac_bytes {
+	required bytes hmac = 1 ;  // = hmac sha256 m data
+	required bytes data = 2 ; 
+}
+\end{proto}
+
+\subsection{Public-Symetric}
+
+We require the ancient public key encryption trick of encrypting data
+to a symetric key, which we encrypt to the server's public key server_key.
+
+We'll presumably encrypt the data using the symetric key given by 
+	pubsym.symkey = Curve25519.encrypt(server_key.pub,skey.secretbox)
+	skey.secretbox = Curve25519.decrypt(server_key.priv,pubsym.symkey)
+
+We could use an algorithm like secretbox for the symetric cyper to 
+combine encryption with a degree of authentication, but this might be
+excessive if we use hmacs carefully elsewhere.
+
+If using protobuf then one would likely determine the encryption algorithm
+by which key is present.  Just a slightly messy convention that provides
+yet another example of the superiority of algebraic data types over
+imperitive formulations like protobuf.
+
+\begin{proto}
+message SymetricKey {
+	// Only one key ay be present and determines the algorithm
+	optional bytes secretbox = 1 ;
+}
+
+message PubSym {
+	required bytes symkey = 1 ; // encrypted with Curve25519
+	required bytes data = 2 ;
+}
+\end{proto}
+
+Presumably this section will be replaced by referencing some C library
+that handles this buisness correctly. 
+
+
+\subsection{}
+
+
+\section{Protocol}
+
+\subsection{Tokens}
+
+Inside the packet.token PubSym wrapper, there is an active_token containing
+a benevolence token, instructions on the next action to take, and another
+SymetricKey symkey.  We shall use symkey to encrypt the message itself.
+
+\begin{proto}
+message active_token {
+	optional PubSym next = 1 ;
+	required bytes destination = 2 ;
+
+	required SymetricKey symkey = 3 ;
+
+	optional benevolence_token benevolence = 8 ; 
+	// verifyBenevolence benevolence symkey_sha == true
+}
+\end{proto}
+
+An initial active_token omits next and contains a mailbox address 
+in active_token.destination.  In any active_token, the benevolence token 
+is set acording to current network stress demands and active_token.symkey
+is set randomly.
+
+We complete an active_token and build a ready_token as follows. 
+\item  Select the server_key to recieve the active_token and
+       store it in ready_token.destination. 
+\item  Store the active_token encrypted to this server_key in ready_token.token.
+\item  If our active_token comes from a previous ready_token, then copy ready_token.symkeys.  
+\item  Add active_token.symkey to ready_token.symkeys.
+
+\begin{proto}
+message ready_token {
+	required PubSym token = 1 ;
+	required bytes destination = 2 ;
+	repeated SymetricKey symkeys = 3 ;
+}
+\end{proto}
+
+A subsequent active_token is built from a ready_token by 
+\item  copying ready_token.token to active_token.next, and 
+\item  copying ready_token.destination to active_token.destination.
+Again active_token.symkey s set randomly and the benevolence token is set 
+as required. 
+
+We append to the list ready_token.symkeys when building a subsequent 
+ready_token, but this requires taking care about protobuf's conventions
+around ordering of repeated values.
+
+A ready_token exposes all information needed to build another subsequent
+active_token, so after the recipient issues a ready_token the sender
+may extend it further before actually sending. 
+
+We may require a depth counter or relevant mac value to prevent 
+long-path attacks since there is considerable extensibility built into 
+the benevolence tokens or elsewhere limit our ability.
+
+
+\subsection{Packets}
+
+A packtes consist of an active route token, a public-symetric wrapper, and 
+a message encrypted to a symetric key that's visible only once the token 
+is unwrapped.
+
+\begin{proto}
+message packet {
+	required PubSym token = 1 ;
+	required bytes msg = 2 ;
+}
+\end{proto}
+
+We send a message using a ready_token by setting packet.token to be
+ready_token.token and setting packet.msg to be the message encrypted 
+with each ready_token.symkeys in reverse order.
+
+A server foprocesses an incoming packet as follows. 
+\item  decrypt incoming.token to token,
+\item  Verify token.benevolence
+\item  If token.next is present, then : 
+  \item  copy token.next to outgoing.token
+  \item  decrypt incoming.msg to outgoing.msg using token.symkey
+  \item  send to token.destination
+\item  If token.next is not present, then :
+  \item  decrypt incoming.msg using token.symkey, and 
+         store the result in the mailbox token.destination
+
+
+\section{Concerns}
+
+Authentication, MACs, etc.
+Long path attacks
+Not even knowing all the attacks Tor has faced or foresees
+
+No backup paths.  
+Not a true p2p system since tokens would expire too quickly with flaky servers.
+
+
+
+
+
+
