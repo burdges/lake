@@ -1,0 +1,239 @@
+We describe below a rough "wish list" for an messaging mixnet protocol
+seeking to believably claim obfuscate different traffic types with one
+another.
+
+In particular, we demand the following :
+\begin{itemize}
+\item All messaging and link layer traffic should be protected by
+forward-secure Axolotl-like ratchets that incorporate a post-quantum
+public key system, like NTRU. 
+\item All link layer traffic should additionally be protected key
+material communicated at the messaging layer.
+\end{itemize}
+In this way, an adversary seeking to record network traffic today for
+later analysis, say after they invent a quantum computer and break NTRU,
+should need to record all server-to-server traffic to ensure that they
+capture all messaging layer traffic that updates link layer keys.
+
+
+\section{Core' layer}
+
+\subsection{Transports}
+
+We believe any present day anonymity system should run over Tor because
+Tor is the only system with a sizable anonymity set, and Tor is the only
+system with a team actively working on practical censorship resistance.
+
+We therefore propose that Code' have exactly two transports layers below
+it :
+\begin{itemize}
+\item All Core' nodes must support Tor as a client.  Some support Tor as
+a hidden service too.
+\item Some nodes would likely run as a GNUNet layer on top of either
+Core or Transport.  
+\end{itemize}
+
+Core' should only use Tor whenever typical censorship resistance becomes
+an issue, never GNUNet's HTTP, etc. transports.  
+
+In principle, Core' could speak one of UDP or TCP/IP directly, and not
+run as a GNUNet layer.  At present, there is little immediate reason to
+worry about most features that GNUNet's Transport provides :
+\begin{itemize}
+\item Mesh networking brings servers dangerously close to clients. 
+\item Censorship is best left to the Tor project for foreseeable
+future. 
+\end{itemize}
+GNUNet's Transport layer might however provide good general purpose NAT
+punching for servers. 
+
+
+\subsection{Modes}
+
+Core' operates in one of two modes : 
+\begin{itemize}
+\item Client nodes only speak Tor, never the second transport (GNUNet).
+Client nodes probably never run a Tor hidden service either.
+\item Server nodes speak the second transport and offer a Tor hidden
+service.  Server nodes begin life as client nodes however.
+\end{itemize}
+
+We could imagine a future mesh networking mode in which clients
+networked casually amongst themselves, but gained security through long
+established links between machines based elsewhere.
+
+\subsection{Ratchet}
+
+All Core' nodes communicate using a two step ratchet called Axolotl--.
+Axolotl-- is similar to Axolotl, but lacks the hash iteration ratchet,
+making it suitable for large transfers.  
+
+Axolotl-- headers are encrypted using both the previous root key state,
+as in Pond, as well as the symmetric or asymmetric link keys shared
+using the the higher-level messaging protocol.  
+
+We cannot use GNUNet's Core for Core' because these link keys must come
+through the higher-level messaging protocol.  We require this violation
+of layering to claim that file-sharing traffic helps obscure more
+important traffic.
+
+There are two types of link keys that must be communicated using
+separate messages : 
+\begin{itemize}
+\item a symmetric link key that must be shared before non-Tor
+communicates begin, and 
+\item an asymmetric post-quantum NTRU' link key.
+\end{itemize}
+
+We hash the symmetric link key with a hashed value based on the previous
+root key to obtain a symmetric used to encrypt the Axolotl-- header.  If
+we know an asymmetric link key then we first encrypt the header using
+that, so that NTRU' cannot leak anything.
+
+\subsection{Sessions}
+
+Client nodes begin all new Axolotl-- sessions with server nodes when
+connecting to the network, thus maintaining their anonymity from server
+nodes, and saving servers from remembering too many Axolotl-- states.
+Clients maintain distinct disposable identities with each server they
+contact.  
+
+Clients should contact at least three servers so as to maximize their
+messages that update the link key.  User traffic should not be sent only
+connections without link keys.
+
+Server nodes must never forget their Axolotl-- state with another server
+node.  It's unclear how recoverable this should be.  Again, we require
+these long term ratchets between servers to claim that file-sharing
+traffic helps obscure more important traffic.
+
+\subsection{Protocols}
+
+There are very few protocols that communicate over Core' directly.
+Ideally, only Sphinx and HORNET should speak to Core' directly,
+especially on clients.  There might however be connectivity information
+shared over Core' directly to help build Sphinx routes.
+
+
+\section{Sphinx layer}
+
+Sphinx is a stateless onion routing protocol for sending single packets.
+Sphinx is requires at least one curve25519 operation per packet, making
+it computationally intensive.  
+
+Sphinx packets are augmented with a recommended delay, given as
+parameters to an exponential distribution.  We should leave unused but
+zeros bits here to optionally support another probability distribution
+here to aid in supporting multiple devices.  
+
+Sphinx packets serve two purposes : 
+\begin{itemize}
+\item Delivering messages to mailboxes, and
+\item Initializing HORNET routes.
+\end{itemize}
+
+All Sphinx packets must do both operations to help obstruct metadata
+analysis.  Sphinx header must however support corruption of the HORNET
+route it builds, so that Sphinx headers can be used a delivery tokens.
+
+We envision Sphinx headers being held as delivery tokens for months.  We
+therefore need the ability to forward Sphinx across unrelated multiple
+hop route, possibly only at steps that corrupts the HORNET route they
+build.  
+
+
+\section{HORNET layer}
+
+HORNET is a stateless onion routing protocol for sending a stream of
+packets.  HORNET uses only hash functions and symmetric cryptography,
+making it relatively light weight computationally.  HORNET routes are be
+initialized by Sphinx packets that collect the necessary symmetric keys.
+
+Users check their mailboxes by building HORNET routes to them.  HORNET
+is unnecessary for the operation of the base system, as Core' uses only
+local mailboxes. 
+
+We should try to modify HORNET so that packets in the same stream cannot
+be correlated by a router in that stream.
+
+HORNET is extremely vulnerable to replay attacks by hostile servers, so
+we augment the system with a bloomfilter to detect and block replayed
+noonces.
+
+
+\section{Messaging layer}
+
+Servers maintain mailboxes that enable clients to exchange and store
+messages.  There are also special mailboxes that Core' reads to update
+its link keys.
+
+\subsection{Ratchet}
+
+All messages are end-to-end encrypted with the key provided by an
+Axolotl ratchet, including the usual hash iteration ratchet.
+
+Analogously to Core', Axolotl headers are encrypted outside using both
+the previous root key state, as in Pond, and inside an asymmetric
+post-quantum NTRU' message link key, again so that NTRU' cannot leak
+anything.
+
+Server to server messages should use this ratchet as well, meaning
+servers actually maintain two ratchets with one another, but maybe this
+can be improved upon.
+
+\subsection{Authentication}
+
+We expect that Sphinx already supports the creation of opaque delivery
+headers and the extension of these by the sender, so as to provide
+mutual anonymity for senders and receivers.
+
+Assuming so, we prefer that mailbox authentication be handled by issuing
+single use delivery tokens consisting of a Sphinx headers with a
+corruption instructions for the HORNET route they build.
+
+
+
+\subsection{File}
+
+.
+
+
+\session{Route discovery}
+
+... TO DO ...
+
+We'd prefer to avoid using a DHT at all.   If however one proves
+necessary for routing information, then we ban all client connected data
+from the DHT.
+
+
+\section{Timing and Padding}
+
+We should pay close attention to the Vuvuzela protocol batches and pads
+messages, so as to ensure that Sphinx and HORNET packets offer similar
+assurances for messaging.  
+
+At minimum, this means Core' should collect and batch messages; however,
+we must ensure that the batching does not create observable effects
+later.
+
+We expect the delays and batching to make the HORNET layer unusable for
+web browsing.  One might however develop specialized protocols to be
+useful in specific situations, like HTTP or FTP download, or
+not-fully-interactive remote shell sessions.
+
+As HORNET can be extremely fast, we could support zero-delay operation
+for special traffic, but the priority should be on making high-latency
+protocols.
+
+
+\session{NTRU'}
+
+Initially, we employ NTRU itself for NTRU', but the keys should contain
+an algorithm identifier, allowing us to replace NTRU with improvements,
+such as DJB's NTRU'.
+
+
+
+
+
