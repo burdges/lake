@@ -1,0 +1,22 @@
+
+
+We describe the process asymetrically but both side behave the same : 
+- BNF1 selects a relatively recent relatively sparce tsBf x. 
+- BNF1 selects a set bit x[b] from x.
+- BNF1 asks BNF2 if it knows any y with y[b] set and
+  y.timestamp near/after x.timestamp.
+...
+Actually I need to think about this more, but 
+
+
+- If yes they employ a symetric difference algorithm to consolodate,
+  possibly reverting to a no path . 
+- If no, 
+
+BNF2 says yes, then BNF2 try to widdle down 
+
+- BNF2 replies either yes, 
+
+- If BNF2 says no, then BNF1 tries another x from the beginning.
+- If BNF2 says yes, then BNF2 ...
+

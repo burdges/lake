@@ -1,0 +1,51 @@
+
+message hmac_bytes {
+	required bytes hmac = 1 ; 
+	// = hmac sha256 decrypt(destination.priv,lordp_decrypted.symkey_sha) data
+
+	required bytes data = 2 ; 
+}
+
+message benevolence_token {
+	required uint32	type = 1 ; 
+	required bytes token = 2 ; 
+}
+
+message lordp_header {
+	enum Action {
+		Forward = 1 ;
+		Store = 2 ;
+	}
+	required Action action = 1 [ default = Forward ] ; 
+
+	// If action==Forward then its the next server public 
+	// If action==Store then it's the DHT address
+	required bytes destination = 2 ;
+
+	// If action==Forward then the next symetric key encrypted to 
+	// the destination's public key pair
+	optional bytes symkey = 3 ;
+}
+
+message lordp_decrypted {
+	// We store the SHA of the decrypted symetric key here after decryption, 
+	// but do not keep it on the wire. 
+	optional bytes symkey_sha = 1 ; 
+
+	optional benevolence_token benevolence = 2 ; 
+	// verifyBenevolence benevolence symkey_sha == true
+
+	// We store lordp_encrypted.next here after decryption.
+	optional lordp_header next_header = 8 ; 
+
+	// We store lordp_encrypted.body here after decryption.
+	optional bytes body = 16 ;
+}
+
+message lordp_encrypted {
+	required lordp_header header = 1 ; 
+	// Encrypted lordp_decrypted and body
+	optional hmac_bytes next = 2 ;
+	optional hmac_bytes body = 100 ;
+}
+

@@ -1,0 +1,36 @@
+
+
+\begin{rust}
+
+use sodiumoxide::crypto::scalarmult::curve25519;
+use sodiumoxide::crypto::secretbox::xsalsa20poly1305;
+
+struct Packet {
+	pub : scalarmult::curve25519::GroupElement
+	data : [u8]
+}
+
+pub fn open(m : &[u8], priv : &curve25519::Scalar) -> Vec<u8> {
+	(pub,r) = split(m,curve25519::BYTES);
+
+	// We use the public key as the 24 byte nonce for secretbox
+	nonce = xsalsa20poly1305::Nonce( pub.copy().take(xsalsa20poly1305::NONCEBYTES) );
+
+	// 
+	GroupElement(s) = curve25519.scalarmult(priv, curve25519::GroupElement(pub));
+	xsalsa20poly1305::open(m.data,xsalsa20poly1305::Key(s) )
+}
+
+\end{rust}
+
+
+
+\begin{capnproto}
+
+\end{capnproto}
+
+
+
+
+
+

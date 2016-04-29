@@ -1,0 +1,90 @@
+
+I’ll summarize the two proposals as I now understand them :
+
+We’ve a network of servers identified by their public keys that run a DHT to provides storage mailboxes, maybe the keys correspond to Tor hidden service keys, or maybe they’re simply new Ed25519/Curve25519 keys.  We’d prefer that content disappear from the DHT once successfully downloaded, but that might prove impossible.  We might limit access to the DHT to prevent DDoS by either requiring tokens constructed either through proof-of-work or issued by a free Taler-like mint.  I say Taler-like because it’d suffices for servers to prevent double spending themselves without contacting the mint.
+
+We should maybe worry about issues like servers air-gapped offline public keys, maybe by depending upon Tor for the key system.
+
+
+Transport 0.  Ephemeral Tor hidden services
+
+These are Tor hidden service that never touches the hidden service directory, slated to appear soon in Tor.  They’re the best option for synchronous transport. 
+
+
+Transport 1.  Onion route tokens
+
+Users "open" a mailbox m they wish to check regularly by generating a Curve25519 key pair mailbox_work_key.priv and mailbox_work_key.pub where w = scrypt(mailbox_work_key.pub) has mailbox_work_factor bits of collision with scrypt(m).  Optionally mailbox_work_factor could be quite small and they could obtain a blind signature for w from a free Taler-like mint.
+
+Let sign_token(x,key) = y++signature(y,key.priv) where y = x++key.pub.
+
+Construct mailbox_delivery_token = sign_token(m, mailbox_work_key).
+
+Users issue their active contacts an Onion Route Tokens constructed as follows :
+- Select three forwarding servers identified by server_key[0..2].
+- Generate a Curve25519 key pair message_key.priv and message_key.pub.
+- Generate Curve25519 key pairs work_key[0..2] where scrypt(work_key[i].pub) has ort_work_factor bits of collision with sha256(server_key[i].pub++?) for i=0..2 where ? might be message_key.pub.  Again we might use a free Taler-like mint to blind sign work_key.pub too, but that’s probably excessive. 
+- Construct onion_route_token as z[2]++ message_key.priv where 
+	x[0] = sign_token(mailbox_delivery_token++random_nonce(), message_key)
+	y[i] = encrypt(x[i], server_key.pub[i]) ++ server_key.pub[i] 
+	z[i] = sign_token(y[i], work_key[i])
+	x[i+1] = sign_token(z[i], message_key)
+Actually, there might be some issue with using sign_token() like this as opposed to a typical HMAC formulation, well there’s kinda fixed sized tuples or structs, but not really. 
+
+Users contact other users by extracting server_key[3] from onion_route_token and identifying the Tor hidden service to which it corresponds, opening the connection, and sending onion_route_token' ++ s ++ message_data where 
+	s = signature(length(message_data) ++ sha512(message_data), message_key.priv)
+Again we might need a typical HMAC formulation rather than adding the length. 
+
+Forwarding servers forward requests as follows :
+- Verify and peal off the outer work_key layer of the onion_route_token given by z[i] = sign_token(y[i], work_key[i]).
+- Decrypt the encryption layer given by y[i] = encrypt(x[i], server_key.pub[i]).
+- Extract the message_key given in x[i] = sign_token(?, message_key) and verify both remaining token and the message. 
+- Delay a random time with a Poisson-like distribution with a mean of 1 minute and a maximum of 3-5 minutes.
+- If i>0 then peal off the message_key layer x[i+1] to obtain z[i], extract the next server key and forward z[i] ++ s ++ message_data or whatever.
+- If i=0 then send the DHT a PUT request containing x[i] ++ s ++ message_data
+At least the first forwarding server must be contacted over a Tor hidden service, probably all forwarding layers should contact one another over Tor for simplicity.
+
+All layers of the DHT see x[0] = sign_token(mailbox_delivery_token++random_nonce(), message_key) so they can :
+- Extract the message_key from x[i] and verify the message
+- Verify the proof-of-work, and maybe blind signature, in mailbox_delivery_token
+- Send the message in the direction of mailbox m 
+
+All DHT GET operations must be initiated via Tor hidden services, but presumably the PUT operations should use hidden services too for simplicity. 
+
+I’ve described this as an asynchronous communications channel, but it could work as a slow one-directional quasi-synchronous transport if we replace m with an ephemeral Tor hidden service.  Ask Roger about this though since they dislike Tor chat for opening hidden services in both directions. 
+
+We could encrypt the whole message in the onion layers of course, which might let us use Tor a bit less, but protocols that both Tor only part of the time are problematic. 
+
+
+Transport 2.  Axolotl ratchet boxes with Bloom-ish notifications
+
+Fix an associative array of 512 bit constants c[body], c[box], etc.
+
+All contact pairs maintain paired axolotl ratchet states that provide each with :
+- a list expected_prekeys of possible 256 bit values from which to derive keys, etc. for incoming messages, and 
+- a single send_prekey value from which to derive keys, etc. for outgoing messages.
+Receiving or sending messages changes these values.
+
+Consider a contact pair Alice and Bob with Curve25519 key pairs Alice.key and Bob.key, respectively. 
+Let cc[x] = sha512(c[x] ++ cc_lex) where cc_lex = concat( lex_order [Alice.key.pub,Bob.key.pub] )
+
+Alice sends a message m_plaintext with send_prekey as follow.
+- Let m_key = sha512( send_prekey ++ cc[body] )
+- Let m_cypertext = encrypt(m_plaintext, m_key)
+- Let m_box = sha512( encrypt(send_prekey, Bob.key.pub) ++ cc[box] )
+- Alice delays a random time with a Poisson-like distribution with a mean of 1 minute and a maximum of 5 minutes.  
+- Alice inserts m_cypertext into the DHT at location m_box via a Tor hidden service, paying whatever proof-of-work the DHT demands. 
+- Let m_notice = sha512( encrypt(send_prekey, Alice.key.pub) ++ cc[notice] )
+- Alice construct adds m_notice to her pending bloom filter. 
+- Alice delays again. 
+- Alice adds enough random noise to her pending bloom filter to meet publication standards and publishes it with a random notification server again via a Tor hidden service.
+
+Notification servers collect the union of bloom notifications until they have enough but not too many bits set, at which point they timestamp the bloom filter and share it with all other notification servers.
+
+Bob listens to his mailboxes as follows.
+- Let m_box_list = random_order [ sha512( encrypt(pk, C.key.pub) ++ cc[notice] ) : C <- contacts, pk <- C.ratchet. expected_prekeys ]
+- Compute a list m_blooms of bloom filters made by adding elements of m_box_list so that no bloom filter was too sparse or dense.  
+- For each element of m_blooms, Bob opens a distinct Tor hidden service connection to a notification server and requests any matching notifications since the last time he checked. 
+
+Alice derives the actual encryption key k for sending a message by hashing e with some constant c1.  Alice derives Bob’s current mailbox m_b(e_a) = hash(encrypt(e_a,b_p)++c2) by encrypting e_a with Bob’s public key p_b and maybe hashing the result with another constant c2.  Bob occasionally checks all the mailboxes given by the list  map m_b ds_b  to see if Alice has any message for him.  If he finds one in mailbox m_b(x) then he decrypts it using hash(x++c1). 
+
+
