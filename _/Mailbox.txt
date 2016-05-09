@@ -1,7 +1,0 @@
-
-Users "open" a mailbox m they wish to check regularly by generating a 
-benevolence token for the value m.  We must take care here since the
-benevolence token is more identifying than merely the mailbox m.
-
-	mailbox_token = AttachBenevolenceToken benevolence_token m
-
