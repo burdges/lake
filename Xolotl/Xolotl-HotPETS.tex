@@ -18,7 +18,11 @@
 %\usetikzlibrary{calc}
 
 \def\mathcomma{,}
-\def\mathperiod{,}
+\def\mathperiod{.}
+
+\def\mathcomma{}
+\def\mathperiod{}
+
 
 \title{Xolotl ratchet}
 \subtitle{A selectively stateful mixnet format for post-quantum security}
@@ -80,7 +84,7 @@ we recusively define
 \textrm{blinding factor}\quad
  b_i &= H(\alpha_i,s_i) \mathcomma \\
 \textrm{next private key}\quad
- x_{i+1} &= b_i x_i \quad\textrm{and} \\
+ x_{i+1} &= b_i x_i \mathcomma \\ % \quad\textrm{and} \\
 \textrm{next public key}\quad
  \alpha_{i+1} &= b_i \alpha_i = b_i x_i \quad\textrm{for $i < n$.} \\
 \end{aligned} \]
@@ -145,15 +149,51 @@ ratchet and the two-step ECDH ratchet that make up Axolotl.
 
 \smallskip
 
+Initially, we begin decode a Sphinx packet as usual,
+by producing the shared secret $s_i$, and 
+unwrapping one layer of the header's onion,
+but we now check for a ratchet flag.
+If not found, then we continue with Sphinx,
+ extracting the next hop, MAC, and unwrapping a payload layer.
+If found, then we extract the ratchet instructions instead.
 
+\def\cn{\textrm{cn}}
 \def\ck{\textrm{ck}}
 \def\DH{\textrm{DH}}
 \def\lk{\textrm{lk}}
 \def\mk{\textrm{mk}}
+\def\sk{\textrm{sk}}
 \def\ECDH{\textrm{ECDH}}
-\def\name{\textrm{name}}
 
-% \begin{figure}[h!]
+These ratchet instructions consist of
+ a chain name $\cn$ and chain index $j$,
+along with the length the length of the previous chain, or
+ perhaps other information for closing the pervious chain.  
+
+We define
+\[ \begin{aligned}
+\textrm{chain start}\quad
+ \ck_0 &= H(\textrm{``Start''} \,||\, \sk) \mathcomma \\
+\textrm{chain name}\quad
+ \cn &= H(\textrm{``Name''} \,||\, \ck_0) \mathcomma \\
+\textrm{chain keys}\quad
+ \ck_{j+1} &= H(\textrm{``Chain''} \,||\, \ck_j) \mathcomma \\
+\textrm{link keys}\quad
+ lk_j &= H(\textrm{``Link''} \,||\, \ck_j) \mathcomma \\
+\textrm{packet keys}\quad 
+ s' &= H(\lk_j \,||\, s_i) \mathcomma \\ % \quad\textrm{and} \\
+\textrm{source keys}\quad 
+ \sk_j &= H(\textrm{``Source''} \,||\, s') \mathperiod \\
+\end{aligned} \]
+In essence, there is a hash iteration ratchet named by $\cn$
+from which we determine a link key $\lk$.
+% the internal state $(\ck, (a,\lk_a), \ldots, (b,\lk_b))$
+We hash $\lk$ with the Sphinx shared secret $s_i$ to produce
+an altered Sphinx shared secret $s'$.
+We conclude by running Sphinx with $s'$ to produce the 
+blinding factor $b_i$ and unwrap both the Sphinx header and body. 
+
+\begin{figure}%[h!]
 \[\begin{tikzcd}[ampersand replacement=\&, column sep=small]
 \cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \ar[r, dotted] \& ? \& \\
  \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d, dotted] \& \lk \ar[d] \&  \& \& \\ 
@@ -172,22 +212,7 @@ ratchet and the two-step ECDH ratchet that make up Axolotl.
  \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
  \& \mk \& \mk \& \mk \& \mk \&  \& \& \\
 \end{tikzcd}\]
-% \end{figure}
-
-Initially, we decode a Sphinx packet as usual, but unwrapping one
-layer of the header's onion optionally reveals ratchet instructions. 
-
-These ratchet instructions consist of a chain name, chain index, and
-a cap on the length of the previous chain. 
-
- chain index $j < 256$,
- chain keys $\ck_{j+1} = H(\ck_j)$,
- link keys $lk_j = H(\ck_j)$
- message keys $\mk_j = H(\lk_j,s_i)$ 
-
-
- chain source $H(\mk_j)$
- chain name $H^2(\mk_j)$
+\end{figure}
 
 
 
