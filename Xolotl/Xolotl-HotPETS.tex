@@ -34,7 +34,7 @@
 
 % \section{}
 
-% L\'aszl\'o Baba's quasipolynomial time algorithm for graph isomorphism\cite{Babai-GI}
+% L\'aszl\'o Baba's quasi-polynomial time algorithm for graph isomorphism\cite{Babai-GI}
 
 We describe a new double ratchet construction Xolotl,
  inspired by the Axolotl ratchet, % \cite{Axolotl},
@@ -46,18 +46,18 @@ security assumptions required by the different public key primitives employed.
 
 \section{Problem} % Post-quantum key sizes
 
-Amonst the chief obstacles to deploying postquantum cryptography are
+Amongst the chief obstacles to deploying post-quantum cryptography are
 the comparatively large key sizes.  As a comparison : 
 %
 A recent Ring-LWE key exchange New Hope \cite[\S7, p.10]{NewHope} needs
  key sizes of 1824 or 2048 bytes, both of which must be ephemeral,
 while a current McElise-like system McBits % \cite{McBits,InitRec}
- needs a stagering 1 megabyte public keys.
+ needs a staggering 1MB public keys.
 %
-Supersingular isogeny Diffie-Hellman (SIDH) \cite[p. 21]{SIDH-2016} keys
+Super-singular isogeny Diffie-Hellman (SIDH) \cite[p. 21]{SIDH-2016} keys
 are only 564 bytes, or 751 bytes uncompressed, but
  the key exchange requires at least 100 times as much CPU time as
- an ECDH key excahnge with equivelent classical security.
+ an ECDH key exchange with equivalent classical security.
 
 Anonymity tools like mix networks are sensitive to key size because 
 users interact with numerous nodes and key material overhead is 
@@ -67,17 +67,17 @@ quadratic in the number of hops. % $n(n+1)/2$
 % \section{Sphinx key blinding}
 
 Sphinx \cite{Sphinx} is a packet format for anonymizing mix networks
-that is provably secure in the universal composabilty framework, and
- addresses the key material burden by mutating or reblinding a
+that is provably secure in the universal composability framework, and
+ addresses the key material burden by mutating or rebinding a
  single ephemeral public key $\alpha$ with each hop,
- as opposed to unwrapping an unrelated public key for each hope.
+ as opposed to unwrapping an unrelated public key for each hop.
 
 An ECC key is blinded by multiplication with a shared secret scalar
 derived from the Diffie-Hellman exchange:
-After selecting an intial private scalar $x_0$,
+After selecting an initial private scalar $x_0$,
  public curve point $\alpha_0 = x_0 G$, and 
- a sequence of $n$ nodes with keys $Y_i = y_i G \textrm{shared}$,
-we recusively define 
+ a sequence of $n$ nodes with keys $Y_i = y_i G$,
+we recursively define 
 \[ \begin{aligned}
 \textrm{shared secret}\quad
  s_i &= x_i Y_i = y_i \alpha_i \mathcomma \\
@@ -94,10 +94,10 @@ Our $i$th node replaces $\alpha_i$ by $\alpha_{i+1}$.
 
 We therefore ask if any post-quantum public key exchanges admit 
 suitable key blinding tricks similar to Sphinx. 
-The answer appears to be {\bf no}, for much same reasons as 
-these primitives fail to yield convenient signature schemes. 
+The answer appears to be {\bf no}, for much similar reasons to 
+why these primitives fail to yield convenient signature schemes. 
 
-There are blinding operations but they  incur significant costs 
+There are blinding operations but they incur significant costs 
 that are asymptotic in the number of hops.
 %
 In SIDH, a public key should not posses enough information to compute
@@ -112,10 +112,10 @@ universal reencryption exists \cite{963628}.
 We declare such schemes unsuitable for another reason though: 
 %
 If all blinding keys $b_i$ are equally likely, then the security of
-eliptic curve key blinding depends only upon the security of $s_i$.
+elliptic curve key blinding depends only upon the security of $s_i$.
 %
-Any similar statment for Ring-LWE or SIDH apepar to require invoking
-their underlying security assumptions a second and perhaps different way. 
+Any similar statement for Ring-LWE or SIDH appear to require invoking
+their underlying security assumptions in a second and perhaps different way.
 
 As a result, any hybrid variant of Sphinx still depends upon its
 post-quantum primitives' underlying security assumptions! 
@@ -126,36 +126,41 @@ remain quite young, suggesting that either could be broken well
 
 \section{Solution}
 
-We could adopt a more naieve mix network packet format that unwraps
-a new public key with each hop.  In this vein, a circut based approach
-like Tor at least avoids transmitting unecessary key material, but
-risks exposing circut metadata in the process. 
+We could adopt a more naive mix network packet format that unwraps
+a new public key with each hop.  In this vein, a circuit based approach
+like Tor at least avoids transmitting unnecessary key material, but
+risks exposing circuit metadata in the process. 
 
 Instead, we draw inspiration from the Axolotl ratchet % \cite{Axolotl}
-which remains secure against Shor's algorithm if first being instanciated
-with a single post-quantum key exchange. 
+which remains secure against Shor's algorithm if
+ first instantiated with a single post-quantum key exchange. 
+
+Axolotl itself continues using the same public key until witnessing
+ the other side reply with it, which meshes poorly with the mix networks
+for several reasons.
 %
-Axolotl itself cannot however expoit the elliptic curve point in
- our Sphinx header, nor be used for contacting a mix network node, 
-because Axolotl continues using the same public key until witnessing
- the other side reply with it.
+First, we prefer to exploit the the elliptic curve point
+ already in our Sphinx header, which must change with each packet.
+%
+Second, we cannot oblige mix nodes to directly communicate with
+ the sender, as that becomes onion routing and Tor's teretory.
+%
+Instead, we hope to improve anonymity over Tor alone by
+ judiciously exploiting high latency and not creating circuits per se.
 
-In fact, we should hope to improve anonymity by judiciously exploiting
-higher latency, meaning the mix nodes' keys should live for some
-reasonable period of time, like a week or a month.
+We resolve these tensions by ``swapping the order'' of the hash iteration
+ratchet and the two-step ECDH ratchet that make up Axolotl.  
 
-We resolve these tensions by ``swapping the order'' of the hash interation
-ratchet and the two-step ECDH ratchet that make up Axolotl.
+In fact, we shall exploit the ECDH operation already in Sphinx rather
+ than adding a true two-step ECDH ratchet.
+Although the mix node's key is not ephemeral, any Sphinx mix network
+should rotate node keys anyways for constant-time replay protection.
+A typical rotation period should be a week or month, sometimes
+ faster than the reply rate seen in Pond or Signal.
 
 \smallskip
 
-Initially, we begin decode a Sphinx packet as usual,
-by producing the shared secret $s_i$, and 
-unwrapping one layer of the header's onion,
-but we now check for a ratchet flag.
-If not found, then we continue with Sphinx,
- extracting the next hop, MAC, and unwrapping a payload layer.
-If found, then we extract the ratchet instructions instead.
+\noindent {\bf Xolotl ratchet description :} 
 
 \def\cn{\textrm{cn}}
 \def\ck{\textrm{ck}}
@@ -165,10 +170,18 @@ If found, then we extract the ratchet instructions instead.
 \def\sk{\textrm{sk}}
 \def\ECDH{\textrm{ECDH}}
 
+Initially, a node should decode a Sphinx packet as usual, 
+by producing the shared secret $s_i$, and 
+unwrapping one layer of the header's onion,
+ to check for a ratchet flag. 
+If not found, then we continue with Sphinx, 
+ extracting the next hop, MAC, and unwrapping a payload layer.
+If found, then we extract the ratchet instructions instead.
+
 These ratchet instructions consist of
  a chain name $\cn$ and chain index $j$,
 along with the length the length of the previous chain, or
- perhaps other information for closing the pervious chain.  
+ perhaps other information for closing the previous chain.  
 
 We define
 \[ \begin{aligned}
@@ -190,11 +203,11 @@ from which we determine a link key $\lk$.
 % the internal state $(\ck, (a,\lk_a), \ldots, (b,\lk_b))$
 We hash $\lk$ with the Sphinx shared secret $s_i$ to produce
 an altered Sphinx shared secret $s'$.
-We conclude by running Sphinx with $s'$ to produce the 
+We finally conclude by running Sphinx with $s'$ to produce the 
 blinding factor $b_i$ and unwrap both the Sphinx header and body. 
 
-\begin{figure}%[h!]
-\[\begin{tikzcd}[ampersand replacement=\&, column sep=small]
+\begin{figure}[th!]
+\begin{tikzcd}[ampersand replacement=\&, column sep=small]
 \cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \ar[r, dotted] \& ? \& \\
  \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d, dotted] \& \lk \ar[d] \&  \& \& \\ 
  \& \ECDH \ar[d] \& \ECDH \ar[d] \& ? \& \ECDH\ar[d] \&  \& \& \\
@@ -211,8 +224,49 @@ blinding factor $b_i$ and unwrap both the Sphinx header and body.
  \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \&  \& \& \\ 
  \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
  \& \mk \& \mk \& \mk \& \mk \&  \& \& \\
-\end{tikzcd}\]
+\end{tikzcd}
 \end{figure}
+
+\smallskip
+
+Assuming an initial ratchet source was created using a post-quantum
+key exchange, an Xolotl ratchet retains that post-quantum security.
+It also provides an interesting measure of forward secrecy against
+a classical adversary. 
+
+For these advanage, we have exposed to the node $i$ that all packets
+using this particular ratchet have either the same sender or receiver.
+
+There is no need for every hop to employ a ratchet though, but
+ specific usage patterns require detailed analysis. 
+
+\[ \begin{aligned}
+\textrm{User} \to &\textrm{Tor} \to \textrm{Xolotl} \to \textrm{Sphinx} \to \\
+\quad &\to \textrm{Xolotl} \to \textrm{Sphinx} \to \textrm{Cross} \to \cdots 
+\end{aligned} \]
+
+In particular, we believe that retaining ratchets for an extended period
+could offer greater forward secrecy than reenstanciating them all with
+each session.  There are many concerns around this point however, like 
+ratchet ...
+
+Aside from usage pattern and ratchet longevity,
+there several interesting possible enhancements worth discussing : 
+\begin{itemize}
+\item
+An onion header could contain a SIDH key accessed by a single mix node,
+allowing for post-quantum security at one middle hop
+ where no ratchet exists.
+\item
+
+\item 
+A standard hash iteration ratchet could occupy considerable space
+ if early message see long delays. 
+We believe a tree-like hash ratchet configuration would be more efficient,
+ especially if ratchets are used with SURBs.
+\item
+
+\end{itemize}
 
 
 
