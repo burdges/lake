@@ -209,22 +209,16 @@ blinding factor $b_i$ and unwrap both the Sphinx header and body.
 
 \begin{figure}[th!]
 \begin{tikzcd}[ampersand replacement=\&, column sep=small]
-\cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \ar[r, dotted] \& ? \& \\
+\cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \ar[r, dotted] \& ? \& \\
+ \& \lk \ar[d] \& \lk \ar[d]  \& \lk \ar[d] \&  \& \& \\ 
+ \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
+ \& \mk \& \mk \ar[dddll, in=90, out=270] \& \mk \ar[dddlll, dotted, in=30, out=270] \&  \& \& \\
+\\
+\\
+\cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \& \& \\
  \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d, dotted] \& \lk \ar[d] \&  \& \& \\ 
  \& \ECDH \ar[d] \& \ECDH \ar[d] \& ? \& \ECDH\ar[d] \&  \& \& \\
- \& \mk \& \mk \ar[dddll, in=90, out=270] \&  \& \mk \ar[dddllll, dotted, in=30, out=270] \&  \& \& \\
-\\
-\\
-\cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \& \& \\
- \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \&  \& \& \\ 
- \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
- \& \mk \ar[dddl, in=90, out=270] \& \mk \ar[dddll, dotted, in=50, out=270] \& \mk \ar[dddlll, dotted, in=30, out=270] \& \mk \&  \& \& \\
-\\
-\\
-\cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \& \& \\
- \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \&  \& \& \\ 
- \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
- \& \mk \& \mk \& \mk \& \mk \&  \& \& \\
+ \& \mk \& \mk \&  \& \mk \&  \& \& \\
 \end{tikzcd}
 \end{figure}
 
@@ -258,24 +252,27 @@ but source keys or chain keys could outlive them.
 
 Aside from usage patterns and ratchet longevity,
 there are several interesting possible enhancements worth discussing : 
-\begin{itemize}
-\item
+
+% \begin{itemize}
+% \item
 An onion header could contain a SIDH key accessed by a single mix node,
 allowing for post-quantum security at one middle hop
  where no ratchet exists.
-\item 
+
+% \item 
 A standard hash iteration ratchet could occupy considerable space
  if early messages see long delays. 
 We believe a tree-like hash ratchet configuration would be more efficient,
  especially if ratchets are used with SURBs.
-\item
+
+% \item
 Ratchets could be given away to other users, thereby allowing a
 collaborative form of forward secrecy, and obfuscating ownership. 
 In principle, adversaries could not break middle ratchets without
 breaking all cryptography up through to the messaging layer itself,
 which could reasonably employ multiple post-quantum key exchanges,
  possibly even McBits.
-\end{itemize}
+% \end{itemize}
 
 
 % \section*{Acknowledgements}
