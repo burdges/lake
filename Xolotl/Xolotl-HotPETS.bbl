@@ -1,0 +1,26 @@
+\begin{thebibliography}{1}
+
+\bibitem{NewHope}
+E.~Alkim, L.~Ducas, T.~P{\"{o}}ppelmann, and P.~Schwabe.
+\newblock Post-quantum key exchange - a new hope.
+\newblock {\em {IACR} Cryptology ePrint Archive}, 2015:1092, 2015.
+
+\bibitem{SIDH-2016}
+C.~Costello, P.~Longa, and M.~Naehrig.
+\newblock Efficient algorithms for supersingular isogeny diffie-hellman.
+\newblock Cryptology ePrint Archive, Report 2016/413, 2016.
+
+\bibitem{Sphinx}
+G.~Danezis and I.~Goldberg.
+\newblock Sphinx: {A} compact and provably secure mix format.
+\newblock In {\em 30th {IEEE} Symposium on Security and Privacy (S{\&}P 2009),
+  17-20 May 2009, Oakland, California, {USA}}, pages 269--282. {IEEE} Computer
+  Society, 2009.
+
+\bibitem{963628}
+K.~Singh, C.~P. Rangan, and A.~K. Banerjee.
+\newblock Lattice based mix network for location privacy in mobile system.
+\newblock {\em Mobile Information Systems}, 2015, 2015.
+\newblock Article ID 963628.
+
+\end{thebibliography}

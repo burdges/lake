@@ -1,0 +1,54 @@
+
+Just a brief aside about post-quantum handshake approaches that
+seemingly do not work. 
+
+I suppose Tor folk remember the article  Using Sphinx to Improve
+Onion Routing Circuit Construction  by  Aniket Kate and Ian Goldberg.
+As key sizes are a main obstacle to a post-quantum key exchange,
+one might explore using a Sphinx-like key mutation trick to save
+bandwidth.  
+
+I doubt SIDH could support anything like the key mutation trick in
+Sphinx because the public key is much too far removed from the private
+key. 
+
+There are key mutation tricks for Ring-LWE key exchanges though.  As an
+example, the article  Lattice Based Mix Network for Location Privacy in
+Mobile System  by  Kunwar Singh, Pandu Rangan, and A. K. Banerjee
+describes a primitive similar to universal reencryption. 
+
+It's likely that key mutation requires fixing the polynomial a in
+advance.  If a must change, then maybe it could be seeded by Tor's
+collaborative random number generator, so that's actually okay. 
+
+Now, a Sphinx-like route building packet could consist of :
+   (1) a polynomial  u_i = s_i a + e_i,
+along with an onion encrypted packet that gives each server
+   (3) maybe their reconciliation data r_i, and
+   (3) a transformation x_i : u_i -> u_{i+1} = s_{i+1} a + e_{i+1},
+where i is the node's index along the path.
+
+Any proposal for this transformation x_i needs a proof of security.
+About the best you're going to do here is reducing its security to
+existing Ring-LWE assumptions.  If say x_i means add s' a + e' so that
+s_{i+1} = s_i + s' and e_{i+1} = e_i + e', then you're depending upon
+the Ring-LWE assumptions to know that s' a + e' looks like a random
+polynomial. 
+
+As a result, your hybrid protocol is unlikely to provably offer stronger
+_anonymity_ properties than a pure Ring-LWE key exchange, even if its
+_cryptography_ is as strong as the stronger of Ring-LWE and ECDH.  
+
+I could say more about why say the choice of s' and e' might leak
+information about s_i and e_i, but I wanted to keep this brief.  And the
+essence of the observation is that any sort of the Sphinx-like key
+mutation trick requires assumptions not required in a group. 
+
+I found this an interesting apparent limit on making hybrids more
+efficient than what Isis and Peter have proposed.  
+
+Best,
+Jeff
+
+
+
