@@ -25,7 +25,7 @@
 
 
 \title{Xolotl ratchet}
-\subtitle{A selectively stateful mixnet format for post-quantum security}
+\subtitle{A selectively stateful mixnet format for post-quantum anonymity}
 \author{Jeffrey Burdges}
 \date{\today}
 
@@ -40,8 +40,9 @@ We describe a new double ratchet construction Xolotl,
  inspired by the Axolotl ratchet, % \cite{Axolotl},
 that integrates with the Sphinx mix network packet format \cite{Sphinx}.
 We argue this opens the door to compact mix network formats with
-truly hybrid anonymity, meaning they rests upon the stronger of the
-security assumptions required by the different public key primitives employed.
+truly hybrid anonymity, meaning they rest upon the stronger of
+ the security assumptions required by
+ the different public key primitives employed.
 
 
 \section{Problem} % Post-quantum key sizes
@@ -68,7 +69,7 @@ quadratic in the number of hops. % $n(n+1)/2$
 
 Sphinx \cite{Sphinx} is a packet format for anonymizing mix networks
 that is provably secure in the universal composability framework, and
- addresses the key material burden by mutating or rebinding a
+ addresses the key material burden by mutating or reblinding a
  single ephemeral public key $\alpha$ with each hop,
  as opposed to unwrapping an unrelated public key for each hop.
 
@@ -143,7 +144,7 @@ First, we prefer to exploit the the elliptic curve point
  already in our Sphinx header, which must change with each packet.
 %
 Second, we cannot oblige mix nodes to directly communicate with
- the sender, as that becomes onion routing and Tor's teretory.
+ the sender, as that becomes onion routing and Tor's territory.
 %
 Instead, we hope to improve anonymity over Tor alone by
  judiciously exploiting high latency and not creating circuits per se.
@@ -234,7 +235,7 @@ key exchange, an Xolotl ratchet retains that post-quantum security.
 It also provides an interesting measure of forward secrecy against
 a classical adversary. 
 
-For these advanage, we have exposed to the node $i$ that all packets
+For these advantage, we have exposed to the node $i$ that all packets
 using this particular ratchet have either the same sender or receiver.
 
 There is no need for every hop to employ a ratchet though, but
@@ -245,29 +246,36 @@ There is no need for every hop to employ a ratchet though, but
 \quad &\to \textrm{Xolotl} \to \textrm{Sphinx} \to \textrm{Cross} \to \cdots 
 \end{aligned} \]
 
-In particular, we believe that retaining ratchets for an extended period
-could offer greater forward secrecy than reenstanciating them all with
-each session.  There are many concerns around this point however, like 
-ratchet ...
+An initial ``guard'' ratchet should be created anew for each session.
+We believe that retaining middle ratchets for longer periods could
+improve forward secrecy over creating them all anew with each session. 
+There are many concerns around this point however, primarily balancing
+the improved forward secrecy with the risk of linking packets across
+different sessions, but
+ also practical matters like ratchet storage requirements on mix nodes.  
+Ratchet link keys must expire with node keys, capping their lifetime,
+but source keys or chain keys could outlive them.
 
-Aside from usage pattern and ratchet longevity,
-there several interesting possible enhancements worth discussing : 
+Aside from usage patterns and ratchet longevity,
+there are several interesting possible enhancements worth discussing : 
 \begin{itemize}
 \item
 An onion header could contain a SIDH key accessed by a single mix node,
 allowing for post-quantum security at one middle hop
  where no ratchet exists.
-\item
-
 \item 
 A standard hash iteration ratchet could occupy considerable space
- if early message see long delays. 
+ if early messages see long delays. 
 We believe a tree-like hash ratchet configuration would be more efficient,
  especially if ratchets are used with SURBs.
 \item
-
+Ratchets could be given away to other users, thereby allowing a
+collaborative form of forward secrecy, and obfuscating ownership. 
+In principle, adversaries could not break middle ratchets without
+breaking all cryptography up through to the messaging layer itself,
+which could reasonably employ multiple post-quantum key exchanges,
+ possibly even McBits.
 \end{itemize}
-
 
 
 % \section*{Acknowledgements}
