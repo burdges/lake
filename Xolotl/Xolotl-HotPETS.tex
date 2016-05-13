@@ -171,12 +171,13 @@ A typical rotation period should be a week or month, sometimes
 \def\sk{\textrm{sk}}
 \def\ECDH{\textrm{ECDH}}
 
-Initially, a node should decode a Sphinx packet as usual, 
-by producing the shared secret $s_i$, and 
-unwrapping one layer of the header's onion,
- to check for a ratchet flag. 
-If not found, then we continue with Sphinx, 
- extracting the next hop, MAC, and unwrapping a payload layer.
+A node begins as if decoding a typical Sphinx packet by
+ verifying the MAC,
+ producing the shared secret $s_i$, and 
+ unwrapping one layer of the header's onion layer,
+but then pauses to check for a ratchet flag. 
+If not found, then it continues with Sphinx as usual, 
+ extracting the next hop and MAC, and unwrapping a payload onion.
 If found, then we extract the ratchet instructions instead.
 
 These ratchet instructions consist of
