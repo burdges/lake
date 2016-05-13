@@ -52,8 +52,8 @@ the comparatively large key sizes.  As a comparison :
 %
 A recent Ring-LWE key exchange New Hope \cite[\S7, p.10]{NewHope} needs
  key sizes of 1824 or 2048 bytes, both of which must be ephemeral,
-while a current McElise-like system McBits % \cite{McBits,InitRec}
- needs a staggering 1MB public keys.
+while one McEliece-like system McBits % \cite{McBits,InitRec}
+ needs a staggering 1MB for public keys.
 %
 Super-singular isogeny Diffie-Hellman (SIDH) \cite[p. 21]{SIDH-2016} keys
 are only 564 bytes, or 751 bytes uncompressed, but
@@ -101,7 +101,7 @@ why these primitives fail to yield convenient signature schemes.
 There are blinding operations but they incur significant costs 
 that are asymptotic in the number of hops.
 %
-In SIDH, a public key should not posses enough information to compute
+In SIDH, a public key should not possess enough information to compute
 another isogeny whose kernel consumes torsion of the same prime. 
 As a result, attempts to blind SIDH keys for signature schemes add
 yet another torsion prime, increasing the size of the base field.
@@ -127,11 +127,12 @@ remain quite young, suggesting that either could be broken well
 
 \section{Solution}
 
-We could adopt a more naive mix network packet format that unwraps
-a new public key with each hop.  In this vein, a circuit based approach
-like Tor at least avoids transmitting unnecessary key material, but
-risks exposing circuit metadata in the process. 
-
+We could build a hybrid protocol with naive mix network packet format
+that unwraps a new public key with each hop, making key material size
+quadratic in the number of hops.  
+% In this vein, a circuit based approach
+% like Tor at least avoids transmitting unnecessary key material, but
+% risks exposing circuit metadata in the process. 
 Instead, we draw inspiration from the Axolotl ratchet % \cite{Axolotl}
 which remains secure against Shor's algorithm if
  first instantiated with a single post-quantum key exchange. 
@@ -153,11 +154,11 @@ We resolve these tensions by ``swapping the order'' of the hash iteration
 ratchet and the two-step ECDH ratchet that make up Axolotl.  
 
 In fact, we shall exploit the ECDH operation already in Sphinx rather
- than adding a true two-step ECDH ratchet.
+ than adding a typical two-step ECDH ratchet.
 Although the mix node's key is not ephemeral, any Sphinx mix network
-should rotate node keys anyways for constant-time replay protection.
-A typical rotation period should be a week or month, sometimes
- faster than the reply rate seen in Pond or Signal.
+should already rotate node keys for constant-time replay protection.
+A typical rotation period should be a week or month.
+% sometimes faster than the reply rate seen in Pond or Signal.
 
 \smallskip
 
@@ -201,14 +202,14 @@ We define
  \sk_j &:= H(\textrm{``Source''} \,||\, s') \mathperiod \\
 \end{aligned} \]
 In essence, there is a hash iteration ratchet named by $\cn$
+% with internal state $(\ck, (a,\lk_a), \ldots, (b,\lk_b))$,
 from which we determine a link key $\lk$.
-% the internal state $(\ck, (a,\lk_a), \ldots, (b,\lk_b))$
 We hash $\lk$ with the Sphinx shared secret $s_i$ to produce
 an altered Sphinx shared secret $s'$.
 We finally conclude by running Sphinx with $s'$ to produce the 
 blinding factor $b_i$ and unwrap both the Sphinx header and body. 
 
-\begin{figure}[th!]
+\begin{figure}[b!]%[h!]
 \begin{tikzcd}[ampersand replacement=\&, column sep=small]
 \cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \ar[r, dotted] \& ? \& \\
  \& \lk \ar[d] \& \lk \ar[d]  \& \lk \ar[d] \&  \& \& \\ 
@@ -230,11 +231,12 @@ key exchange, an Xolotl ratchet retains that post-quantum security.
 It also provides an interesting measure of forward secrecy against
 a classical adversary. 
 
-For these advantage, we have exposed to the node $i$ that all packets
-using this particular ratchet have either the same sender or receiver.
+For these advantages, we have exposed,
+ to the node $i$ hosting the ratchet, that all packets using this
+particular ratchet have either the same sender or receiver.
 
-There is no need for every hop to employ a ratchet though, but
- specific usage patterns require detailed analysis. 
+There is no need for every hop to employ a ratchet, % though, 
+but specific usage patterns require detailed analysis. 
 
 \[ \begin{aligned}
 \textrm{User} \to &\textrm{Tor} \to \textrm{Xolotl} \to \textrm{Sphinx} \to \\
@@ -248,7 +250,8 @@ There are many concerns around this point however, primarily balancing
 the improved forward secrecy with the risk of linking packets across
 different sessions, but
  also practical matters like ratchet storage requirements on mix nodes.  
-Ratchet link keys must expire with node keys, capping their lifetime,
+On that point, Ratchet link keys must expire with node keys,
+ capping their lifetime anyways,
 but source keys or chain keys could outlive them.
 
 Aside from usage patterns and ratchet longevity,
