@@ -81,13 +81,13 @@ After selecting an initial private scalar $x_0$,
 we recursively define 
 \[ \begin{aligned}
 \textrm{shared secret}\quad
- s_i &= x_i Y_i = y_i \alpha_i \mathcomma \\
+ s_i &:= x_i Y_i = y_i \alpha_i \mathcomma \\
 \textrm{blinding factor}\quad
- b_i &= H(\alpha_i,s_i) \mathcomma \\
+ b_i &:= H(\alpha_i,s_i) \mathcomma \\
 \textrm{next private key}\quad
- x_{i+1} &= b_i x_i \mathcomma \\ % \quad\textrm{and} \\
+ x_{i+1} &:= b_i x_i \mathcomma \\ % \quad\textrm{and} \\
 \textrm{next public key}\quad
- \alpha_{i+1} &= b_i \alpha_i = b_i x_i \quad\textrm{for $i < n$.} \\
+ \alpha_{i+1} &:= b_i \alpha_i \quad\textrm{for $i < n$.} \\
 \end{aligned} \]
 Our $i$th node replaces $\alpha_i$ by $\alpha_{i+1}$.
 
@@ -140,7 +140,7 @@ Axolotl itself continues using the same public key until witnessing
  the other side reply with it, which meshes poorly with the mix networks
 for several reasons.
 %
-First, we prefer to exploit the the elliptic curve point
+First, we prefer to exploit the elliptic curve point
  already in our Sphinx header, which must change with each packet.
 %
 Second, we cannot oblige mix nodes to directly communicate with
@@ -188,17 +188,17 @@ along with the length of the previous chain, or
 We define
 \[ \begin{aligned}
 \textrm{chain start}\quad
- \ck_0 &= H(\textrm{``Start''} \,||\, \sk) \mathcomma \\
+ \ck_0 &:= H(\textrm{``Start''} \,||\, \sk) \mathcomma \\
 \textrm{chain name}\quad
- \cn &= H(\textrm{``Name''} \,||\, \ck_0) \mathcomma \\
+ \cn &:= H(\textrm{``Name''} \,||\, \ck_0) \mathcomma \\
 \textrm{chain keys}\quad
- \ck_{j+1} &= H(\textrm{``Chain''} \,||\, \ck_j) \mathcomma \\
+ \ck_{j+1} &:= H(\textrm{``Chain''} \,||\, \ck_j) \mathcomma \\
 \textrm{link keys}\quad
- \lk_j &= H(\textrm{``Link''} \,||\, \ck_j) \mathcomma \\
+ \lk_j &:= H(\textrm{``Link''} \,||\, \ck_j) \mathcomma \\
 \textrm{packet keys}\quad 
- s' &= H(\lk_j \,||\, s_i) \mathcomma \\ % \quad\textrm{and} \\
+ s' &:= H(\lk_j \,||\, s_i) \mathcomma \\ % \quad\textrm{and} \\
 \textrm{source keys}\quad 
- \sk_j &= H(\textrm{``Source''} \,||\, s') \mathperiod \\
+ \sk_j &:= H(\textrm{``Source''} \,||\, s') \mathperiod \\
 \end{aligned} \]
 In essence, there is a hash iteration ratchet named by $\cn$
 from which we determine a link key $\lk$.
