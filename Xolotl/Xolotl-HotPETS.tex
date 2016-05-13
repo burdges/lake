@@ -163,12 +163,12 @@ A typical rotation period should be a week or month, sometimes
 
 \noindent {\bf Xolotl ratchet description :} 
 
-\def\cn{\textrm{cn}}
-\def\ck{\textrm{ck}}
-\def\DH{\textrm{DH}}
-\def\lk{\textrm{lk}}
-\def\mk{\textrm{mk}}
-\def\sk{\textrm{sk}}
+\def\cn{\texttt{cn}}
+\def\ck{\texttt{ck}}
+\def\DH{\texttt{DH}}
+\def\lk{\texttt{lk}}
+\def\mk{\texttt{mk}}
+\def\sk{\texttt{sk}}
 \def\ECDH{\textrm{ECDH}}
 
 A node begins as if decoding a typical Sphinx packet by
@@ -194,7 +194,7 @@ We define
 \textrm{chain keys}\quad
  \ck_{j+1} &= H(\textrm{``Chain''} \,||\, \ck_j) \mathcomma \\
 \textrm{link keys}\quad
- lk_j &= H(\textrm{``Link''} \,||\, \ck_j) \mathcomma \\
+ \lk_j &= H(\textrm{``Link''} \,||\, \ck_j) \mathcomma \\
 \textrm{packet keys}\quad 
  s' &= H(\lk_j \,||\, s_i) \mathcomma \\ % \quad\textrm{and} \\
 \textrm{source keys}\quad 
