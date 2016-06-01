@@ -1,0 +1,9 @@
+\begin{thebibliography}{1}
+
+\bibitem{TextSecure}
+T.~Frosch, C.~Mainka, C.~Bader, F.~Bergsma, J.~Schwenk, and T.~Holz.
+\newblock How secure is textsecure?
+\newblock Cryptology ePrint Archive, Report 2014/904, 2014.
+\newblock \url{http://eprint.iacr.org/2014/904}.
+
+\end{thebibliography}
