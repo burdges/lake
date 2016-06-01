@@ -35,9 +35,9 @@
 % \section{}
 
 We show that a limited use of identity-base encryption allows us to
-improve the security and confedentiality of many modern end-to-end
+improve the security and confidentiality of many modern end-to-end
 encrypted messaging protocols,
- while openning a doorway to decentralization. 
+ while opening a doorway to decentralization. 
 % We focus our discussion on the Signal protocol. 
 
 \section{Setting}
@@ -52,45 +52,47 @@ WhatsApp reached one billion active users around the same time
 they finished incorporating the encryption technology from Signal.
 \cite{}
 
-For usability, these new protocol have made greater compramizes on
+For usability, these new protocol have made greater compromises on
 their initial key exchanges though.  In Signal, there is an central
 key distribution server from which clients obtain a pre-key that
 consists of a long-term key and a preliminary ratchet state.
 %
-Signal actively encurages users to authenticate the fingerprint
+Signal actively encourages users to authenticate the fingerprint
 provided  by this long-term key, while WhatsApp keeps such features
 off by default.
 
-There are subtelties to the pre-key that mitigate the worst attacks,
+There are subtleties to the pre-key that mitigate the worst attacks,
 like by providing pre-keys for all potential contacts
- \cite[\S4.3]{TextSecure}.
-Alternatively, one could emply triple Diffie-Hellman inside the
+ \cite[\S4.3]{TextSecure}, but
+doing do exposes even more meta-data.
+
+Alternatively, one could employ triple Diffie-Hellman inside the
 Axolotl ratchet during two initial steps,
  thus sacrificing deniability during those steps,
- and delaying certenty of the fingerprint. 
+ and delaying certainty of the fingerprint. 
 
 \section{Goals} 
 
 We propose to adjust the Signal protocol to avoid employing a central
-key distibution server all together by using identity-based encryption,
+key distribution server all together by using identity-based encryption,
 but only in the initial contact request messages.
 In doing so, we hope to prevent the authority from replacing pre-keys
-quite so easily, and ideally protect metadata.
+quite so easily, and ideally protect meta-data.
 
 We pay a price that content sent by the initiator during
  the contact request could be decrypted by the authority.
 A contact request need not allow content though, or
  could carry a warning.
 
-We gain nothing of course if any malfactor can both
+We gain nothing of course if any malefactor can both
  extract the recipient's private key from the authority, and
- interfear with the user's transport during the initial message.
+ manipulate with the user's transport during the initial message.
 In particular, we loose if the authority's servers provide
  the transport layer as well. 
 
 One could address this by building a more secure transport layer,
 say by adapting Tor hidden services to support an identity-based scheme.
-We support this approach because it protects metadata as well.
+We support this approach because it protects meta-data as well.
 
 We also discuss an orthogonal solution in which we decentralize key
 distribution authorities and decoupled from operating the transport.
@@ -105,12 +107,12 @@ by the Axolotl ratchet, meaning
 For us, this first message use a pairing based crypto system
  such as ... \cite{}.
 We derive the initial root key from the identity-base key
-exchange and even employ the chain key machenery of Axolotl,
+exchange and even employ the chain key machinery of Axolotl,
  in case we need to send multiple messages. 
 
 As a rule, pairing friendly curve are large, slow, and relatively
  weak cryptographically.
-We should therefore transtion the ratchet to a faster higher security
+We should therefore transition the ratchet to a faster higher security
 curve $\mathbb{E}$, such as curve25519 \cite{} or
  Ed448-Goldilocks \cite{}, after the initial contact request.
 We cannot transform the initiator's key pair from
@@ -124,7 +126,7 @@ As usual in Axolotl, we must hold fixed the initiator's public side
  for the identity-base key exchange throughout this initial chain.
 In this vein, we need not retain the initiator's private key $u$ for
  the identity-base key exchange, and
- the reciever need only run the key exchange once as well.
+ the responder need only run the key exchange once as well.
 We do retain the private key $b$ for $B$ until the responder uses it.
 
 As a final tweak to Axolotl, we should incorporate
@@ -145,11 +147,11 @@ with the fingerprint being the hash of both.
 
 Signal could reduce the vulnerability of pre-keys by using
 multiple pre-keys distributed to multiple organizations,
- possibly in different legal enfiroments, but
-doing so risks exposing user's metadata to more parties.
+ possibly in different legal environment, but
+doing so risks exposing user's meta-data to more parties.
 
 In our identity-base scheme, there is no such risk from using
-multiple key generation authorities in different juristictions.
+multiple key generation authorities in different jurisdictions.
 
 ... describe or cite multi-authority IBE ...
 
