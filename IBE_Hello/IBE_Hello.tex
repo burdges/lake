@@ -1,5 +1,3 @@
-
-
 \documentclass[twoside,letterpaper]{sig-alternate}
 \usepackage[margin=1in]{geometry}
 \usepackage[utf8]{inputenc}
@@ -24,9 +22,9 @@
 \def\mathperiod{}
 
 
-\title{Identity-based encryption of hello} % first contact
+\title{Reducing Meta Data Leakage using Identity-based Encryption} % first contact
 % \subtitle{}
-\author{Jeffrey Burdges, Florian Dold, Christian Grothoff}
+\author{Jeffrey Burdges, Florian Dold, Christian Grothoff, Neal Wa{\bf r}field}
 \date{\today}
 
 \begin{document}
@@ -34,81 +32,83 @@
 
 % \section{}
 
-We show that a limited use of identity-base encryption allows us to
-improve the security and confidentiality of many modern end-to-end
-encrypted messaging protocols,
- while opening a doorway to decentralization. 
-% We focus our discussion on the Signal protocol. 
+We argue that a limited use of identity-base encryption would improve
+the security and confidentiality of certain ``usable'' end-to-end
+encrypted messaging protocols.
 
-\section{Setting}
+\section{Introduction}
 
-Post-Snowden, there has been a explosion in the number and popularity
-of end-to-end encrypted messaging applications.\cite{}
+Before secure end-to-end communication channels can be established,
+the endpoints need to obtain each other's public keys.  This step is
+crucial, as anyone who can observe the key lookup can also tell who is
+going to communicate with whom, and designs leaking the social graph
+in this manner indirectly support democide~\cite{skynet}.
 
-Amongst these, Signal has achieved distinction for the impressive
-forward-secrecy properties of its Axolotl ratchet\cite{TextSecure}
- coupled with a solidly usable platform.
-WhatsApp reached one billion active users around the same time
-they finished incorporating the encryption technology from Signal.
-\cite{}
+Even decentralised key management solutions like the
+Web-of-Trust~\cite{wot} leak social graph data as the key signing
+graph is public and key lookups in the Web-of-Trust go to a few
+servers that can hence learn quite a bit about the underlying
+communication patterns.  While decentralised solutions that avoid meta
+data leakage exist~\cite{gns}, they remain largely experimental at
+this time.
 
-For usability, these new protocol have made greater compromises on
-their initial key exchanges though.  In Signal, there is an central
-key distribution server from which clients obtain a pre-key that
-consists of a long-term key and a preliminary ratchet state.
-%
-Signal actively encourages users to authenticate the fingerprint
-provided  by this long-term key, while WhatsApp keeps such features
-off by default.
+In practice, most users either rely on trust-on-first-use (TOFU) or an
+{\em authority} provided by a trusted third party to obtain public key
+information.  For example, in Signal~\cite{TextSecure}, there is an
+central key distribution server from which clients obtain a pre-key
+that consists of a long-term key and a preliminary ratchet state.
+This may generally suffice to protect the content of one's private
+communication, as out-of-band or voice verification can be used to
+authenticate the fingerprint provided by the authority.
+However, the authority still learns who is resolving which
+name.
 
 There are subtleties to the pre-key that mitigate the worst attacks,
-like by providing pre-keys for all potential contacts
- \cite[\S4.3]{TextSecure}, but
-doing do exposes even more meta-data.
+like by providing pre-keys for all potential
+contacts~\cite[\S4.3]{TextSecure}, but doing do exposes even more
+meta-data.
+% FIXME: I don't understand. Elaborate: ``all potential''? How does that work?
+% I don't see the relationship to 4.3 in the paper cited, that paper
+% just seems to fix a minor vulnerability in the KX between the two
+% parties.
+% FIXME: overall, do we need the above paragraph in the intro!?
 
-Alternatively, one could employ triple Diffie-Hellman inside the
-Axolotl ratchet during two initial steps,
- thus sacrificing deniability during those steps,
- and delaying certainty of the fingerprint. 
 
-\section{Goals} 
+For systems that rely on a authority or TOFU for key
+exchange, we propose to avoid exposing meta data to the authority
+using identity-based encryption (IBE) to lookup a TOFU
+signing key.  The TOFU signing key would only be used on first
+contact, and is afterwards be replaced by an endpoint-generated public
+key (and a ratchet in Axolotl-like systems).
 
-We propose to adjust the Signal protocol to avoid employing a central
-key distribution server all together by using identity-based encryption,
-but only in the initial contact request messages.
-In doing so, we hope to prevent the authority from replacing pre-keys
-quite so easily, and ideally protect meta-data.
+In doing so, we prevent meta data leakage to the authority, limiting
+its attack surface to manipulating the TOFU signing key.  As a result,
+the combined scheme leaks less meta data and provides strictly
+stronger key security than just TOFU or just IBE.
 
-We pay a price that content sent by the initiator during
- the contact request could be decrypted by the authority.
-A contact request need not allow content though, or
- could carry a warning.
+The scheme remains vulnerable to an attacker that can both extract the
+recipient's private key from the authority, and perform a
+man-in-the-middle attack against the user's transport during the
+initial exchange.  In particular, we loose if the authority's servers
+provide the transport layer as well.  One could address this using a
+secure transport layer, say by adapting Tor hidden services to support
+an identity-based scheme for the naming of hidden services.  This
+would be ideal, as the use of Tor would then prevent meta-data leakage
+for the end-to-end encrypted communication.
 
-We gain nothing of course if any malefactor can both
- extract the recipient's private key from the authority, and
- manipulate with the user's transport during the initial message.
-In particular, we loose if the authority's servers provide
- the transport layer as well. 
 
-One could address this by building a more secure transport layer,
-say by adapting Tor hidden services to support an identity-based scheme.
-We support this approach because it protects meta-data as well.
-
-We also discuss an orthogonal solution in which we decentralize key
-distribution authorities and decoupled from operating the transport.
-
-\section{Key Exchange} 
+\section{Key Exchange}
 
 Along with a long-term fingerprint key,
 a Signal pre-key contains the initial elliptic curve point required
 by the Axolotl ratchet, meaning
- the first message can operate the ratchet as usual.  
+ the first message can operate the ratchet as usual.
 %
 For us, this first message use a pairing based crypto system
  such as ... \cite{}.
 We derive the initial root key from the identity-base key
 exchange and even employ the chain key machinery of Axolotl,
- in case we need to send multiple messages. 
+ in case we need to send multiple messages.
 
 As a rule, pairing friendly curve are large, slow, and relatively
  weak cryptographically.
@@ -116,7 +116,7 @@ We should therefore transition the ratchet to a faster higher security
 curve $\mathbb{E}$, such as curve25519 \cite{} or
  Ed448-Goldilocks \cite{}, after the initial contact request.
 We cannot transform the initiator's key pair from
- our pairing friendly curve system 
+ our pairing friendly curve system
 into a key pair on $\mathbb{E}$ \cite{??no_homomorphism??}.
 As a result, any message sent on this initial chain must include both
  our first Axolotl public key $B \in \mathbb{E}$, along with
@@ -131,9 +131,9 @@ We do retain the private key $b$ for $B$ until the responder uses it.
 
 As a final tweak to Axolotl, we should incorporate
 the long-term fingerprint key by using triple Diffie-Hellman
-in the first rounds with $\mathbb{E}$.  
+in the first rounds with $\mathbb{E}$.
 We would however lack confidence in a user's fingerprint until
-we have seen it used. 
+we have seen it used.
 We could speed this up by using two long-term fingerprint keys,
 an initiator one in the pairing system, and
  a responder key for $\mathbb{E}$,
@@ -155,7 +155,7 @@ multiple key generation authorities in different jurisdictions.
 
 ... describe or cite multi-authority IBE ...
 
-\section{Conclusions} 
+\section{Conclusions}
 
 ...
 
@@ -174,5 +174,3 @@ multiple key generation authorities in different jurisdictions.
 
 
 \section{}
-
-
