@@ -240,7 +240,10 @@ To decode the contact request message, the respondent
 first computes the initial root key $\rk = H_2( e(d_{\ID_R}, U) )$
 and their incoming chain key $\ck_I = H(\mathrm{``Chain''} || \rk)$.
 These shared secrets agree because 
-$$ e(d_{\ID_R}, U) = e(s H_1(\ID_R), r P) = r e(H_1(\ID_R), s P) = r g_{\ID_R} $$
+\begin{align*}
+e(d_{\ID_R}, U) = e(s H_1(\ID_R), r P) \\ 
+ \quad = r e(H_1(\ID_R), s P) = r g_{\ID_R}
+\end{align*}
 Next they compute the initiator's
  message key $\mk = H(\mathrm{``Message''}  || \ck_I)$ 
 to attempt to decrypt the message body.
@@ -274,8 +277,10 @@ At which point, they compute $T = H_2( e(d_{\ID_R}, V) )$,
 iterate to the second root key $\rk := H(\rk, T, b A, f_I A )$, and 
 compute the incoming chain key $\ck_R = H(\mathrm{``Chain''} || \rk)$.
 Again, these shared secrets agree because 
-$$ t e(H_1(\ID_I), d_{\ID_R}) = t e(H_1(\ID_I), s H_1(\ID_R))
-  = e(s H_1(\ID_I), t H_1(\ID_R)) = e(d_{\ID_I}, V) \mathperiod $$
+\begin{align*}
+t e(H_1(\ID_I), d_{\ID_R}) = t e(H_1(\ID_I), s H_1(\ID_R)) \\
+ \quad = e(s H_1(\ID_I), t H_1(\ID_R)) = e(d_{\ID_I}, V) \mathperiod
+\end{align*}
 % FIXME: Do we really need $V = t H(\ID_R)$ here?
 Next they compute the respondent's
  message key $\mk = H(\mathrm{``Message''}  || \ck_R)$ 
