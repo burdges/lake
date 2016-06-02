@@ -142,7 +142,30 @@ fingerprint verification might still reveal the attack.
 \def\ck{\mathtt{ck}}
 \def\mk{\mathtt{mk}}
 
+\subsection{Around pairing}
+
+Almost all identity-based scheme employ pairing based cryptography,
+or else relate to RSA.  We use pairing to avoid the extra homomorphic
+properties surounding RSA. 
+
+In general in pairing based cryptography, and
+ in the Boneh–Franklin IBE scheme ~\cite{BF-IBE} in particular,
+we have an elliptic curve $E_1$ over a field $\F_1$,
+ along with an element $P_1 \in E_1$ of order $q$.
+In addition, we have a group $E_2$ of order $q$ and
+ a pairing $e : E_1 \times E1 \to \mathbb{E}_2$.
+
+As a rule, pairing friendly curves are large, slow, and
+ relatively weak cryptographically,
+ actually no stronger than RSA~\cite{??paring_weakness??}.
+It follows that, after this initial contact request, we should
+transition the ratchet to a faster higher security curve $\mathbb{E}$,
+such as curve25519~\cite{DJB-Curve25519}
+ or Ed448-Goldilocks~\cite{Ed448-Goldilocks}.
+Let $P$ denote the distinguished generator of $\mathbb{E}$.
+
 \subsection{Identity-based scheme}
+% \medskip
 
 Along with a long-term fingerprint key,
 a Signal pre-key contains the initial elliptic curve point required
@@ -160,26 +183,25 @@ identity, which many IBE schemes do~\cite{AnonIBE}.
 A good choice would be the Boneh–Franklin IBE scheme~\cite{BF-IBE}
 (see \cite[??]{BoyenMIBS}).
 
-In the Boneh–Franklin IBE setting,
-we have an elliptic curve $E_1$ over a field $\F_1$,
- along with an element $P_1 \in E_1$ of order $q$.
-In addition, we have a group $E_2$ of order $q$ and
- a pairing $e: E_1 \times E1 \to \mathbb{E}_2$.
-
-We employ the usual setup phase:
+We employ essentially the usual Boneh–Franklin IBE setup phase:
 Our private key issuing authority
  selects a private key $s \in \F^\times$,
  derives the public key $K = s P_1$, and
  selects two public hash functions
   $H_1 : \{0,1\}^* \to \E_1$ and $H_1 : E_2 \to \{0,1\}^n \to \E_1$.
+These values should be rotated periodically, such as daily or weekly,
+but allow for clock skew, and possibly for delayed messages.
 
-We also use the usual extraction phase:
-Our private key issuing authority
-issues the private key $d_\ID = s H_1(\ID)$ to anyone who
-can prove possession of the identity $\ID$.  In practice,
-identities would be phone numbers or e-mail addresses,
+We adjust the usual Boneh–Franklin IBE extraction phase only slightly:
+At some point, user claims ownership of an identity $\ID$, thereby
+ associating with it a public key $F = f P \in \E$.
+In practice, identities would be phone numbers or e-mail addresses,
 and proving possession is done by demonstrating that
 one is reachable at the respective address.
+Our private key issuing authority issues
+ the private keys $d_\ID = s H_1(\ID)$ and $d_{\ID,F} = s H_1(\ID || F)$
+to anyone who can prove possession of the private key $f$ for $F$
+ by signing a request. 
 
 \subsection{Axolotl tweaks} % motivation/outline
 % \medskip
@@ -187,17 +209,9 @@ one is reachable at the respective address.
 We first outline our tweaks to the Axolotl ratchet before
  spelling out the protocol in more detail.
 
-As a rule, pairing friendly curves are large, slow, and relatively
- weak cryptographically.
-It follows that, after this initial contact request, we should
-transition the ratchet to a faster higher security curve $\mathbb{E}$,
-such as curve25519~\cite{DJB-Curve25519}
- or Ed448-Goldilocks~\cite{Ed448-Goldilocks}.
-Let $P$ denote the distinguished generator of $\mathbb{E}$.
-
 We cannot transform the initiator's key pair for
-our pairing friendly curve system
-into a key pair on $\mathbb{E}$~\cite{??no_homomorphism??}.
+ our pairing friendly curve system $(\E_1,P_1,\E_2,e,\ldots)$
+into a key pair on $\E$~\cite{??no_homomorphism??}.
 As a result, any message sent on this initial Axolotl chain must include
 both our first Axolotl public key $B = b P \in \mathbb{E}$,
  along with our long-term fingerprint key $F \in \mathbb{E}$.
@@ -228,12 +242,15 @@ with the fingerprint being the hash of both.
 \subsection{Axolotl round} % one
 % \medskip
 
-An initiator knows their responders identity $\ID_R$, so they may
-compute the responders public key as $g_{\ID_R} = e(H_1(\ID_R),K)$.
+We begin with the Axolotl root key $\rk$ zeroed,
+ as a trick for symetrizing our key exchange later. 
+
+An initiator knows their responder's identity $\ID_R$, so they may
+compute the responder's public key as $g_{\ID_R} = e(H_1(\ID_R),K)$.
 To setup a contact, the initiator first chooses a random $r \in \Z/q\Z$
-to compute the initial root key $\rk = H_2( r g_{\ID_R} )$,
+to compute the initial root key $\rk = H_2(\rk, r g_{\ID_R} )$,
 chain key $\ck_I = H(\mathrm{``Chain''} || \rk)$, and
-ephemeral public key $U = r P$.
+ephemeral public key $U = r P_1$.
 In addition, they choose a scalar $b$ for $\E$,
  and then save $(\rk,\ck_I,U,b)$.
 
@@ -344,7 +361,7 @@ In our identity-based scheme, the old phone retains the victims
 identity-based private key $d_{\ID}$, which the thief could exploit for
 either impersonation or eves dropping on initial contact request messages.
 We could mitigate theft risks by rotating the authority's private key $s$,
-perhaps weekly, but this attack window remains larger than with Signal.
+perhaps daily or weekly, but this attack window remains larger than with Signal.
 
 In this vein, an attacker who infiltrates the phone system could steal
 the identity-based private key $d_{\ID}$ anytime they like.
