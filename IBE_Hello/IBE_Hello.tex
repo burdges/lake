@@ -29,13 +29,13 @@
 \begin{document}
 \maketitle
 
-% \section{}
 
 \begin{abstract}
 We argue that a limited use of identity-base encryption would improve
 the security and confidentiality of some user-friendly end-to-end
 encrypted messaging protocols.
 \end{abstract}
+
 
 \section{Introduction}
 
@@ -111,88 +111,257 @@ are determined using an identity.  We could for example adapt Tor to
 support an identity-based naming scheme for hidden services.  
 
 Second, we should decentralize our IBE scheme's private key issuing
-authority by allowing contact initiators to select amongst numerous
-authorites.
+authority by allowing contact initiators to expect the responder
+obtain a private key from several authorites as in~\cite{}. 
 
 Alone neither appears sufficent, but taken together they provide 
 considerably stronger protections. 
 
 
-\section{Key Exchange}
+\section{Ratchet spinup protocol}
+
+\def\E{\mathbb{E}}
+\def\F{\mathbb{F}}
+\def\Z{\mathbb{Z}}
+\def\ID{\mathtt{ID}}
+\def\rk{\mathtt{rk}}
+\def\ck{\mathtt{ck}}
+\def\mk{\mathtt{mk}}
+
+\subsection{Identity-based scheme}
 
 Along with a long-term fingerprint key,
 a Signal pre-key contains the initial elliptic curve point required
 by the Axolotl ratchet, meaning
  the first message can operate the ratchet as usual.
-%
-For us, this first message use a pairing based crypto system
- such as ... \cite{}.
-We derive the initial root key from the identity-base key
-exchange and even employ the chain key machinery of Axolotl,
- in case we need to send multiple messages.
+We shall instead derive the initial root key from a identity-base key
+exchange, which we prefer over a public key system,
+ like Sakai–Kasahara scheme (SAKKE),
+for simplicity when integrating with the ratchet.
+Indeed, we even choose to employ the chain key machinery of Axolotl,
+ in case we need to send multiple messages. 
+
+We must however choose a key exchange that does not leak the recipent's
+identity, which many IBE schemes do~\cite{AnonIBE}.  
+We find one such scheme implicit in the Boneh–Franklin IBE scheme 
+\cite{BF-IBE} (see \cite[??]{BoyenMIBS}).
+
+In the Boneh–Franklin IBE setting,
+we have an elliptic curve $E_1$ over a field $\F_1$,
+ along with an element $P_1 \in E_1$ of order $q$.
+In addition, we have a group $E_2$ of order $q$ and 
+ a pairing $e : E_1 \times E1 \to \mathbb{E}_2$.
+
+We employ the usual setup phase: 
+Our private key issing authority
+ selects a private key $s \in \F^\times$,
+ derives the public key $K = s P_1$, and
+ selects two public hash functions
+  $H_1 : \{0,1\}^* \to \E_1$ and $H_1 : E_2 \to \{0,1\}^n \to \E_1$.
+
+We use usual extraction phase too: 
+Our private key issing authority
+issues the private key $d_\ID = s H_1(\ID)$ to anyone who
+ can prove possesion of the identity $\ID$.
+
+\subsection{Axolotl tweaks} % motivation/outline
+% \medskip
+
+We first outline our tweaks to the Axolotl ratchet before 
+ spelling out the protocol in more detail.
 
 As a rule, pairing friendly curve are large, slow, and relatively
  weak cryptographically.
-We should therefore transition the ratchet to a faster higher security
-curve $\mathbb{E}$, such as curve25519 \cite{} or
- Ed448-Goldilocks \cite{}, after the initial contact request.
-We cannot transform the initiator's key pair from
+It follows that, after this initial contact request, we should 
+transition the ratchet to a faster higher security curve $\mathbb{E}$,
+such as curve25519 \cite{DJB-Curve25519}
+ or Ed448-Goldilocks \cite{Ed448-Goldilocks}.
+Let $P$ denote the distinguished generator of $\mathbb{E}$.
+
+We cannot transform the initiator's key pair for
  our pairing friendly curve system
 into a key pair on $\mathbb{E}$ \cite{??no_homomorphism??}.
-As a result, any message sent on this initial chain must include both
- our first Axolotl public key $B \in \mathbb{E}$, along with
+As a result, any message sent on this initial Axolotl chain must include
+both our first Axolotl public key $B = b P \in \mathbb{E}$, along with
  our long-term fingerprint key $F \in \mathbb{E}$.
 
-As usual in Axolotl, we must hold fixed the initiator's public side
- for the identity-base key exchange throughout this initial chain.
-In this vein, we need not retain the initiator's private key $u$ for
- the identity-base key exchange, and
+We mentioned above using the chain key machinery of Axolotl even from
+the first message.  There are risks in this decission because the
+authority can decrypt these messages.  It appears sufficent that
+contact request messages either disallow user content all togehter,
+perhaps a desirable feature for preventing SPAM in any case, or that 
+perhaps users merely be warned not to speak freely.
+
+As usual in Axolotl, we must hold fixed the initiator's public side of
+the identity-base key exchange throughout the lifetime of this initial
+chain key.  Interestingly, we need not necessarily retain the 
+initiator's private key for the identity-base key exchange, and
  the responder need only run the key exchange once as well.
 We do retain the private key $b$ for $B$ until the responder uses it.
 
-As a final tweak to Axolotl, we should incorporate
-the long-term fingerprint key by using triple Diffie-Hellman
-in the first rounds with $\mathbb{E}$.
-We would however lack confidence in a user's fingerprint until
-we have seen it used.
+As a final tweak to Axolotl, we should incorporate the long-term
+fingerprint key by using triple Diffie-Hellman during early rounds.
+We still lack confidence in a user's fingerprint until
+we have seen it used however.
 We could speed this up by using two long-term fingerprint keys,
 an initiator one in the pairing system, and
  a responder key for $\mathbb{E}$,
 with the fingerprint being the hash of both.
 
-\section{Security}
+\subsection{Axolotl round} % one
+% \medskip
+
+An initiator knows their responder's identity $\ID_R$, so they may
+compute the responder's public key as $g_{\ID_R} = e(H_1(\ID_R),K)$.
+To setup a contact, the initiator first chooses a random $r \in \Z/q\Z$
+to compute the initial root key $\rk = H_2( r g_{\ID_R} )$,
+chain key $\ck_I = H(\mathrm{``Chain''} || \rk)$, and
+ephemeral public key $U = r P$.
+In addition, they choose a scalar $b$ for $\E$,
+ and then save $(\rk,\ck_I,U,b)$.
+
+An initial message should communicate $(B,F_I,\ID_I)$ where 
+ $B = b P$ is the initiator's first regular Axolotl public-key,
+ $F_I$ is the initiator's long-term fingerprint key, and
+ $\ID_I$ is the initiators identity.
+So, to send the contact request, the initiator
+sends $U$ along with $E_{\mk}(B,F_I,\ID_I,\ldots)$ where 
+ $\mk = H(\mathrm{``Message''}  || \ck_I)$ is the message key,
+and replaces the saved $\ck_I$ with $H(\mathrm{``Iterate''} || \ck_I)$.
+
+Of course, this sending process may be repreated with possibly different
+values for $\ldots$, but they remain only as secure as $d_{\ID_R}$,
+making them vulnerable to the authority.
+
+% \subsection{Axolotl round two}
+\smallskip
+
+To decode the contact request message, the respondent 
+first computes the initial root key $\rk = H_2( e(d_{\ID_R}, U) )$
+and their incoming chain key $\ck_I = H(\mathrm{``Chain''} || \rk)$.
+These shared secrets agree because 
+$$ e(d_{\ID_R}, U) = e(s H_1(\ID_R), r P) = r e(H_1(\ID_R), s P) = r g_{\ID_R} $$
+Next they compute the initiator's
+ message key $\mk = H(\mathrm{``Message''}  || \ck_I)$ 
+to attempt to decrypt the message body.
+If this succeeds, the respondent learns and saves $(B,F_I,\ID_I,\ldots)$
+ under the index $H(U)$.
+If not, they may save the skipped message keys $\mk$ under
+the index $H(U)$, and iterate $\ck_I$, as usual in Axolotl.
+
+To accept the contact request,
+the respondend first chooses a random $t \in \Z/q\Z$ and 
+ computes $T = H_2( t e(H_1(\ID_I),d_{\ID_R}) )$ and $V = t H(\ID_R)$.
+Along with this, they choose a random scalar $a$ for $\E$ to
+iterate to the second root key $\rk := H(\rk, T, a B, a F_I)$ and
+ computes their outgoing chain key $\ck_R = H(\mathrm{``Chain''} || \rk)$,
+and then saves $(\rk,\ck_I,\ck_R,V,B,a)$. 
+
+An accept message should communicate $(A,F_R)$ where 
+ $A = a P$ is the respondent's first regular Axolotl public-key, and
+ $F_I$ is the respondent's long-term fingerprint key.
+So, to send the acceptance, the respondent
+sends $(H(B),V)$ along with $E_{\mk}(A,F_R,\ldots)$ where again
+ $\mk = H(\mathrm{``Message''}  || \ck_R)$ is the message key,
+and replaces the saved $\ck_R$ with $H(\mathrm{``Iterate''} || \ck_R)$.
+We could optionally some header encryption to $V$, but this seems unecessary.
+
+% \subsection{Axolotl round three}
+\smallskip
+
+An initiator processes the acceptance by recognizing $H(B)$.
+At which point, they compute $T = H_2( e(d_{\ID_R}, V) )$,
+iterate to the second root key $\rk := H(\rk, T, b A, f_I A )$, and 
+compute the incoming chain key $\ck_R = H(\mathrm{``Chain''} || \rk)$.
+Again, these shared secrets agree because 
+$$ t e(H_1(\ID_I), d_{\ID_R}) = t e(H_1(\ID_I), s H_1(\ID_R))
+  = e(s H_1(\ID_I), t H_1(\ID_R)) = e(d_{\ID_I}, V) \mathperiod $$
+% FIXME: Do we really need $V = t H(\ID_R)$ here?
+Next they compute the respondent's
+ message key $\mk = H(\mathrm{``Message''}  || \ck_R)$ 
+to attempt to decrypt the message body.
+If this succeeds, the initiator learns and saves $(A,F_R,\ldots)$.
+If not, they may save the skipped message keys $\mk$ under the index $H(U)$,,
+and iterate $\ck_R$, as usual in Axolotl.
+
+At this point, we have exausted our identity-base key excahnge scheme,
+ as both sides were hashed into the the root key.  In addition, we have
+hashed in one exchange $a B = b A$ between strong ephemeral keys, and
+one exchange $a F_I = f_I A$ between an ephemeral and
+ the long-term fingerprint key $F_I = f_I P$.
+It follows that both parties know one another's finger prints, but only
+the initiator knows that the respondent saw the correct fingerprint key.
+To address this with fewer round trips, we ask that both parties
+now fast-forward the root key $\rk$ by replacing it with
+ $\rk' := H(\rk f_R B) = H(\rk, b F_R )$.
+Both parties may do so as soon as they have computed the respondent's
+ first chain key $\ck_R$.
+We thus allow Axolotl to run as usual from this point forward, while
+ensureing that the initiator's next message conveys that the initator
+ has the correct long-term fingerprint key.
 
 
-In using IBE, we pay a price that our initiatial message during
- the contact request could be decrypted by the authority.
-A contact request need not allow content though, adding at least one round trip,
-or could carry a warning.
+\section{Identity-based mixnet} % transport
+
+... describe Tor hidden services with identity-based keys ...
 
 
+\section{Analysis}
 
-In this vein, there remain an Unknown Key Share attack on Signal that
+We observe that one principle weakness of our proposal is that pre-keys
+offer a degree of ephemerality lacking in identity-based keys.
+
+If for example a phone is stolen, then a Signal user can simply ask
+for a new SIM card from their telephone provider, and install Signal
+on their new phone.  On install, Signal replaces all their pre-keys 
+stored on the key server, invalidating the old ones, and restarts all
+the ratchet states with their contacts, thereby making the old phone's
+data worthless for impersonation. 
+
+In our identity-based scheme, the old phone retains the victims
+identity-based private key $d_{\ID}$, which the thief could exploit for
+either impersonation or eves dropping on initial contact request messsages.
+We could mitigate theft risks by rotating the authority's private key $s$,
+perhaps weekly, but this attack window remains larger than with Signal.
+
+In this vein, an attacker who infiltrates the phone system could steal
+the identity-based private key $d_{\ID}$ anytime they like.  
+Any such attacker could replace pre-keys and restart ratchets as well,
+but this appears tougher to exploit.
+% HOUSTON WE HAVE A PROBLEM 
+
+\smallskip
+
+
+\smallskip
+
+...
+
+There is an interesting unknown key share attack on Signal that
 even verfying fingerprints cannot address~\cite[\S4.2]{TextSecure}.
 At least one proposal for fixing the Unknown Key Share attack
 modifies the pre-keys to leak not only all new contacts, but
-all currently known possible contacts~\cite[\S4.3]{TextSecure}. 
-% FIXME: Read \S4.2 and \S4.3 in TextSecure if the above makes no sense.
-%
+all currently known possible contacts~\cite[\S4.3]{TextSecure}! 
+% FIXME Answer: Read \S4.2 and \S4.3 in TextSecure if the above makes no sense.
+As with many pre-key designs, this fix may damage the deniability
+ of an early message by incorprotating a signature.
+
+We avert the unknown key share attack under the assumption that
+an attacker cannot learn private IBE keys from the authority, and
+ without causing a toxic metadata spill.
+We also avoid sacrifice deniability during these initial couple steps of
+the ratchet by instead incorporating key exchanges with long-term
+fingerprint keys, much like triple Diffie-Hellman does.
+We pay a price in delaying certainty of the fingerprint, but
+ that is unavoidable in our context.
+
+
 Alternatively, one could employ triple Diffie-Hellman inside the
 Axolotl ratchet during two initial steps,
  thus sacrificing deniability during those steps,
  and delaying certainty of the fingerprint. 
 
 
-\section{Anonymity in IBE}
-
-
-Sakai–Kasahara scheme (SAKKE)
-
-
-
-\section{Transport}
-
-... describe Tor hidden services with identity-based keys ...
 
 \section{Decentralization}
 
@@ -205,6 +374,7 @@ In our identity-base scheme, there is no such risk from using
 multiple key generation authorities in different jurisdictions.
 
 ... describe or cite multi-authority IBE ...
+
 
 \section{Conclusions}
 
@@ -219,7 +389,7 @@ multiple key generation authorities in different jurisdictions.
 %\newpage
 
 \bibliographystyle{abbrv}
-\bibliography{msg}
+\bibliography{msg,ecc,ibe}
 
 \end{document}
 

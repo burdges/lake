@@ -1,9 +1,43 @@
 \begin{thebibliography}{1}
 
+\bibitem{DJB-Curve25519}
+D.~J. Bernstein.
+\newblock Curve25519: new diffie-hellman speed records.
+\newblock In {\em In Public Key Cryptography (PKC), Springer-Verlag LNCS 3958},
+  pages 207--228. Springer-Verlag Berlin Heidelberg, 2006.
+
+\bibitem{BF-IBE}
+D.~Boneh and M.~Franklin.
+\newblock Identity-based encryption from the weil pairing.
+\newblock In {\em Advances in Cryptology --- CRYPTO 2001}, pages 213--229.
+  Springer-Verlag Berlin Heidelberg, 2001.
+
+\bibitem{BoyenMIBS}
+X.~Boyen.
+\newblock Multipurpose identity-based signcryption -- a {S}wiss {A}rmy knife
+  for identity-based cryptography.
+\newblock In D.~Boneh, editor, {\em Advances in Cryptology---CRYPTO 2003},
+  volume 2729 of {\em Lecture Notes in Computer Science}, pages 383--399.
+  Springer-Verlag Berlin Heidelberg, 2003.
+\newblock Available at \url{http://www.cs.stanford.edu/~xb/crypto03/}.
+
+\bibitem{AnonIBE}
+X.~Boyen and B.~Waters.
+\newblock Anonymous hierarchical identity-based encryption (without random
+  oracles).
+\newblock Cryptology ePrint Archive, Report 2006/085, 2006.
+\newblock \url{http://eprint.iacr.org/2006/085}.
+
 \bibitem{TextSecure}
 T.~Frosch, C.~Mainka, C.~Bader, F.~Bergsma, J.~Schwenk, and T.~Holz.
 \newblock How secure is textsecure?
 \newblock Cryptology ePrint Archive, Report 2014/904, 2014.
 \newblock \url{http://eprint.iacr.org/2014/904}.
+
+\bibitem{Ed448-Goldilocks}
+M.~Hamburg.
+\newblock Ed448-goldilocks, a new elliptic curve.
+\newblock Cryptology ePrint Archive, Report 2015/625, 2015.
+\newblock \url{https://eprint.iacr.org/2015/625}.
 
 \end{thebibliography}
