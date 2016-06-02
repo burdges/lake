@@ -34,10 +34,23 @@ T.~Frosch, C.~Mainka, C.~Bader, F.~Bergsma, J.~Schwenk, and T.~Holz.
 \newblock Cryptology ePrint Archive, Report 2014/904, 2014.
 \newblock \url{http://eprint.iacr.org/2014/904}.
 
+\bibitem{skynet}
+C.~Grothoff and J.~M. Porup.
+\newblock The nsa’s skynet program may be killing thousands of innocent
+  people.
+\newblock {\em ARS Technica}, 2016.
+
 \bibitem{Ed448-Goldilocks}
 M.~Hamburg.
 \newblock Ed448-goldilocks, a new elliptic curve.
 \newblock Cryptology ePrint Archive, Report 2015/625, 2015.
 \newblock \url{https://eprint.iacr.org/2015/625}.
+
+\bibitem{gns}
+M.~Wachs, M.~Schanzenbach, and C.~Grothoff.
+\newblock A censorship-resistant, privacy-enhancing and fully decentralized
+  name system.
+\newblock In {\em 13th International Conference on Cryptology and Network
+  Security (CANS 2014)}, pages 127--142, 2014.
 
 \end{thebibliography}
