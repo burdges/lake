@@ -21,8 +21,7 @@
 \def\mathcomma{}
 \def\mathperiod{}
 
-
-\title{Stop Meta Data Leaks with Identity-based Encryption!} % first contact
+\title{Identity-based encryption for meta-data protection when first establishing contacts}
 % \subtitle{}
 \author{Jeffrey Burdges, Florian Dold, Christian Grothoff, Neal Wa{\bf r}field}
 \date{\today}
@@ -34,69 +33,89 @@
 
 \begin{abstract}
 We argue that a limited use of identity-base encryption would improve
-the security and confidentiality of certain ``usable'' end-to-end
+the security and confidentiality of some user-friendly end-to-end
 encrypted messaging protocols.
 \end{abstract}
 
 \section{Introduction}
 
-Before secure end-to-end communication channels can be established,
-the endpoints need to obtain each other's public keys.  This step is
-crucial, as anyone who can observe the key lookup can also tell who is
-going to communicate with whom, and designs leaking the social graph
-in this manner indirectly support democide~\cite{skynet}.
+% \subsection{Setting}
 
-Even decentralised key management solutions like the
-Web-of-Trust~\cite{wot} leak social graph data as the key signing
-graph is public and key lookups in the Web-of-Trust go to a few
-servers that can hence learn quite a bit about the underlying
-communication patterns.  While decentralised solutions that avoid meta
-data leakage exist~\cite{gns}, they remain largely experimental at
-this time.
+A secure end-to-end encrypted channel requires that endpoints
+authenticate one another, usually by verifing the fingerprint of
+one another's public key material.
+Assistance in verifying this material therefore becomes an important
+feature. % of encryption protocols.
 
-In practice, most users either rely on trust-on-first-use (TOFU) or an
-{\em authority} provided by a trusted third party to obtain public key
-information.  For example, in Signal~\cite{TextSecure}, there is an
-central key distribution server from which clients obtain a pre-key
-that consists of a long-term key and a preliminary ratchet state.
-This may generally suffice to protect the content of one's private
-communication, as out-of-band or voice verification can be used to
-authenticate the fingerprint provided by the authority.
-However, the authority still learns who is resolving which
-name.
+At the same time, the mechanism for obtaining key material tend to
+leak meta-data about user's social graph, which proves harmful to 
+...~\cite{skynet,??metadatapolution??}.
 
-There are subtleties to the pre-key that mitigate the worst attacks,
-like by providing pre-keys for all potential
-contacts~\cite[\S4.3]{TextSecure}, but doing do exposes even more
-meta-data.
-% FIXME: I don't understand. Elaborate: ``all potential''? How does that work?
-% I don't see the relationship to 4.3 in the paper cited, that paper
-% just seems to fix a minor vulnerability in the KX between the two
-% parties.
-% FIXME: overall, do we need the above paragraph in the intro!?
+Available decentralized solutions like the Web-of-Trust~\cite{wot}
+leak social graph data since the key signing graph is public and
+key lookups use a handfull of key servers.  GNS provides a model
+resembling the web-of-trust that leaks less profusely, but offers
+no protection against confirmation attacks~\cite{gns}.  
+Both these schemes face deployment and adoption challenges.
 
+Instead, there is wave of newer more user-friendly encrypted messaging
+applications that distribute public key information using a centralized
+trusted authorities, or sometimes trust-on-first-use (TOFU). 
 
-For systems that rely on a authority or TOFU for key
-exchange, we propose to avoid exposing meta data to the authority
-using identity-based encryption (IBE) to lookup a TOFU
-signing key.  The TOFU signing key would only be used on first
-contact, and is afterwards be replaced by an endpoint-generated public
-key (and a ratchet in Axolotl-like systems).
+In Signal~\cite{TextSecure} for example, there is a central key server
+from which clients obtain a pre-key that consists of a long-term key
+and a preliminary Axolotl ratchet state.  
+This long term key provides a fingerprint that users could verify
+out-of-band, or verbally, for authentication. 
 
-In doing so, we prevent meta data leakage to the authority, limiting
-its attack surface to manipulating the TOFU signing key.  As a result,
-the combined scheme leaks less meta data and provides strictly
-stronger key security than just TOFU or just IBE.
+There are two fundemental problems with using centralized key servers
+in this way.  
+First, users tend not to actually verify fingerprints, so 
+key servers could be coerced into substituting a false key.
+Signal itself actively encourages users to authenticate fingerprints,
+but proprietary efforts tend not to show fingerprints by default.
+Second, the authority learns who resolved which names.
 
-The scheme remains vulnerable to an attacker that can both extract the
-recipient's private key from the authority, and perform a
-man-in-the-middle attack against the user's transport during the
-initial exchange.  In particular, we loose if the authority's servers
-provide the transport layer as well.  One could address this using a
-secure transport layer, say by adapting Tor hidden services to support
-an identity-based scheme for the naming of hidden services.  This
-would be ideal, as the use of Tor would then prevent meta-data leakage
-for the end-to-end encrypted communication.
+Signal's Axolotl ratchet has impressive forward-secrecy properties
+that strengthen any protocol parts that depend upon TOFU, and
+reduces the sheer diversity of attacks on systems like PGP.
+Of course, forward-secrecy cannot replace authentication.
+Yet, Sgnal provides deniability for example.
+
+\smallskip
+% \subsection{Goals}
+
+We propose that, systems like Signal that already rely on an authority,
+should avoid exposing meta data to the authority by using
+identity-based encryption (IBE) when first establishing a contact.
+In this first message, we share the long-term fingerprint key and
+ratchet state, which must themselves be real non-identity-based key
+material. 
+
+In essence, we employ IBE only for a weak form of authentication, 
+while full authentication still requires that users verify fingerprints
+TOFU style.
+In doing so, we prevent meta data leakage to the authority, and reduce
+its attack surface for manipulating pre-keys.  
+
+Our scheme remains vulnerable to an attacker who can both
+ extract the recipient's private key from the authority, and
+ attack the transport during the initial exchange.  
+In particular, we loose if the authority's servers provide the transport
+layer as well, which costs us our hard won anoymity anyways. 
+
+We need two features to address this :
+
+First, we need an anonymity preserving transport layer where recipients
+are determined using an identity.  We could for example adapt Tor to
+support an identity-based naming scheme for hidden services.  
+
+Second, we should decentralize our IBE scheme's private key issuing
+authority by allowing contact initiators to select amongst numerous
+authorites.
+
+Alone neither appears sufficent, but taken together they provide 
+considerably stronger protections. 
 
 
 \section{Key Exchange}
@@ -140,6 +159,36 @@ We could speed this up by using two long-term fingerprint keys,
 an initiator one in the pairing system, and
  a responder key for $\mathbb{E}$,
 with the fingerprint being the hash of both.
+
+\section{Security}
+
+
+In using IBE, we pay a price that our initiatial message during
+ the contact request could be decrypted by the authority.
+A contact request need not allow content though, adding at least one round trip,
+or could carry a warning.
+
+
+
+In this vein, there remain an Unknown Key Share attack on Signal that
+even verfying fingerprints cannot address~\cite[\S4.2]{TextSecure}.
+At least one proposal for fixing the Unknown Key Share attack
+modifies the pre-keys to leak not only all new contacts, but
+all currently known possible contacts~\cite[\S4.3]{TextSecure}. 
+% FIXME: Read \S4.2 and \S4.3 in TextSecure if the above makes no sense.
+%
+Alternatively, one could employ triple Diffie-Hellman inside the
+Axolotl ratchet during two initial steps,
+ thus sacrificing deniability during those steps,
+ and delaying certainty of the fingerprint. 
+
+
+\section{Anonymity in IBE}
+
+
+Sakai–Kasahara scheme (SAKKE)
+
+
 
 \section{Transport}
 
