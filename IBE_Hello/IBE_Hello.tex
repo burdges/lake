@@ -74,7 +74,6 @@ First, users tend not to actually verify fingerprints, so
 key servers could be coerced into substituting a false key.
 % Signal itself actively encourages users to authenticate fingerprints,
 % but proprietary efforts tend not to show fingerprints by default.
-%% This is non-scientific: does not necessarily generalize.  Also OT.
 Second, the authority learns who resolved which names.
 
 %Signal's Axolotl ratchet has impressive forward-secrecy properties
@@ -82,17 +81,15 @@ Second, the authority learns who resolved which names.
 %reduces the sheer diversity of attacks on systems like PGP.
 %Of course, forward-secrecy cannot replace authentication.
 %% Yet, Signal provides deniability for example.
-%%% Again, OT.  In fact, the entire paragraph seems to go nowhere.
 
 \smallskip
 % \subsection{Goals}
 
 We propose that, systems like Signal that already rely on an authority,
 should avoid exposing meta data to the authority by using
-identity-based encryption (IBE) when first facilitating a contact.
-With the first pair of messages, users directly share each other's
-long-term key and ratchet state, which is locally
-generated--and not identity-based--key material.
+identity-based encryption (IBE) when first establishing a contact.
+In the first few messaged, users exchange long-term fingerprint key and
+ratchet state, which are locally generated, and not identity-based.
 
 In essence, we employ IBE only for the weak form of authentication provided
 by the trusted authentication server,
@@ -121,8 +118,8 @@ for multiple reasons.
 To avoid relying on the authority's servers to resolve addresses and
 strictly avoid leaking meta data on the transport layer, we need an
 anonymity preserving transport layer where recipients are determined
-using an identity.  This could be easily implemented by adapting a
-system like Tor~\cite{tor} to support an identity-based naming scheme
+using an identity.  This could be implemented by adapting a system
+like Tor~\cite{tor} to support an identity-based naming scheme
 for hidden services~\cite{hidden}.
 
 Finally, we propose to decentralize the IBE scheme's private key
@@ -174,7 +171,7 @@ Our private key issuing authority
  selects a private key $s \in \F^\times$,
  derives the public key $K = s P_1$, and
  selects two public hash functions
-  $H_1: \{0,1\}^* \to \E_1$ and $H_1: E_2 \to \{0,1\}^n \to \E_1$.
+  $H_1 : \{0,1\}^* \to \E_1$ and $H_1 : E_2 \to \{0,1\}^n \to \E_1$.
 
 We also use the usual extraction phase:
 Our private key issuing authority
@@ -202,8 +199,8 @@ We cannot transform the initiator's key pair for
 our pairing friendly curve system
 into a key pair on $\mathbb{E}$~\cite{??no_homomorphism??}.
 As a result, any message sent on this initial Axolotl chain must include
-both our first Axolotl public key $B = b P \in \mathbb{E}$, along with
-our long-term fingerprint key $F \in \mathbb{E}$.
+both our first Axolotl public key $B = b P \in \mathbb{E}$,
+ along with our long-term fingerprint key $F \in \mathbb{E}$.
 
 We mentioned above using the chain key machinery of Axolotl even from
 the first message.  There are risks in this decision because the
