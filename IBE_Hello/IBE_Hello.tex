@@ -140,6 +140,7 @@ fingerprint verification might still reveal the attack.
 \def\ID{\mathtt{ID}}
 \def\rk{\mathtt{rk}}
 \def\ck{\mathtt{ck}}
+\def\hk{\mathtt{mk}}
 \def\mk{\mathtt{mk}}
 
 \subsection{Around pairing}
@@ -189,8 +190,11 @@ Our private key issuing authority
  derives the public key $K = s P_1$, and
  selects two public hash functions
   $H_1 : \{0,1\}^* \to \E_1$ and $H_1 : E_2 \to \{0,1\}^n \to \E_1$.
-These values should be rotated periodically, such as daily or weekly,
-but allow for clock skew, and possibly for delayed messages.
+Amongst these values, both $s$ and $H_1$ should together be rotated
+ periodically, such as daily or weekly,
+while allowing for clock skew, and possibly for delayed messages.
+$H_1$ could for example be seeded by $K$.
+% Is this actually important for $d_{\ID || F}$?
 
 We adjust the usual Boneh–Franklin IBE extraction phase only slightly:
 At some point, user claims ownership of an identity $\ID$, thereby
@@ -198,8 +202,10 @@ At some point, user claims ownership of an identity $\ID$, thereby
 In practice, identities would be phone numbers or e-mail addresses,
 and proving possession is done by demonstrating that
 one is reachable at the respective address.
-Our private key issuing authority issues
- the private keys $d_\ID = s H_1(\ID)$ and $d_{\ID,F} = s H_1(\ID || F)$
+We now have the usual private and public identity-based keys, given by
+ $d_\ID = s H_1(\ID)$ and $g_{\ID_R} = e(H_1(\ID_R),K)$, respectively.
+Our private key issuing authority issues the two private keys
+ $d_\ID = s H_1(\ID)$ and $d_{\ID,F} = s H_1(\ID || F)$
 to anyone who can prove possession of the private key $f$ for $F$
  by signing a request. 
 
@@ -239,41 +245,55 @@ an initiator one in the pairing system, and
  a responder key for $\mathbb{E}$,
 with the fingerprint being the hash of both.
 
-\subsection{Axolotl round} % one
+\subsection{Axolotl chain one}
 % \medskip
 
-We begin with the Axolotl root key $\rk$ zeroed,
- as a trick for symetrizing our key exchange later. 
+We begin a fresh contact with all Axolotl key material undefined, 
+ focusing our discussion first on ratchet cold start situation.
+We shall also describe adjustments that allow identity-based
+information to be adjoined to a running ratchet,
+as this buys us identity-based authentication for
+ the symetric half of our key exchange.
+
+\smallskip
 
 An initiator knows their responder's identity $\ID_R$, so they may
 compute the responder's public key as $g_{\ID_R} = e(H_1(\ID_R),K)$.
 To setup a contact, the initiator first chooses a random $r \in \Z/q\Z$
-to compute the initial root key $\rk = H_2(\rk, r g_{\ID_R} )$,
-chain key $\ck_I = H(\mathrm{``Chain''} || \rk)$, and
-ephemeral public key $U = r P_1$.
+to compute the ephemeral public key $U = r P_1$, 
+ compute $\rho_0 = H_2(r g_{\ID_R})$,
+ assign the first root key $\rk = \rho_0$, and 
+ compute the outgoing chain key $\ck_I = H(\mathrm{``Chain''} || \rk)$.
 In addition, they choose a scalar $b$ for $\E$,
- and then save $(\rk,\ck_I,U,b)$.
+ and then save $(\rk,\ck_I,r,b)$.
 
-An initial message should communicate $(B,F_I,\ID_I)$ where
- $B = b P$ is the initiator's first regular Axolotl public-key,
+In this first round, we would love to communicate $F_I$ or $\ID_I$ where
  $F_I$ is the initiator's long-term fingerprint key, and
  $\ID_I$ is the initiators identity.
+We cannot however because this would expose them to
+ a collusion between the transport and private key authority.
+If that were not a concern, then one might adjust the key exchange to
+ run both halfs almost in parallel.
+
+An initial message must communicate $B$ where
+ $B = b P$ is the initiator's first regular Axolotl public-key,
+along with additional information that poses no risk if exposed.
 So, to send the contact request, the initiator
-sends $U$ along with $E_{\mk}(B,F_I,\ID_I,\ldots)$ where
+sends $U$ along with $E_{\mk}(B,\ldots)$ where
  $\mk = H(\mathrm{``Message''}  || \ck_I)$ is the message key,
 and replaces the saved $\ck_I$ with $H(\mathrm{``Iterate''} || \ck_I)$.
 
-Of course, this sending process may be recreated with possibly different
-values for $\ldots$, but they remain only as secure as $d_{\ID_R}$,
-making them vulnerable to the authority.
+Of course, this sending process may be rerun with different
+additional information, but it remain only as secure as $d_{\ID_R}$
+and vulnerable to the authority.
 
-% \subsection{Axolotl round two}
 \smallskip
 
 To decode the contact request message, the respondent
-first computes the initial root key $\rk = H_2( e(d_{\ID_R}, U) )$
-and their incoming chain key $\ck_I = H(\mathrm{``Chain''} || \rk)$.
-These shared secrets agree because
+first computes $\rho_0 = H_2( e(d_{\ID_R}, U) )$,
+ assign the first root key $\rk = \rho_0$, and 
+computes their incoming chain key $\ck_I = H(\mathrm{``Chain''} || \rk)$.
+Our two computaitons of the shared secrets $\rho_0$ agree because
 \begin{align*}
 e(d_{\ID_R}, U) = e(s H_1(\ID_R), r P) \\
  \quad = r e(H_1(\ID_R), s P) = r g_{\ID_R}
@@ -281,47 +301,73 @@ e(d_{\ID_R}, U) = e(s H_1(\ID_R), r P) \\
 Next they compute the initiator's
  message key $\mk = H(\mathrm{``Message''}  || \ck_I)$
 to attempt to decrypt the message body.
-If this succeeds, the respondent learns and saves $(B,F_I,\ID_I,\ldots)$
+If this succeeds, the respondent learns and saves $(B,\ldots)$
  under the index $H(U)$.
 If not, they may save the skipped message keys $\mk$ under
 the index $H(U)$, and iterate $\ck_I$, as usual in Axolotl.
 
-To accept the contact request,
-the responded first chooses a random $t \in \Z/q\Z$ and
- computes $T = H_2( t e(H_1(\ID_I),d_{\ID_R}) )$ and $V = t H(\ID_R)$.
-Along with this, they choose a random scalar $a$ for $\E$ to
-iterate to the second root key $\rk := H(\rk, T, a B, a F_I)$ and
- computes their outgoing chain key $\ck_R = H(\mathrm{``Chain''} || \rk)$,
-and then saves $(\rk,\ck_I,\ck_R,V,B,a)$.
+\smallskip % \subsection{Non-cold start}
 
-An accept message should communicate $(A,F_R)$ where
- $A = a P$ is the respondent's first regular Axolotl public-key, and
- $F_I$ is the respondent's long-term fingerprint key.
+If we run the above with an established ratchet, then we update
+ the root key $\rk$ to be $H(\rk || x Y || \rho_0 )$ as opposed to
+ just assigning it to be $\rho_0$.
+In this expression, $Y$ is our contact's public point in $\E$, 
+ making it either $B$, or the predecessor of $A$,
+while $x$ is our private scalar,
+ making it either $b$, or the predecessor of $a$.
+Also, $B$ must appear in the header instead of the message.
+In fact, $B$ could appear in the header anyway, 
+ assuming the MAC protects it appropiately.
+
+If header encryption is being used, then
+ the header keys can be initalized or update with the root key.
+$U$ cannot appear in the header during start up.
+
+\subsection{Axolotl chain two}
+
+We recall that $d_{\ID,F} = s H_1(\ID || F)$ and
+ $g_{\ID,F} = e(H_1(\ID || F),K)$.
+
+To accept the contact request, the respondent
+first chooses a random scalar $a$ for $\E$ to
+iterate to the second root key $\rk := H(\rk || a B)$ and
+ compute their outgoing chain key $\ck_R = H(\mathrm{``Chain''} || \rk)$.
+The respondent also computes $\rho_1 := H_2( e(d_{\ID_R,F_R}, U) )$
+and saves $(\rk,\ck_I,\ck_R,B,a,\rho_1)$.
+
+An accept message should communicate 
+ respondent's first regular Axolotl public-key $A = a P$,
+ the respondent's long-term fingerprint key $F_R$, and
+ a MAC incorporating $\rho_1$.
 So, to send the acceptance, the respondent
-sends $(H(B),V)$ along with $E_{\mk}(A,F_R,\ldots)$ where again
+sends $H(B)$, $A$, and $E_{\mk}(F_R,\ldots)$ where again
  $\mk = H(\mathrm{``Message''}  || \ck_R)$ is the message key,
 and replaces the saved $\ck_R$ with $H(\mathrm{``Iterate''} || \ck_R)$.
-We could optionally some header encryption to $V$, but this seems unnecessary.
 
-% \subsection{Axolotl round three}
 \smallskip
 
-An initiator processes the acceptance by recognizing $H(B)$.
-At which point, they compute $T = H_2( e(d_{\ID_R}, V) )$,
-iterate to the second root key $\rk := H(\rk, T, b A, f_I A )$, and
+An initiator processes the acceptance by recognizing $H(B)$,
+ thereby learning $A$.
+At this point, they iterate to the second root key
+ $\rk := H(\rk, b A )$, and
 compute the incoming chain key $\ck_R = H(\mathrm{``Chain''} || \rk)$.
-Again, these shared secrets agree because
-\begin{align*}
-t e(H_1(\ID_I), d_{\ID_R}) = t e(H_1(\ID_I), s H_1(\ID_R)) \\
- \quad = e(s H_1(\ID_I), t H_1(\ID_R)) = e(d_{\ID_I}, V) \mathperiod
-\end{align*}
-% FIXME: Do we really need $V = t H(\ID_R)$ here?
 Next they compute the respondent's
  message key $\mk = H(\mathrm{``Message''}  || \ck_R)$
 to attempt to decrypt the message body.
 If this succeeds, the initiator learns and saves $(A,F_R,\ldots)$.
 If not, they may save the skipped message keys $\mk$ under the index $H(U)$,,
 and iterate $\ck_R$, as usual in Axolotl.
+In addition, they compute $\rho_1 = H_2( u g_{\ID,F} )$,
+ which again agrees with the first computation of $\rho_1$,
+so they can verify the MAC  incorporating $\rho_1$.
+
+\smallskip
+
+
+
+
+
+
 
 At this point, we have exhausted our identity-base key exchange scheme,
  as both sides were hashed into the the root key.  In addition, we have
