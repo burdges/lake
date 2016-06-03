@@ -140,7 +140,7 @@ fingerprint verification might still reveal the attack.
 \def\ID{\mathtt{ID}}
 \def\rk{\mathtt{rk}}
 \def\ck{\mathtt{ck}}
-\def\hk{\mathtt{mk}}
+\def\hk{\mathtt{hk}}
 \def\mk{\mathtt{mk}}
 
 \subsection{Around pairing}
@@ -198,7 +198,7 @@ $H_1$ could for example be seeded by $K$.
 
 We adjust the usual Boneh–Franklin IBE extraction phase only slightly:
 At some point, user claims ownership of an identity $\ID$, thereby
- associating with it a public key $F = f P \in \E$.
+ associating it with a public key $F = f P \in \E$.
 In practice, identities would be phone numbers or e-mail addresses,
 and proving possession is done by demonstrating that
 one is reachable at the respective address.
@@ -369,7 +369,9 @@ so they can verify the MAC  incorporating $\rho_1$.
 
 
 
-At this point, we have exhausted our identity-base key exchange scheme,
+At this point, we have exhausted our identity-base key exchange scheme's
+information about the respondent.  
+
  as both sides were hashed into the the root key.  In addition, we have
 hashed in one exchange $a B = b A$ between strong ephemeral keys, and
 one exchange $a F_I = f_I A$ between an ephemeral and
@@ -384,6 +386,10 @@ Both parties may do so as soon as they have computed the respondent's
 We thus allow Axolotl to run as usual from this point forward, while
 ensuring that the initiator's next message conveys that the initiator
  has the correct long-term fingerprint key.
+
+\subsection{Axolotl chain three}
+
+
 
 
 \section{Identity-based mixnet} % transport
