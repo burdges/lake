@@ -1,0 +1,50 @@
+
+
+
+There is an interesting IBE system in which theoretically the master private never gets generated.
+
+
+We have the usual system for pairing based cryptography consisting of a pairing friendly curve E_1 with generator P_1 of a subgroup of order q and pairing e : E_1^2 -> E_2 where E is a group of order q.  We have a hash function H_1 : {0,1}^* -> E_1 too.
+
+We have n authorities who each pick a private key s_i in Z/q and publish self-signed public keys K_i = s_i P_1. 
+
+The master public key is K = K_1 + ... + K_n and the master private key is s = s_1 + ... + s_n.  K = s P_1 but the master private key s should not be learned by any party, including the authorities.
+
+Anyone with identity ID wishing to extract their private key, first makes private key requests to each of the n authorities who assuming the requests gets approved return d_i(ID) = s_i H_1(ID || K), and then computes their private key as the sum d(ID) = d_1(ID) + ... + d_n(ID).
+
+Anyone wishing to send a message to identity ID chooses a random r in Z/q, computes U = r P_1, encrypts with the key m = r g(ID) where g(ID) = e(H_1(ID || K),K), and sends ( U, E_m(message) ).
+
+A node with identity ID receiving (U,E) computes k = e(d(ID),U) to decrypt E.  These two computations of k agree because 
+  e(d(ID),U) = e(s H_1(ID || K), r P_1) 
+             = r e( H_1(ID || K), s P_1) = r g(ID)
+
+
+What is wrong with this scheme?  
+
+An authority could hijack the private key by publishing 
+   K_i' = s_i P_1 - \sum_{j \ne i} K_j.  
+Anyone who checks the signatures on these publications knows this did not happen because the malicious node should not know the private key to K_i', only to their own K_i, meaning the signature must be done on E_1, not some more secure and more efficient curve.
+
+Also, we must examine the signature scheme carefully to prove that malicious authorities cannot manipulate the other node's signatures for this, but maybe that's okay.  We'd presumably want authorities to all first commit to the hash of their public key K_i and its self signature.
+
+
+I doubt the above scheme generalizes to the post-quantum Ring-LWE IBE stuff, at least not for reasonable n.  There is however a related threshold scheme via Shamir secret sharing that might.
+
+Adjust the issued/extracted private keys to be d_i(ID) = s_i H_1(ID || seed) where seed might be K or something else.  And set g_i(ID) = e(H_1(ID || seed),K_i).  If U = r P_1 then again at least we have 
+ e(d_i(ID),U) = e(s_i H_1(ID || seed), r P_1) 
+              = r e( H_1(ID || seed), s_i P_1) = r g_i(ID)
+
+Anyone wishing to send a message to identity ID chooses a random r in Z/q and computes U = r P_1, but now they select a set S of authorities and compute m_j = H(r g_j(ID)) for j in S.  Next, they use Lagrange a basis to fit a polynomial f(x) of degree |S| so that f(j) = m_j for j in S.  If they want to require the retrieval of |S|-k private keys, then the compute f(-j-1) for j=1..k.  Finally they set m=f(-1) and send 
+  ( U, S, f(-j-1) for j=1..k, E_m(message) )
+
+A node with identity ID receiving (U,S,f(-2),...,f(-k-1),E) first retrieves d_j(ID) and computes f(j) = e(d_i(ID),U) for |S|-k of the j in S, next reconstructs f(x) again using a Lagrange a basis, and finally evaluates m=f(-1) to decrypt E_m(message).
+
+We're obviously spending much more on bandwidth and coputation in this second scheme, but maybe that's acceptable.
+
+
+Jeff
+
+p.s.  I haven't read this yet but it looks vaguely related : 
+  https://arxiv.org/abs/1603.09524v1
+
+
