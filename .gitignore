@@ -1,3 +1,5 @@
+*.aux
+*.bbl
 *.log
 *.blg
 Xolotl/papers/Xolotl-HotPETS.pdf
