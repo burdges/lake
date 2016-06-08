@@ -1,0 +1,123 @@
+\documentclass[twoside,letterpaper]{sig-alternate}
+\usepackage[margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{url}
+\usepackage{eurosym}
+\usepackage{tikz}
+%\usepackage{listings}
+%\usepackage{graphicx}
+%\usepackage{wrapfig}
+%\usepackage{caption}
+%\usepackage{subcaption}
+
+\usetikzlibrary{cd}
+%\usetikzlibrary{shapes,arrows}
+%\usetikzlibrary{positioning}
+%\usetikzlibrary{calc}
+
+\def\mathcomma{,}
+\def\mathperiod{.}
+
+\def\mathcomma{}
+\def\mathperiod{}
+
+\title{Compairing sets of contacts}
+% \subtitle{}
+% \author{Jeffrey Burdges, Florian Dold, Christian Grothoff}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+
+% \begin{abstract}
+% \end{abstract}
+
+
+\def\E{\mathbb{E}}
+\def\F{\mathbb{F}}
+\def\Z{\mathbb{Z}}
+
+
+% \section{Introduction}
+
+% \section{}
+
+\subsection{BLS Signatures}
+
+We first outline the Boneh-Lynn-Shacham (BLS) signature scheme \cite{BLS-SigWeilPairing}.
+
+We have an elliptic curve $E_1$ over a field $\F_1$,
+ along with an element $P_1 \in E_1$ of order $q$.
+In addition, we have a group $E_2$ of order $q$ and
+ a pairing $e : E_1 \times \E_1 \to \E_2$.
+% FIXME: describe pairing property 
+
+A private key consists of a scalar $c \in \F_1$, while
+the corresponding public key is $C = c P_1$.
+
+We have a hash function $H_1 : \{0,1\}^* \to \E_1$ along with
+ our pairing friendly curve setup mentioned above.
+In the BLS scheme,
+a signature on a message $m$ by $C$ is $\sigma = H(m)^c$.
+
+We verify the signature $\sigma$ by checking that
+  $e(C,H(m)) = e(P_1,\sigma)$.
+If $\sigma = H(m)^c$, then this holds by the pairing property.
+
+\subsection{Our Protocol}
+
+Initially, any participant $i$ has a public key pair $C_i = c_i P_1$
+ for our pairing based signature scheme.  
+In addition, any participant $i$ has a contact list $L_i$ consisting
+of tuples $(j,C_j,\sigma_{i,j})$ where
+ $\sigma_{i,j} = H(i,\texttt{date})^{c_j}$
+ is a BLS signature proving that $j$ knows $i$.
+
+At the begining of the contact comparison operation,
+our participant $i$ creates an ephemeral private key $t_i \in \F$.
+From this, they define 
+$$ X_i := % \texttt{sort}
+  \left[ (t_i C, t_i \sigma_{i,j}) | (j,C_j,\sigma_{i,j}) \in L_i \right]
+  \mathperiod $$ 
+If a participant $i$ has obtained the set $X_{i'}$ from
+ another participant $i'$, then they define a set 
+$$ Y_i := \texttt{sort} \left[ t_i C' | (C',\cdot) \in X_{i'} \right]
+  \mathperiod $$ 
+
+Imagine a user Alie wishes to know how many contacts she has in commone
+another user Bob.   
+First, Alice creates $t_{\textrm{Alice}}$ and
+ sends $X_{\textrm{Alice}}$ to Bob.
+Next, Bob creates $t_{\textrm{Bob}}$ and
+ sends both $X_{\textrm{Bob}}$ and $Y_{\textrm{Bob}}$ back to Alice.
+Finally, Alice verifies the signatures in $X_{\textrm{Bob}}$,
+ computes $Y_{\textrm{Alice}}$, and find the size of the intersection 
+ $I = Y_{\textrm{Alice}} \cap Y_{\textrm{Bob}}$.
+If Bob wishes to know the size of the intersection too, then Alice 
+can send him $Y_{\textrm{Alice}}$ and he can run the final step as well.
+
+Any common $C \in L_{\textrm{Alice}} \cap L_{\textrm{Bob}}$
+ contributes to $I$ because
+ $t_{\textrm{Alice}} (t_{\textrm{Bob}} C) = t_{\textrm{Bob}} (t_{\textrm{Alice}} C)$.
+Also, the signatures in $X_{\textrm{Bob}}$ validate because 
+we employ the BLS pairing based sgnature scheme. 
+\begin{align*}
+e( t_{\textrm{Bob}} C_j, H(m) )
+ = t_{\textrm{Bob}} e( C_j, H(m) ) \\
+ \quad = t_{\textrm{Bob}} e(P_1,\sigma_{i,j})
+ = e(P_1,t_{\textrm{Bob}} \sigma_{i,j})
+\end{align*}
+
+
+
+
+%\newpage
+
+\bibliographystyle{abbrv}
+\bibliography{msg,ecc,pairing}
+
+\end{document}
+
+
+
