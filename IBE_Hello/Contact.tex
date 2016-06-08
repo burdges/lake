@@ -50,7 +50,7 @@ We first outline the Boneh-Lynn-Shacham (BLS) signature scheme \cite{BLS-SigWeil
 We have an elliptic curve $E_1$ over a field $\F_1$,
  along with an element $P_1 \in E_1$ of order $q$.
 In addition, we have a group $E_2$ of order $q$ and
- a pairing $e : E_1 \times \E_1 \to \E_2$.
+ a pairing $e : \E_1 \times \E_1 \to \E_2$.
 % FIXME: describe pairing property 
 
 A private key consists of a scalar $c \in \F_1$, while
@@ -85,7 +85,7 @@ If a participant $i$ has obtained the set $X_{i'}$ from
 $$ Y_i := \texttt{sort} \left[ t_i C' | (C',\cdot) \in X_{i'} \right]
   \mathperiod $$ 
 
-Imagine a user Alie wishes to know how many contacts she has in commone
+Imagine a user Alice wishes to know how many contacts she has in commone
 another user Bob.   
 First, Alice creates $t_{\textrm{Alice}}$ and
  sends $X_{\textrm{Alice}}$ to Bob.
