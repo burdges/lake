@@ -1,0 +1,97 @@
+\documentclass[letterpaper]{article}
+\usepackage[text={6in,10in},paperwidth=4.5in]{geometry}
+\renewcommand\thepage{}
+
+\usepackage{tikz}
+\usetikzlibrary{cd}
+
+% \usepackage{atbegshi}
+% \AtBeginDocument{\AtBeginShipoutNext{\AtBeginShipoutDiscard}}
+
+\begin{document}
+
+% https://tex.stackexchange.com/questions/15093/unknown-error-using-tikz-matrix-of-nodes-in-beamer
+
+% \begin{frame}[t]
+% \begin{columns}[T]
+% \column{0.5\textwidth}
+% \column{0.5\textwidth}
+
+% Alice's perspective
+
+\def\ck{\textrm{ck}}
+\def\DH{\textrm{DH}}
+\def\lk{\textrm{lk}}
+\def\mk{\textrm{mk}}
+\def\ECDH{\textrm{ECDH}}
+\def\name{\textrm{name}}
+
+\[\begin{tikzcd}[ampersand replacement=\&, column sep=small]
+\cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \ar[r, dotted] \& ? \& \\
+ \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d, dotted] \& \lk \ar[d] \&  \& \& \\ 
+ \& \ECDH \ar[d] \& \ECDH \ar[d] \& ? \& \ECDH\ar[d] \&  \& \& \\
+ \& \mk \& \mk \ar[dddll, in=90, out=270] \&  \& \mk \ar[dddllll, dotted, in=30, out=270] \&  \& \& \\
+\\
+\\
+\cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \& \& \\
+ \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \&  \& \& \\ 
+ \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
+ \& \mk \ar[dddl, in=90, out=270] \& \mk \ar[dddll, dotted, in=50, out=270] \& \mk \ar[dddlll, dotted, in=30, out=270] \& \mk \&  \& \& \\
+\\
+\\
+\cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \& \& \\
+ \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d] \&  \& \& \\ 
+ \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
+ \& \mk \& \mk \& \mk \& \mk \&  \& \& \\
+\end{tikzcd}\]
+
+
+% \end{columns}
+% \end{frame}
+
+\end{document}
+
+
+
+
+
+
+\[\begin{tikzcd}[ampersand replacement=\&, column sep=small]
+ \cdot \ar[r] \& \& \ECDH \& \& \\ 
+% \cdot \ar[d] \ar[l] \& \& \ECDH \\ \\
+% \cdot \ar[d] \ar[l] \& \& \ECDH \\ \\
+% \cdot \ar[l] \& \ECDH \\ 
+\end{tikzcd}\]
+
+
+
+
+\[\begin{tikzcd}[ampersand replacement=\&, column sep=small]
+\MK \& \CK \& \RK \& \CK \& \MK \\
+ \& \& \ECDH(A_0,B_0) \ar[dd] \& \& \\
+ \& \& \& \& \\
+ \& \& \ECDH(A_1,B_0) \ar[lddd] \ar[dd] \& \& \\ 
+ \& \& \& \& \\
+ \& \& \ECDH(A_1,B_1) \ar[rddd] \ar[dddddddd] \& \& \\
+ \& \CK(A_1,B_0) \ar[d] \& \& \& \\
+\MK_0 \& \cdot \ar[dd] \ar[l] \& \& \& \\
+ \& \& \& \CK(A_1,B_1) \ar[dd] \& \\
+\MK_1 \& \cdot \ar[dd] \ar[l] \& \& \& \\
+ \& \& \& \cdot \ar[dd] \ar[r] \& \MK_0 \\
+\MK_2 \& \cdot \ar[l] \& \& \& \\
+ \& \& \& \cdot \ar[r] \& \MK_1 \\
+ \& \& \ECDH(A_2,B_1) \ar[lddd] \ar[dddd] \& \& \\ 
+ \& \& \& \& \\
+ \& \& \& \& \\
+ \& \CK(A_2,B_1) \ar[dd] \& \& \& \\
+ \& \& \ECDH(A_2,B_2) \ar[rddd] \arrow[ddddddd,dashrightarrow] \& \& \\ 
+\MK_0 \& \cdot \ar[l] \& \& \& \\
+ \& \& \& \& \\
+ \& \& \& \CK(A_2,B_2) \ar[dd] \& \\
+ \& \& \& \& \\
+ \& \& \& \cdot \ar[dd] \ar[r] \& \MK_0 \\
+ \& \& \& \& \\
+ \& \& \ \& \cdot \ar[r] \& \MK_1 \\
+\end{tikzcd}\]
+
+
