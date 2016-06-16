@@ -1,0 +1,84 @@
+
+\begin{frame}[t]{Replies in Sphinx}
+Can a recipient be anonymous? \\
+Yes!  With a Single-Use Reply Block (SURB).
+
+\medskip
+An anonymous recipient must
+\begin{itemize}
+\item create the Sphinx header $(\alpha, \beta, \gamma)$, 
+\item communicate it to the sender $n$ in advance, and 
+\item remember symmetric keys since $\delta$ gets encrypted at each hop.
+\end{itemize}
+
+\bigskip
+\bigskip
+\pause
+All keys are ephemeral in Sphinx to enable replay protection, \\
+\hspace*{2pt} so SURBs have a limited lifetime.
+
+\end{frame}
+
+
+\begin{frame}{Bi-directional anonymity in Sphinx}
+Can both parties be anonymous? \\
+Yes!  With a cross-over point that violates wrap-resistance.
+
+\medskip
+We modify the protocol:
+\begin{itemize}
+\item Reserve twice the space for the Sphinx header. 
+\item Onion encrypt and HMAC the extra space with the header.{\small $^*$}
+\item Add a method to replace a header with this extra space. 
+ and generate its extra space filler deterministically from a seed $s$. 
+\end{itemize}
+Now a SURB consists of \\
+\hspace*{2pt} a starting node $n$, \ the seed $s$, \ and \\
+\hspace*{2pt} our Sphinx header $(\alpha, \beta, \gamma)$ valid from $n$.
+
+\medskip
+Use this SURB by building a Sphinx header to $n$ that \\
+\hspace*{2pt} onion decrypts itself to $s$ and its extra space  to $(\alpha, \beta, \gamma)$.
+
+\bigskip\bigskip
+
+{\small $^*$ We onion encrypt the Sphinx headers backwards, including those that use SURBs,
+but the SURB itself must encrypt this extra space forwards.}
+
+\end{frame}
+
+
+\begin{frame}{Tiered delivery strategies}
+% Synchronous 
+Quick replies :
+If users share SURBs with one another, then \\ % {\small $^1$}
+\hspace*{2pt} they send messages directly but only during one mixnet session.
+
+\medskip
+
+Mailbox accounts for asynchronous messages : 
+\begin{itemize}
+\item Created on a random mixnet relay $n$, \\
+ \hspace*{2pt} assigned a mailbox id $m$ and a shared secret $k$.
+\item Checked by supplying with quick reply SURBs
+\end{itemize}
+
+\medskip
+\pause
+
+Frequent contacts : Give SURBs for sending to primary mailbox %{\small $^2$}
+
+\medskip
+
+Infrequent or public contact options : 
+\begin{itemize}
+\item Give real delivery details for a secondary mail server
+\item Could require tokens or group signatures, or proof-of-work
+\item Form a tree of secondary mailboxes
+\end{itemize}
+
+% {\small $^1$ We could go even faster using HORNET-like circuits.}
+% {\small $^2$ Add a short segment encrypted to communicate the identity of the SURB used to reach the mailbox }
+
+\end{frame}
+
