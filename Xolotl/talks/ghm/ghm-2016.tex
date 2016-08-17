@@ -203,9 +203,9 @@ And we need an anonymizing transport that exploits this latency.
 
 Academia's favored alternatives :
 \begin{itemize}
-\item Dining Cryptographers Neworks (DC-nets) \\
+\item Dining Cryptographers Networks (DC-nets) \\
  \hspace*{2pt} Aims for even lower latency. $O(n^2)$ bandwidth. 
-\item Private Inforation Retrieval (PIR) \\
+\item Private Information Retrieval (PIR) \\
  \hspace*{2pt} Highly applications specific.  $O(n^2)$ bandwidth/computation
 \item Verifiable mix networks \\
  \hspace*{2pt} Exposes packet dropping attacks. $O(n^2)$ computation
@@ -216,33 +216,33 @@ Academia's favored alternatives :
 
 \begin{frame}[t]{Onion Routing vs Mix Networks vs ...}
 
-Anonymity tools need ``onion encyption'' and some routing, but..
+Anonymity tools need ``onion encryption'' and some routing, but..
 
 \bigskip
 
 Onion Routing means progressively establishing a fixed channel, \\
-\hspace*{2pt} negotating an ephemeral AKE with each hop. \\
+\hspace*{2pt} negotiating an ephemeral AKE with each hop. \\
 \begin{itemize}
 \item[Good] Stronger forward secrecy.  Inherently flexible.
-\item[Bad] Easy corrolation attacks.
+\item[Bad] Easy correlation attacks.
 \end{itemize}
 
 \medskip
 
 Mix networks encodes all routing and key material into one packet
 \begin{itemize}
-\item[Good] Better against corrolation attacks.
+\item[Good] Better against correlation attacks.
 \item[Bad] Relays cannot use ephemeral key material. 
-\item[Mixed] Less flexible, facelitating analysis. \\
+\item[Mixed] Less flexible, facilitating analysis. \\
   New protocol :  No TCP, UDP, etc.
 \end{itemize}
 
 \end{frame}
 
 
-\begin{frame}{Archetecture}
+\begin{frame}{Architecture}
 
-Email handicapped past mix network efforst like Mixminion \\
+Email handicapped past mix network efforts like Mixminion \\
  \hspace*{10pt} Do not attempt to support email!
 \medskip
 
@@ -252,7 +252,7 @@ A mix network packet has a header, SURB, and body where
 \item the body is encrypted using a wide block cypher, \\
   but not authenticated, and
 \item the Single-Use Reply Block (SURB) is a second header, \\
- \hspace*{2pt} providing recipient and two-way anyonymity.
+ \hspace*{2pt} providing recipient and two-way anonymity.
 \end{itemize}
 \[ \cdots \to S_{k-1} \to S_k \to \textrm{Cross} \to R_1 \to R_2 \to \cdots \]
 
@@ -291,7 +291,7 @@ Solutions :
 \end{itemize}
 
 \bigskip
-Are these measures sufficent?  No. \\
+Are these measures sufficient?  No. \\
  \hspace*{2pt} Rodger might have too many guard nodes.
 
 \end{frame}
@@ -363,7 +363,7 @@ Is this one strategy to rule them all?  No. \\
 \includegraphics[width=0.8\textwidth]{../pics/Sphinx}
 % Mixnets use cryptography in mysterious ways
 
-Sphinx is a packet format for an asychnornous mix network. 
+Sphinx is a packet format for an asynchronous mix network. 
 
 \end{center}
 \end{frame}
