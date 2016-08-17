@@ -74,10 +74,10 @@
 % salamander 
 % gills resemble trees
 % related to tiger salamander 
-% neoteny metamorposis into similar salimander if given enough iodine or hormones 
+% neoteny metamorposis into similar salamander if given enough iodine or hormones 
 
 Off-the-Record messaging: \\
-\hspace*{2pt} Rerun DH key exchange ocasionally 
+\hspace*{2pt} Rerun DH key exchange occasionally 
 
 \bigskip
 
@@ -160,14 +160,14 @@ Suggested questions on Axolotl during lunch, dinner, etc. :
 
 % Tor : ...
 
-\begin{frame}[t]{Anonymity requires latancy}
+\begin{frame}[t]{Anonymity requires latency}
 \begin{columns}[T]
 \column{0.8\textwidth}
 \hspace*{20pt} Can we just improve Tor?
 
 \medskip
 
-\hspace*{5pt} Tor is inherently vulnerable to corrolation attacks \\
+\hspace*{5pt} Tor is inherently vulnerable to correlation attacks \\
  \hspace*{10pt} {\em because} it must deliver many packets quickly.
 
 \bigskip 
@@ -188,9 +188,171 @@ Suggested questions on Axolotl during lunch, dinner, etc. :
 
 \noindent We must therefore build applications to
 \begin{itemize}
-\item be tolerent to high latency, while still
+\item be tolerant to high latency, while still
 \item being compelling to \sout{the anonymity set} users.
 \end{itemize}
+
+\smallskip
+
+And we need an anonymizing transport that exploits this latency.
+
+\end{frame}
+
+
+\begin{frame}[t]{Onion Routing vs Mix Networks vs ...}
+
+Academia's favored alternatives :
+\begin{itemize}
+\item Dining Cryptographers Neworks (DC-nets) \\
+ \hspace*{2pt} Aims for even lower latency. $O(n^2)$ bandwidth. 
+\item Private Inforation Retrieval (PIR) \\
+ \hspace*{2pt} Highly applications specific.  $O(n^2)$ bandwidth/computation
+\item Verifiable mix networks \\
+ \hspace*{2pt} Exposes packet dropping attacks. $O(n^2)$ computation
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}[t]{Onion Routing vs Mix Networks vs ...}
+
+Anonymity tools need ``onion encyption'' and some routing, but..
+
+\bigskip
+
+Onion Routing means progressively establishing a fixed channel, \\
+\hspace*{2pt} negotating an ephemeral AKE with each hop. \\
+\begin{itemize}
+\item[Good] Stronger forward secrecy.  Inherently flexible.
+\item[Bad] Easy corrolation attacks.
+\end{itemize}
+
+\medskip
+
+Mix networks encodes all routing and key material into one packet
+\begin{itemize}
+\item[Good] Better against corrolation attacks.
+\item[Bad] Relays cannot use ephemeral key material. 
+\item[Mixed] Less flexible, facelitating analysis. \\
+  New protocol :  No TCP, UDP, etc.
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{Archetecture}
+
+Email handicapped past mix network efforst like Mixminion \\
+ \hspace*{10pt} Do not attempt to support email!
+\medskip
+
+A mix network packet has a header, SURB, and body where
+\begin{itemize}
+\item the header is an onion of authenticated public-key exchanges,
+\item the body is encrypted using a wide block cypher, \\
+  but not authenticated, and
+\item the Single-Use Reply Block (SURB) is a second header, \\
+ \hspace*{2pt} providing recipient and two-way anyonymity.
+\end{itemize}
+\[ \cdots \to S_{k-1} \to S_k \to \textrm{Cross} \to R_1 \to R_2 \to \cdots \]
+
+\medskip
+\pause
+
+At a high level, our design constraints are to : 
+\begin{itemize}
+\item provide delivery properties using SURBs, and 
+\item ensure users have the necessary SURBs.
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}[t]{Delivery strategy : Instant-ish }
+
+\[ \begin{aligned}
+\textrm{SURBs}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
+\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Cross} \to \cdots \to R_k \to \textrm{Rodger}
+\end{aligned} \]
+
+Issues :
+\begin{itemize}
+\item Sam needs a {\em very recent} SURB from Rodger.  
+\item $R_k$ should hold messages if Rodger went offline, but \\ 
+ \hspace*{2pt} the Rodger's ``Guard'' $R_k$ knows their IP. \\
+\end{itemize}
+
+% \pause
+
+Solutions : 
+\begin{itemize}
+\item Rodger asks Sam not to use his SURBs for long. \\
+\item Rodger sends SURBs to $R_k$ when they connect later.
+\end{itemize}
+
+\bigskip
+Are these measures sufficent?  No. \\
+ \hspace*{2pt} Rodger might have too many guard nodes.
+
+\end{frame}
+
+
+\begin{frame}[t]{Delivery strategy : Checked mailbox}
+
+\[ \begin{aligned}
+\textrm{Long SURBs}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
+\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Cross}
+  \to \cdots \to R_k \to \textrm{Mailbox} \\
+\textrm{Short SURBs}\quad & \textrm{Rodger} \to \cdots \to \textrm{Mailbox} \\
+\textrm{Messages}\quad & \textrm{Mailbox} \to \cdots \to R_k \to \textrm{Rodger}
+\end{aligned} \]
+
+\smallskip
+
+We win lovely delivery properties from the cross-over point 
+ \hspace*{2pt} because Sam cannot flood, hack, etc. Rodger's mailbox server
+
+\smallskip
+
+Yet again :
+\begin{itemize}
+\item Sam needs a {\em less recent} and {\em longer lived} SURBs. % from Rodger.  
+\item $R_k$ still holds messages if Rodger goes offline, but \\
+ \hspace*{2pt} Rodger only provides it {\em short lived} SURBs.
+\end{itemize}
+
+% \pause
+
+\medskip
+Is this enough?  No.  \\
+ \hspace*{2pt} No SURB can live forever!
+
+\end{frame}
+
+
+\begin{frame}[t]{Delivery strategy : Mailbox gateway}
+
+\[ \begin{aligned}
+\textrm{Credential}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
+\textrm{Long SURBs}\quad & \textrm{Rodger} \to \cdots \to \textrm{Gateway} \\
+\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Gateway} \\
+\textrm{Messages}\quad & \textrm{Gateway} \to \cdots \to R_k \to \textrm{Mailbox} \\
+ \cdots
+\end{aligned} \]
+
+% \smallskip
+
+Credentials could be either 
+\begin{itemize}
+\item Single use HMAC tokens to limit Sam's message sending, 
+\item VLR group signatures to let Sam send unlimited messages,
+\item or nothing to allow a public contact point.
+\end{itemize}
+
+\bigskip
+Is this one strategy to rule them all?  No. \\
+ \hspace*{2pt} Sam can easily attack the gateway. \\
+ \hspace*{2pt} And our instant-ish scheme is much faster.
 
 \end{frame}
 
@@ -223,7 +385,7 @@ Sphinx is provably secure in the universal composability model \\
 
 And Sphinx is far more compact than alternatives.
 
-% Ask later about the caveots..
+% Ask later about the caveats..
 
 \bigskip
 
@@ -307,7 +469,7 @@ Yes!  With a Single-Use Reply Block (SURB).
 An anonymous recipient simply
 \begin{itemize}
 \item creates a Sphinx header $(\alpha, \beta, \gamma)$, 
- and a symetric key $k$, 
+ and a symmetric key $k$, 
 \item communicates this to the sender $n$ in advance, and 
 \item remembers these symmetric keys as each hop encrypts $\delta$.
 \end{itemize}
@@ -323,14 +485,14 @@ Problem : SURB lifetime = Node key lifetime
 \end{frame}
 
 
-% delevery : 32c3.tex
+% delivery : 32c3.tex
 
 
 % \begin{frame}{?}
 % \end{frame}
 
 
-\begin{frame}{Post-quantum Sphnx?}
+\begin{frame}{Post-quantum Sphinx?}
 
 A quantum computer factored 15 without cheating last year. \\
 That might not sound like much progress for 20 years, but \\
@@ -344,7 +506,7 @@ We could worry for many decades even if they are impossible!
 \end{frame}
 
 
-\begin{frame}{Post-quantum Sphnx?}
+\begin{frame}{Post-quantum Sphinx?}
 
 We have two seemingly post-quantum key exchanges :
 \begin{itemize}
@@ -353,7 +515,7 @@ We have two seemingly post-quantum key exchanges :
 \end{itemize}
 
 \medskip
-In both cases, we need a blinding operations persumably based on
+In both cases, we need a blinding operations presumably based on
  the key exchange operation, but..
 \begin{itemize}
 \item anonymity is far more delicate than cryptography,
@@ -474,7 +636,7 @@ Ratchet hops improve key erasure, but..
 \medskip
 
 A quantum adversary can evolve all \\
- \hspace*{2pt} ratchets, inculding yours.
+ \hspace*{2pt} ratchets, including yours.
 
 \medskip
 \only<2>{
@@ -485,7 +647,7 @@ First, if ratchets live long enough, then \\
 \medskip
 
 Second, we create new ratchets using \\
-\hspace*{2pt} a post-quantum key excahgne.
+\hspace*{2pt} a post-quantum key exchange.
 
 \smallskip
 
@@ -515,9 +677,6 @@ First, we can judiciously intermix ratchet and non-ratchet hops.
 Second, ratchets need not always be owned by the same user!
 
 \end{frame}
-
-
-
 
 
 
@@ -585,7 +744,7 @@ Shorter lifetime improves:
 
 
 \pause\medskip
-I doubted that SIDH admited the blinding used in Sphinx, \\
+I doubted that SIDH admired the blinding used in Sphinx, \\
 \hspace*{3pt} but recently my opinion has changed. \\
 
 \smallskip
@@ -618,7 +777,7 @@ We have a ring $R = (\Z/p\Z)[x]/\Phi(x)$ where ... \\
  and $p>1024$ is prime. 
 \smallskip
 
-A private key is polynomials $s$ and $e$ with small coefficents, \\
+A private key is polynomials $s$ and $e$ with small coefficients, \\
 \hspace*{3pt} while a public key is a random $a\in R$ and $b = s a + e$.
 
 \pause\smallskip
