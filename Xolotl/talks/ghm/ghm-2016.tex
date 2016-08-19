@@ -21,6 +21,12 @@
 % \usetikzlibrary{cd}
 \usepackage[normalem]{ulem}
 
+% ref. http://tex.stackexchange.com/a/84763
+% \usepackage{pgfpages}
+% \setbeameroption{show notes}
+% \setbeameroption{show notes on second screen=right}
+
+
 \newcolumntype{R}[2]{%
     >{\adjustbox{angle=#1,lap=\width-(#2)}\bgroup}%
     l%
@@ -30,8 +36,7 @@
 
 
 \title{Xolotl}
-\subtitle{Compact mixnet format with hybrid anonymity
- and stronger forward secrecy}
+\subtitle{A compact mixnet format with stronger forward secrecy and hybrid anonymity}
 % Now we have to build a GNU one!
 
 \author[Burdges]{Jeff Burdges}
@@ -58,6 +63,7 @@
 \setcounter{framenumber}{0}
 
 
+
 \begin{frame}{E-mail: Asynchronous messaging}
   \begin{itemize}
   \item Email with GnuPG provides authenticity and confidentiality... % \pause
@@ -67,7 +73,14 @@
 \end{frame}
 
 
-\begin{frame}{Ratchets provide forward-secrecy}
+% \note{
+% Compramise between cypher-punk style vs. rigorous academic style.
+% Explain forward secrecy as compramize window.
+% Comments on tension between key erasure and protecting meta-data.
+% }
+
+
+\begin{frame}{Ratchets provide strong forward-secrecy}
 \begin{columns}[T]
 \column{0.55\textwidth}
 % Mexican walking fish
@@ -194,21 +207,23 @@ Suggested questions on Axolotl during lunch, dinner, etc. :
 
 \smallskip
 
-And we need an anonymizing transport that exploits this latency.
+We also need an anonymizing transport that handles latency well. \\
+
+Among the options, only asynchronous mix networks appear realistic.
 
 \end{frame}
 
 
 \begin{frame}[t]{Onion Routing vs Mix Networks vs ...}
 
-Academia's favored alternatives :
+Anonymizing transports for spherical cows :
 \begin{itemize}
 \item Dining Cryptographers Networks (DC-nets) \\
  \hspace*{2pt} Aims for even lower latency. $O(n^2)$ bandwidth. 
 \item Private Information Retrieval (PIR) \\
- \hspace*{2pt} Highly applications specific.  $O(n^2)$ bandwidth/computation
+ \hspace*{2pt} Highly application specific.  $O(n^2)$ bandwidth/computation
 \item Verifiable mix networks \\
- \hspace*{2pt} Exposes packet dropping attacks. $O(n^2)$ computation
+ \hspace*{2pt} Expose packet dropping attacks. $O(n^2)$ computation
 \end{itemize}
 
 \end{frame}
@@ -221,7 +236,8 @@ Anonymity tools need ``onion encryption'' and some routing, but..
 \bigskip
 
 Onion Routing means progressively establishing a fixed channel, \\
-\hspace*{2pt} negotiating an ephemeral AKE with each hop. \\
+% \hspace*{2pt} 
+negotiating a forward secure ephemeral key exchange with each hop \\
 \begin{itemize}
 \item[Good] Stronger forward secrecy.  Inherently flexible.
 \item[Bad] Easy correlation attacks.
@@ -231,9 +247,9 @@ Onion Routing means progressively establishing a fixed channel, \\
 
 Mix networks encodes all routing and key material into one packet
 \begin{itemize}
-\item[Good] Better against correlation attacks.
+\item[Good] Much better against correlation attacks.
 \item[Bad] Relays cannot use ephemeral key material. 
-\item[Mixed] Less flexible, facilitating analysis. \\
+\item[Mixed] Less flexible, facilitating security analysis. \\
   New protocol :  No TCP, UDP, etc.
 \end{itemize}
 
@@ -261,7 +277,7 @@ A mix network packet has a header, SURB, and body where
 
 At a high level, our design constraints are to : 
 \begin{itemize}
-\item provide delivery properties using SURBs, and 
+\item provide desired delivery properties using SURBs, and 
 \item ensure users have the necessary SURBs.
 \end{itemize}
 
@@ -298,27 +314,28 @@ Are these measures sufficient?  No. \\
 
 
 \begin{frame}[t]{Delivery strategy : Checked mailbox}
-
 \[ \begin{aligned}
 \textrm{Long SURBs}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
 \textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Cross}
   \to \cdots \to R_k \to \textrm{Mailbox} \\
 \textrm{Short SURBs}\quad & \textrm{Rodger} \to \cdots \to \textrm{Mailbox} \\
-\textrm{Messages}\quad & \textrm{Mailbox} \to \cdots \to R_k \to \textrm{Rodger}
+\textrm{Messages}\quad & \textrm{Mailbox} \to \cdots \to R_k \to \textrm{Rodger} \\
+\textrm{Deletion}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Mailbox} 
 \end{aligned} \]
 
 \smallskip
 
-We win lovely delivery properties from the cross-over point 
- \hspace*{2pt} because Sam cannot flood, hack, etc. Rodger's mailbox server
+We win lovely delivery properties from the cross-over point \\
+ \hspace*{2pt} since Sam cannot flood, hack, etc. Rodger's mailbox server.
 
 \smallskip
 
-Yet again :
+% Yet again :
 \begin{itemize}
 \item Sam needs a {\em less recent} and {\em longer lived} SURBs. % from Rodger.  
 \item $R_k$ still holds messages if Rodger goes offline, but \\
- \hspace*{2pt} Rodger only provides it {\em short lived} SURBs.
+ \hspace*{2pt} SURBs using $R_k$ are {\em short lived}. % and \\
+% \hspace*{2pt} maybe Rodger confirms deletion on Mailbox.
 \end{itemize}
 
 % \pause
@@ -344,8 +361,8 @@ Is this enough?  No.  \\
 
 Credentials could be either 
 \begin{itemize}
-\item Single use HMAC tokens to limit Sam's message sending, 
-\item VLR group signatures to let Sam send unlimited messages,
+\item Single-use HMAC tokens to limit Sam's message sending, 
+\item BBS or VLR group signatures for unlimited messages,
 \item or nothing to allow a public contact point.
 \end{itemize}
 
