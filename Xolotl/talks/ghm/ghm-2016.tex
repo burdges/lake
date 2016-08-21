@@ -64,7 +64,7 @@
 
 
 
-\begin{frame}{E-mail: Asynchronous messaging}
+\begin{frame}{Asynchronous messaging aka E-mail}
   \begin{itemize}
   \item Email with GnuPG provides authenticity and confidentiality... % \pause
   \item ... but fails to provide forward secrecy, aka key erasure,
@@ -207,9 +207,8 @@ Suggested questions on Axolotl during lunch, dinner, etc. :
 
 \smallskip
 
-We also need an anonymizing transport that handles latency well. \\
-
-Among the options, only asynchronous mix networks appear realistic.
+We also need an anonymizing transport that handles latency well, \\
+\hspace*{2pt} only asynchronous mix networks appear realistic.
 
 \end{frame}
 
@@ -219,7 +218,7 @@ Among the options, only asynchronous mix networks appear realistic.
 Anonymizing transports for spherical cows :
 \begin{itemize}
 \item Dining Cryptographers Networks (DC-nets) \\
- \hspace*{2pt} Aims for even lower latency. $O(n^2)$ bandwidth. 
+ \hspace*{2pt} Aims for even lower latency. $O(n^2)$ bandwidth
 \item Private Information Retrieval (PIR) \\
  \hspace*{2pt} Highly application specific.  $O(n^2)$ bandwidth/computation
 \item Verifiable mix networks \\
@@ -235,7 +234,7 @@ Anonymity tools need ``onion encryption'' and some routing, but..
 
 \bigskip
 
-Onion Routing means progressively establishing a fixed channel, \\
+Onion routing means progressively establishing a fixed channel, \\
 % \hspace*{2pt} 
 negotiating a forward secure ephemeral key exchange with each hop \\
 \begin{itemize}
