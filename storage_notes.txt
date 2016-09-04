@@ -1,0 +1,100 @@
+
+[ You can probably ignore this email ]
+
+I'm just using Rust's HashMap and HashSet for now, but these are 
+notes to myself about optimizing hash tables of cryptographic key
+material.
+
+We imagine a hash table as storing tuples (k,v) where the k determines
+placement and the value v does not.  And a set stores simply (k,()).
+This is overly simplistic. 
+
+In the cuckoo filter version of a bucketized cuckoo hash table,
+there is potentially a ki in addition to the (kf, v) that get stored.  
+In this, ki determines the the primary index i1 where (kf, v) gets stored, and the secondary index is 
+  i2 = i1 xor siphash(kf)
+where siphash() is a fast non-cryptographic hash function with some
+independence assumptions.  There is ultimately some original key k
+from which ki and kf are derived, but we need not access it for
+manipulating the table.*  
+
+Note the false positive probability here 2b/2^f where b is the number
+of buckets in a hash slot, normally b=4, and f is the bit width of kf,
+normally a u8 or u16.
+
+Replay protection in Sphinx :  
+
+We have a curve point alpha in our header.  We set
+ (ki,kf,..) = H(alpha) and v empty,
+so only kf gets stored.  We could take H to be a cryptographic hash
+function, so the different bit positions should give the necessary
+independence, but then H is expensive and we do not need this
+computation for anything else.  
+
+As alpha is public key material anyways, we might just compute
+  (ki,kf,..) = siphash(s,alpha) 
+where s is a secret key that accompanies the node's private key.
+I need to read [1] and [2] to know if we want this or
+  ki = siphash(s1,alpha) and kf = siphash(s2,alpha).  
+As siphash is not cryptographic, this creates a kind of confirmation
+log file of all the packets seen, but that seems harmless.  A worse
+issue is that an adversary can try to selectively poison the table,
+but maybe keeping s or s1 and s2 secret handles that.
+
+In this vein, I wonder if there might be a filter-like data structure
+that exploits an assumption that positive results are never expected.
+That might be useful for replay protection.
+
+Axolotl with side keys :  
+
+We need to store a secret key material v and locate it by it's hash 
+h = H(v).  Actually I doubt these require high performance, but if so:
+We do not want to store h along with v.  Yet, we cannot allow a typical
+hash table implementation to rerun H because H is a slow cryptographic
+hash function.   We might try a cuckoo filter like approach that stores
+a non-empty v here.  After we've located our likely v then we simply
+verify it by computing h = H(v), before returning v, deleting the entry,
+or whatever.  Again, I must read [1] to figure out if it suffices to use
+  (ki, kf) = siphash(s,h) where h is supplied by our contact, 
+but should be H(v), and s is a node secret.  Or if we need something more complex.  We do not want an adversary to be able to do strange things to our hash table. If key material loss seems unacceptable, then an auxiliary data structure can be used for overflow.  
+
+Now there was never any need to store all of h here.  At best all this
+saves us storing ki, say 16 bits at most.  If v were only 128 bits,
+that's only a 12.5% savings in key material storage. 
+
+There are various techniques like Robin Hood hashing that might not be compatible with this xor trick from Cuckoo filters, but offer larger advantages when actually storing data.  Also, it'd be interesting if there was a data structure that exploits an assumption that values should be retrieved exactly once.
+
+Xolotl ratchets :  
+
+Just a vanilla key-value store implemented with any fast hash table.
+There is a single initial secret t but we derive the ratchet's name n
+and the initial secret chain key using independent cryptographic hash
+functions, so both must be stored without clever optimizations.  
+There is a second key-value store for skipped link keys and hashes of
+message keys saved for creating new ratchets, but that's a key-value
+store keyed by simply siphash(name,index). 
+
+We could combine both these key-value stores into a single store of
+secret key material v indexed by H(v) as with side keys described above.
+In doing this, we ensure that honest nodes do not posses records to
+correlate ratchet usage, which rocks.  I worry however that nodes 
+cannot now clear out the old hashes of message keys saved for creating
+new ratchets, so the eviction rate must be a fairly fast constant.
+We could maybe have two layers of Axolotl like fins here with different
+performances, a long lived one that spawns short lived ones.  
+
+I should chat with Christian about this this week. 
+
+Best,
+Jeff
+
+[1] "Differential Cryptanalysis of SipHash" by Christoph Dobraunig, Florian Mendel, and Martin Schlaffer 
+[2] "On Risks of Using Cuckoo Hashing with Simple Universal Hash Classes" by Martin Dietzfelbinge and Ulf Schellbach
+
+
+
+* I noticed a mistake in a cuckoo filter implementation for Rust : 
+It uses the same hash for the primary index hash ki and fingerprint kf,
+reducing the entire library to a bad hash table. 
+
+
