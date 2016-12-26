@@ -1,0 +1,23 @@
+/*
+We note that the array_refs! macro lacks any sort of proper review
+according to https://github.com/droundy/arrayref/issues/2 but our
+usage seems pretty benign.  I suppose neither array_refs! nor my
+mem::transmute based version are robust against changing the key
+size to sizes not divisible by the alignemnt, but that should never
+happen and the array_refs! versin should fail to compile.
+Suggestion due to @droundy : https://github.com/droundy/arrayref/issues/5
+We could avoid using either by using clone_from_slice, maybe via
+this helper recommended in http://stackoverflow.com/a/37679442/667457
+
+use std::convert::AsMut;
+
+fn clone_into_array<A, T>(slice: &[T]) -> A
+    where A: Sized + Default + AsMut<[T]>,
+          T: Clone
+{
+    let mut a = Default::default();
+    <A as AsMut<[T]>>::as_mut(&mut a).clone_from_slice(slice);
+    a
+}
+*/
+
