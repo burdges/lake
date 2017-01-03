@@ -143,8 +143,8 @@ pub type TwigIdxT = u16;
 pub struct TwigIdx(pub TwigIdxT);
 
 
-/// An TwigIdx's low ChainVsTrainWidth bits determin the chain
-/// position.  It's high 16-ChainVsTrainWidth bits determine the
+/// An TwigIdx's low CHAIN_V_TRAIN_WIDTH bits determin the chain
+/// position.  It's high 16-CHAIN_V_TRAIN_WIDTH bits determine the
 /// train position. 
 ///
 /// Increasing optimizes storage for honest packets recieved in
@@ -152,9 +152,9 @@ pub struct TwigIdx(pub TwigIdxT);
 /// We choose 5 bits giving 32 chain keys per chain, or 512 bytes,
 /// along with at most 3*(16-5) = 33 additional train and chain keys
 /// to reach the chan, so malicious packets can waste at most 1kb.  
-const ChainVsTrainWidth : u8 = 5;
+const CHAIN_V_TRAIN_WIDTH : u8 = 5;
 
-pub const TRAIN_START : TwigIdx = TwigIdx( 1 << ChainVsTrainWidth );
+pub const TRAIN_START : TwigIdx = TwigIdx( 1 << CHAIN_V_TRAIN_WIDTH );
 
 const CHAIN_MASK : TwigIdxT = TRAIN_START.0 - 1;
 
@@ -173,12 +173,12 @@ impl TwigIdx {
 
     /// Split an TwigIdx into train and chain parts.
     fn split(idx : TwigIdx) -> (u16,u16) {
-        (idx.0 >> ChainVsTrainWidth, idx.0 & CHAIN_MASK)
+        (idx.0 >> CHAIN_V_TRAIN_WIDTH, idx.0 & CHAIN_MASK)
     }
 
     /// Make an TwigIdx from train and chain parts.
     fn make(i: u16, j: u16) -> TwigIdx {
-        TwigIdx( (i << ChainVsTrainWidth) + (j & CHAIN_MASK) )
+        TwigIdx( (i << CHAIN_V_TRAIN_WIDTH) + (j & CHAIN_MASK) )
     }
 
     // /// Increment TwigIdx when wrapping cannot happen.
@@ -193,7 +193,7 @@ impl TwigIdx {
     /// Says if we progress to the next train step.
     fn is_pure_train(self) -> bool  {  (self.0 & CHAIN_MASK) == 0  }
 
-    fn is_okay_train(i: u16) -> bool  {  i < (TwigIdxT::max_value() >> ChainVsTrainWidth)  }
+    fn is_okay_train(i: u16) -> bool  {  i < (TwigIdxT::max_value() >> CHAIN_V_TRAIN_WIDTH)  }
 
     /// Unique parent of train position
     fn train_parent(i: u16) -> Option<u16>
@@ -202,7 +202,7 @@ impl TwigIdx {
     /// Two children of train position
     fn train_children(i: u16) -> Option<(u16,u16)>
         {  if Self::is_okay_train(2*i) { Some((2*i, 2*i+1)) } else { None }  }
-        // Assumes ChainVsTrainWidth > 0 so fix if that changes
+        // Assumes CHAIN_V_TRAIN_WIDTH > 0 so fix if that changes
 }
 
 /// We manually implement Hash for TwigIdx to impose little

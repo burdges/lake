@@ -4,19 +4,16 @@
 //!
 //! ...
 
-use super::MessageKey;
-use ::sphinx::SphinxSecret;
-
-use super::twig::*;
-
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-// use std::hash::{Hash, Hasher};
 use std::fmt;
 use rustc_serialize::hex::ToHex;
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 
+use super::MessageKey;
+use ::sphinx::SphinxSecret;
+
+use super::twig::*;
 
 /// We keep an extra 256 bit secret symetric key associated to any
 /// hash iteration ratchet, which raises our longer term security

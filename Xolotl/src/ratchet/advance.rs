@@ -1,11 +1,10 @@
 // Copyright 2016 Jeffrey Burdges 
 
-//! Advance Xolotl ratchet transaction
+//! Advance transaction for Xolotl ratchet
 
 use std::collections::{HashMap,HashSet};
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::ops::{Deref,DerefMut};
-
+use std::sync::Arc; // RwLock, RwLockReadGuard, RwLockWriteGuard
+use std::ops::Deref; // DerefMut
 
 use super::branch::*;
 use super::twig::*;
@@ -191,8 +190,7 @@ impl Advance {
         };
         
         // Avoid holding branches read lock during crypto.  
-        // We could do this lexically, or by splitting off another
-        // `new`, but this should work fine.
+        // We could do this lexically perhaps, but this should work fine.
         ::std::mem::drop(branches);
 
         let tid = TwigId(parent_bid, branch_id.berry());

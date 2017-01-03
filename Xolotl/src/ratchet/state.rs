@@ -5,8 +5,9 @@
 //! ...
 
 use std::collections::{HashMap,HashSet};
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock}; // RwLockReadGuard, RwLockWriteGuard
 use std::ops::{Deref,DerefMut};
+// use std::hash::{Hash, Hasher};
 
 use super::super::state::*;
 

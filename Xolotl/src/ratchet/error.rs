@@ -4,7 +4,7 @@
 
 use std::error::Error;
 use std::convert::From;
-use std::marker::PhantomData;
+// use std::marker::PhantomData;
 use std::fmt;
 
 use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
@@ -70,8 +70,8 @@ impl Error for XolotlError {
 macro_rules! impl_XolotlPoisonError {
     ($l:ident, $t:ident) => {
         impl<'a> From<::std::sync::PoisonError<$l<'a, $t>>> for XolotlError {
-            fn from(e: ::std::sync::PoisonError<$l<'a, $t>>) -> XolotlError {
-                // e.get_mut()
+            fn from(_: ::std::sync::PoisonError<$l<'a, $t>>) -> XolotlError {
+                // _.get_mut()
                 XolotlError::PoisonError(stringify!($l),stringify!($t))
             }
         }
