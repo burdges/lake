@@ -210,18 +210,21 @@ impl Advance {
         })
     }
 
-    fn get_twig(&self, tid: &TwigId) -> Result<TwigState,XolotlError> {
-        self.branch_id.get_twig(tid)
+    fn get_twig(&self, idx: TwigIdx) -> Result<TwigState,XolotlError> {
+        let tid = TwigId(*self.branch_id.id(), idx);
+        self.branch_id.get_twig(&tid)
     }
 
-    fn get_twigy<T: Twigy>(&self, tid: &TwigId) -> Result<T,XolotlError> {
-        self.branch_id.get_twigy(tid)
+    fn get_twigy<T: Twigy>(&self, idx: TwigIdx) -> Result<T,XolotlError> {
+        let tid = TwigId(*self.branch_id.id(), idx);
+        self.branch_id.get_twigy(&tid)
     }
 
 }
 
 
-/* 
+/*
+
 impl Advance {
     fn fetch_key(&self, idx: TwigIdx) -> Option<TwigState> {
         let s = self.storage.read().unwrap();  // FIXME PoisonError
@@ -247,7 +250,9 @@ impl Advance {
     fn do_chain_step(&mut self, idx: TwigIdx) -> R<LinkKey> {
         let linkkey: LinkKey;
 
-        let sk = match self.fetch_key(idx) {
+        let sk = match self.branch_id.get_twig(idx) ?;
+
+fetch_key(idx) {
             None => return Err(KeyNotFound),
             Some(x) => x
         };
@@ -320,8 +325,10 @@ impl Advance {
         }
     }
 }
+*/
 
 
+/* 
 
 pub struct AdvanceTwigUser(AdvanceTwig);
 
