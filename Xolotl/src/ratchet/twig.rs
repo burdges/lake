@@ -8,6 +8,9 @@ use super::branch::*;
 
 use std::hash::{Hash, Hasher};
 
+use std::fmt;
+use rustc_serialize::hex::ToHex;
+
 
 /// We store only a 128-2 = 126 bit secret symetric keys in a hash
 /// iteration ratchet step to reduce our storage reuirements.  
@@ -19,35 +22,48 @@ pub type TwigKey = [u8; 16];
 /// Train keys are faster chain keys that iterate in a tree.
 /// Iterating the train key with index i yields the train keys with
 /// indices 2 i and 2 i+1 along with a chain key and a link key.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct TrainKey(pub TwigKey); 
+
+impl_KeyDrop!(TrainKey);
 
 /// Chain keys iterate linearly, yielding the next chain key and
 /// a link key.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct ChainKey(pub TwigKey);
+
+impl_KeyDrop!(ChainKey);
 
 /// Link keys are combined with a Sphinx shared secret to produce
 /// a message key and a berry key to be stored.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct LinkKey(pub TwigKey);
 
+impl_KeyDrop!(LinkKey);
+
 /// Berry keys can be used to start a new hash iteration ratchet.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct BerryKey(pub TwigKey);
+
+impl_KeyDrop!(BerryKey);
 
 /// Mask for teh two bits we deduct from a TwigKey to identify its type.
 const TWIG_KEY_TYPE_MASK: u8 = 0x03;
 
 /// Associated constant to record the twig key type for storage
-pub trait Twigy {
+pub trait Twigy : Sized {
     /// Key Type
     const KEYTYPE: u8;
+
     #[inline]
-    fn assert_twigy(&self);
+    fn verify(t: TwigKey) -> Result<Self,u8>;
+
+    #[inline]
+    fn debug_assert_twigy(&self);
 }
 
 /// Enum for twig keys types returned by fetch
+#[derive(Debug, Clone)] // Default, Copy
 pub enum TwigState {
     Train(TrainKey),
     Chain(ChainKey),
@@ -58,8 +74,7 @@ pub enum TwigState {
 macro_rules! impl_Twigy {
     ($a:ident,$e:ident,$v:expr) => {
         impl $a {
-            pub fn new(t0: TwigKey) -> $a {
-                let mut t = t0;
+            pub fn make(mut t: TwigKey) -> $a {
                 t[0] &= ! TWIG_KEY_TYPE_MASK;
                 t[0] |= $v;
                 $a(t)
@@ -75,9 +90,14 @@ macro_rules! impl_Twigy {
 
         impl Twigy for $a { 
             const KEYTYPE: u8 = $v;
-            #[inline]
-            fn assert_twigy(&self) {
-                assert_eq!(self.0[0] & TWIG_KEY_TYPE_MASK, Self::KEYTYPE);
+
+            fn verify(t: TwigKey) -> Result<$a,u8> {
+                let ty: u8 = t[0] & TWIG_KEY_TYPE_MASK;
+                if ty == $v { Ok($a(t)) } else { Err(ty) }
+            }
+
+            fn debug_assert_twigy(&self) {
+                debug_assert_eq!(self.0[0] & TWIG_KEY_TYPE_MASK, Self::KEYTYPE);
             }
         }
     };
@@ -121,6 +141,7 @@ pub type TwigIdxT = u16;
 /// Index of a twig in a Xolotl ratchet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TwigIdx(pub TwigIdxT);
+
 
 /// An TwigIdx's low ChainVsTrainWidth bits determin the chain
 /// position.  It's high 16-ChainVsTrainWidth bits determine the
@@ -196,9 +217,17 @@ impl Hash for TwigIdx {
 // In storage, twigs are identified by the branch they inhabit
 // along with their index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct TwigId(BranchId, TwigIdx);
+pub struct TwigId(pub BranchId, pub TwigIdx);
+
+impl fmt::Display for TwigId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TwigId({},{})", self.0, (self.1).0)
+    }
+}
+
 
 /// A twigs' index and state together
+#[derive(Debug, Clone)]
 pub struct TwigIS(pub TwigIdx,pub TwigState);
 
 

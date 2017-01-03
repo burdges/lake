@@ -22,6 +22,7 @@ pub type BranchLocks = HashSet<BranchId>;
 
 /// The value site of a cached record of a failed advance transaction,
 /// excludes the BranchId which acts as a key.
+#[derive(Debug)] // Clone
 pub struct AdvanceFailValue {
     /// Copy of the branch data in case it does not exist in the table
     pub branch: Branch,
@@ -38,6 +39,7 @@ pub type AdvanceFailCache = HashMap<BranchId,AdvanceFailValue>;
 
 pub type AdvanceDropErrors = Vec<XolotlError>;
 
+#[derive(Debug)]
 pub struct State {
     /// Branch storage tabel, saved to disk.
     pub branches: RwLock<BranchStorage>,
@@ -62,7 +64,7 @@ pub struct State {
 impl State {
     /// Identify a branch's parent branch.
     pub fn parent_id(&self, family: BranchName) -> Result<BranchId,XolotlError> {
-        let parents = self.parents.read()?.deref(); // PoisonError
+        let parents = self.parents.read() ?; // PoisonError
         if let Some(parent_bid) = parents.get(&family) {
             Ok(*parent_bid)
         } else {
@@ -73,7 +75,8 @@ impl State {
 
 /// Create a locked branch identifier.
 pub fn lock_branch_id(state: &Arc<State>, bid: BranchId) -> Result<BranchIdGuard,XolotlError> {
-    let mut locked = state.locked.write()?.deref_mut(); // PoisonError
+    let mut locked = state.locked.write() ?; // PoisonError
+    // let mut locked = wtf.deref_mut(); 
     if locked.insert(bid) {
         Ok( BranchIdGuard( state.clone(), bid ) )
     } else {
@@ -81,7 +84,8 @@ pub fn lock_branch_id(state: &Arc<State>, bid: BranchId) -> Result<BranchIdGuard
     }
 }
 
-/// RAII lock for a branch identifier. 
+/// RAII lock for a branch identifier.
+#[derive(Debug, Clone)]
 pub struct BranchIdGuard( pub Arc<State>, pub BranchId );
 
 impl Drop for BranchIdGuard {
@@ -89,7 +93,7 @@ impl Drop for BranchIdGuard {
     fn drop(&mut self) {
         let mut err = self.0.advance_drop_errors.write().unwrap(); // Panic on PoisonError
         match self.0.locked.write() {
-            Ok(l) => { l.deref_mut().remove(self.id()); },
+            Ok(mut l) => { l.deref_mut().remove(self.id()); },
             Err(e) => { err.push(e.into()); }
         }
     }
@@ -100,6 +104,32 @@ impl BranchIdGuard {
     pub fn id(&self)-> &BranchId { &self.1 }
     pub fn family(&self) -> BranchName { self.id().family }
     pub fn berry(&self) -> TwigIdx { self.id().berry }
+
+    /// Retrieve unspecified twig type.  Throw MissingTwig error if
+    /// not found.  Avoids holding twigs read lock.
+    pub fn get_twig(&self, tid: &TwigId) -> Result<TwigState,XolotlError> {
+        let twigs = self.state().twigs.read() ?;  // PoisonError
+        if let Some(tk) = twigs.get(tid) {
+            Ok( TwigState::new(*tk) )
+        } else {
+            Err( XolotlError::MissingTwig(*tid) )
+        }
+    }
+
+    /// Retrieve a specific twig type.  Throw error MissingTwig if
+    /// not found or WrongTwigType error if type does not match.
+    /// Avoids holding twigs read lock.
+    pub fn get_twigy<T: Twigy>(&self, tid: &TwigId) -> Result<T,XolotlError> {
+        let twigs = self.state().twigs.read() ?;  // PoisonError
+        if let Some(x) = twigs.get(tid) {
+            match T::verify(*x) {
+                Ok(y) => Ok(y),
+                Err(e) => Err( XolotlError::WrongTwigType(*tid,e,T::KEYTYPE) )
+            }
+        } else {
+            Err( XolotlError::MissingTwig(*tid) )
+        }
+    }
 }
 
 
@@ -115,11 +145,14 @@ pub fn create_initial_branch(state: &Arc<State>, seed: &[u8])
 
     // FIXME How do we ensure these write locks do not persist beyond
     //   their lines?  logging?
-    let bs: &mut BranchStorage = state.branches.write()?.deref_mut();  // PoisonError
-    bs.insert(bid, branch);
-    let ps: &mut ParentStorage = state.parents.write()?.deref_mut();  // PoisonError
+    let mut branches = state.branches.write() ?;  // PoisonError
+    let bs: &mut BranchStorage = branches.deref_mut();  
+    bs.insert(bid, branch.clone());
+    let mut parents = state.parents.write() ?;  // PoisonError
+    let ps: &mut ParentStorage = parents.deref_mut();  
     ps.insert(branch.child_family_name(), bid);
-    let ts: &mut TwigStorage = state.twigs.write()?.deref_mut();  // PoisonError
+    let mut twigs = state.twigs.write() ?;  // PoisonError
+    let ts: &mut TwigStorage = twigs.deref_mut();  
     ts.insert(tid, tk.0);
 
     // FIXME How do we ensure branch_id lives this long?  logging?

@@ -14,10 +14,11 @@ use super::twig::*;
 use super::state::*;
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum XolotlError {
     BranchAlreadyLocked(BranchId),
-    MissingBerry(u8,TwigId),
+    MissingTwig(TwigId),
+    WrongTwigType(TwigId,u8,u8),
     MissingBranch(BranchId),
     MissingParent(BranchName),
     CorruptBranch(BranchId, &'static str),
@@ -30,8 +31,10 @@ impl fmt::Display for XolotlError {
         match *self {
             BranchAlreadyLocked(bid)
                 => write!(f, "Branch {} already locked.  Did you make a promise?", bid),
-            MissingBerry(tid)
-                => write!(f, "Missing berry {}.", tid),
+            MissingTwig(tid)
+                => write!(f, "Missing train key {}.", tid),
+            WrongTwigType(tid,found,expected)
+                => write!(f, "Twig {} had type {:x} when {:x} expected.", tid, found, expected),
             MissingBranch(bid)
                 => write!(f, "Missing branch {}.", bid),
             MissingParent(bn)
@@ -53,7 +56,8 @@ impl Error for XolotlError {
         use self::XolotlError::*;
         match *self {
             BranchAlreadyLocked(_) => None,
-            MissingBerry(_) => None,
+            MissingTwig(_) => None,
+            WrongTwigType(_,_,_) => None,
             MissingBranch(_) => None,
             MissingParent(_) => None,
             CorruptBranch(_,_) => None,

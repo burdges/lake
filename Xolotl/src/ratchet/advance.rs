@@ -67,12 +67,11 @@ impl Transaction for Advance {
         if self.inserts.len() == 0 { return Ok(()); }
         if self.insert_branch.is_none() {
             // Add branch data
-            let mut branches = self.state().branches.write()?.deref_mut(); //  PoisonError
-            branches.insert(*self.branch_id.id(), self.branch);
+            let mut branches = self.state().branches.write() ?; //  PoisonError
+            branches.insert(*self.branch_id.id(), self.branch.clone());
 
             // Add parents link from children's family name to our branch_id
-            let parents: &mut ParentStorage = self.state()
-              .parents.write()?.deref_mut(); // PoisonError
+            let mut parents = self.state().parents.write() ?; // PoisonError
             parents.insert(self.branch.child_family_name(), *self.branch_id.id());
 
             // Identify the berry from which we grew
@@ -81,7 +80,7 @@ impl Transaction for Advance {
             berry = Some( TwigId(parent_bid, self.branch_id.berry()) );
         }
 
-        let mut twigs = self.state().twigs.write()?.deref_mut(); // PoisonError
+        let mut twigs = self.branch_id.0.twigs.write() ?; // PoisonError
 
         // Erase the berry from which we grew
         let _ = berry.map(|b| twigs.remove(&b));
@@ -101,21 +100,22 @@ impl Transaction for Advance {
 
     fn abandon(&mut self) -> Result<(),XolotlError> {
         if self.inserts.len() == 0 { return Ok(()); }
-        let inserts = self.inserts.drain(..).map( |TwigIS(idx,tk)| (idx,tk) );
+        let mut inserts0 = ::std::mem::replace(&mut self.inserts, Vec::new());
+        let inserts = inserts0.drain(..).map( |TwigIS(idx,tk)| (idx,tk) );
 
         // let insert_branch = self.insert_branch.map(|| Some(self.branch));
-        let cached: &mut AdvanceFailCache = self.state().cached.write()?.deref_mut(); //  PoisonError
+        let mut cached = self.state().cached.write() ?; //  PoisonError
         if let Some( &mut AdvanceFailValue {
             branch: ref mut c_branch,
             insert_branch: ref mut c_insert_branch,
             inserts: ref mut hm
           } ) = cached.get_mut(self.branch_id.id()) {
 
-            let s: &'static str = match (self.insert_branch,*c_insert_branch) {
-                (None,None) => "in abandon() when inserting from neither self nor cache",
-                (Some(_),None) => panic!("Branch lost from cached"),
-                (None,Some(_)) => "in abandon() when inserting from cache",
-                (Some(_),Some(_)) => "in abandon() when inserting ???",
+            let s: &'static str = match (self.insert_branch.is_some(),c_insert_branch.is_some()) {
+                (false,false) => "in abandon() when inserting from neither self nor cache",
+                (true,false) => panic!("Branch lost from cached"),
+                (false,true) => "in abandon() when inserting from cache",
+                (true,true) => "in abandon() when inserting ???",
             };
             if self.branch.extra != c_branch.extra {  // constant time
                 return Err(XolotlError::CorruptBranch(*self.branch_id.id(), s));
@@ -132,34 +132,42 @@ impl Transaction for Advance {
             //    hm.insert(idx,tk);
             // }
 
-        } else {
-
-            let hm: HashMap<TwigIdx,TwigState> = inserts.collect();
-            // In fact collect() does handle length correctly,
-            // making it equivelent to:
-            // let hm = HashMap::<TwigIdx,TwigState>::with_capacity(self.inserts.len());
-            // hm.extend(self.inserts.drain(..));
-
-            cached.insert(*self.branch_id.id(), AdvanceFailValue {
-                branch: self.branch,
-                insert_branch: self.insert_branch,
-                inserts: hm
-            } );
-
+            return Ok(());
         }
+
+        let hm: HashMap<TwigIdx,TwigState> = inserts.collect();
+        // In fact collect() does handle length correctly,
+        // making it equivelent to:
+        // let hm = HashMap::<TwigIdx,TwigState>::with_capacity(self.inserts.len());
+        // hm.extend(self.inserts.drain(..));
+
+        cached.insert(*self.branch_id.id(), AdvanceFailValue {
+            branch: self.branch.clone(),
+            insert_branch: self.insert_branch.clone(),
+            inserts: hm
+        } );
+
         Ok(())
     }
 }
 
 impl Drop for Advance {
     fn drop(&mut self) {
-        let mut err = self.state().advance_drop_errors.write().unwrap(); // Panic on PoisonError
-        if let Err(e) = self.abandon() { err.push(e); }
+        let err = match self.abandon() { 
+            Err(e) => e.clone(),  // Only place XolotlError gets cloned?
+            Ok(()) => return,
+        };
+
+        let mut ade = self.state().advance_drop_errors.write().unwrap(); // Panic on PoisonError
+        ade.push(err);
         // ::std::mem::drop(self.branch_id);
     }
 }
 
 impl Advance {
+    /*
+    // We found this forumation required excessive calls to clone()
+
     /// Begin a transaction to advance the ratchet on the branch `bid`.
     pub fn new(state: &Arc<State>, bid: BranchId)
       -> Result<Advance,XolotlError> {
@@ -170,36 +178,45 @@ impl Advance {
 
     /// Begin a transaction to advance the ratchet on a locked branch identity.
     fn new_from_locked_branch_id(branch_id: BranchIdGuard)
+     -> Result<Advance,XolotlError> {
+    */
+
+    /// Begin a transaction to advance the ratchet on the branch `bid`.
+    pub fn new(state: &Arc<State>, bid: BranchId)
       -> Result<Advance,XolotlError> {
-        let branches = branch_id.state().branches.read() ?;  // PoisonError
+
+        // We found passing in branch_id required an unecessary call to clone
+        let branch_id = lock_branch_id(state,bid) ?;
+
+        let state = branch_id.0.clone();
+        let branches = state.branches.read() ?;  // PoisonError
 
         if let Some(br) = branches.get(branch_id.id()) {
             return Ok(Advance {
+                branch: br.clone(),
                 branch_id: branch_id,
-                branch: *br,
                 insert_branch: None,
                 inserts: Vec::new(), // zero capasity, no allocation
             })
         }
 
-        let parent_bid = branch_id.state().parent_id(branch_id.family()) ?;
+        /* branch_id.state() */
+        let parent_bid = state.parent_id(branch_id.family()) ?;
           // PoisonError, MissingParentBranch
-        let parent = if let Some(parent0) = branches.get(&parent_bid) { parent0 } else {
+        let parent = if let Some(p) = branches.get(&parent_bid) { p.clone() } else {
             return Err(XolotlError::MissingBranch(parent_bid));
         };
-
-        let twigs = branch_id.state().twigs.read() ?;  // PoisonError
-        let t = TwigId(parent_bid, branch_id.berry());
-        let berrykey = if let Some(b) = twigs.get(&t) { b } else
-           { return XolotlError::MissingBerry(t); };
-
+        
         // Avoid holding branches read lock during crypto.  
-        // We could do this lexically, or by splitting of yet another `new`,
-        // but those seems unecessary.
+        // We could do this lexically, or by splitting off another
+        // `new`, but this should work fine.
         ::std::mem::drop(branches);
-        ::std::mem::drop(twigs);
 
-        let (child_bid,branch,tk) = parent.kdf_branch(branch_id.berry(), berrykey);
+        let tid = TwigId(parent_bid, branch_id.berry());
+        let berrykey: BerryKey = branch_id.get_twigy(&tid) ?;
+          // PoisonError, MissingTwig, WrongTwigType
+
+        let (child_bid,branch,tk) = parent.kdf_branch(branch_id.berry(), &berrykey);
         if child_bid != *branch_id.id() {
             // The parent's table entry or extra key looks corrupted.
             return Err(XolotlError::CorruptBranch(parent_bid,"as parent"));
@@ -211,11 +228,20 @@ impl Advance {
             inserts: Vec::new(), // zero capasity, no allocation
         })
     }
+
+    fn get_twig(&self, tid: &TwigId) -> Result<TwigState,XolotlError> {
+        self.branch_id.get_twig(tid)
+    }
+
+    fn get_twigy<T: Twigy>(&self, tid: &TwigId) -> Result<T,XolotlError> {
+        self.branch_id.get_twigy(tid)
+    }
+
 }
 
 
 /* 
-impl AdvanceTwig {
+impl Advance {
     fn fetch_key(&self, idx: TwigIdx) -> Option<TwigState> {
         let s = self.storage.read().unwrap();  // FIXME PoisonError
         s.fetch(TwigId(self.branch_id, idx)).map( |k| TwigState::new(k) )

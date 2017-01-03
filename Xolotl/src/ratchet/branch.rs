@@ -10,7 +10,9 @@ use ::sphinx::SphinxSecret;
 use super::twig::*;
 
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::hash::{Hash, Hasher};
+// use std::hash::{Hash, Hasher};
+use std::fmt;
+use rustc_serialize::hex::ToHex;
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
@@ -26,8 +28,11 @@ use crypto::sha3::Sha3;
 /// In principle, we could employ only a 128 bit extra key here, as
 /// an adversary probably cannot gain enough information to deploy
 /// Grover's algorithm against any given hash iteration step.
-#[derive(Debug, Default, Clone, Copy)] // Hash
+#[derive(Debug, Default, Clone)] // Hash
 pub struct ExtraKey(pub [u8; 32]);
+
+impl_KeyDrop!(ExtraKey);
+
 
 /// Use constant time equality for `ExtraKey`.  Arguably, one should not
 /// provide `==` and force users to do it manually, but this seems safer.
@@ -37,8 +42,6 @@ impl PartialEq for ExtraKey {
     }
 }
 impl Eq for ExtraKey { }
-
-// impl_Display_as_hex_for_WrapperStruct!(ExtraKey);
 
 
 /// Identifying name for a ratchet branch.
@@ -52,7 +55,11 @@ pub struct BranchName(pub [u8; 16]);
 // We derive all these traits partially for use in HashMap, but
 // afaik no reason for PartialOrd or Ord yet, no BinaryHeap.
 
-impl_Display_as_hex_for_WrapperStruct!(BranchName);
+impl fmt::Display for BranchName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BranchName({})", self.0.to_hex())
+    }
+}
 
 
 // In storage, branches are identified by their parent branch's name,
@@ -65,7 +72,7 @@ pub struct BranchId {
 
 impl fmt::Display for BranchId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BranchId({:x},{})", self.family, self.berry)
+        write!(f, "BranchId({},{})", self.family.0.to_hex(), self.berry.0)
     }
 }
 
@@ -73,6 +80,7 @@ impl fmt::Display for BranchId {
 /// Branchs grow from leaves and DH key exchanges.  A branch's BranchId
 /// used for storage must be tracked seperately by trasaction objects.
 // #[repr(packed)]
+#[derive(Debug, Clone)] // Hash
 pub struct Branch {
     /// A branch stores an extra 256 bits of key material beyond
     /// the 128 bits stored in twigs to support post-quantum security.
@@ -117,7 +125,7 @@ impl Branch {
     /// Advance a train twig
     pub fn kdf_train(&self, i: TwigIdx, ck: &TrainKey)
             -> (TrainKey, TrainKey, ChainKey, LinkKey) {
-        ck.assert_twigy();
+        ck.debug_assert_twigy();
 
         let mut r = [0u8; 4*16];
         debug_assert_eq!(::std::mem::size_of_val(&r),
@@ -144,14 +152,14 @@ impl Branch {
         // (TrainKey(r[0..15]), TrainKey(r[16..31]),
         //  ChainKey(r[32..47]), LinkKey(r[48..63]))
         let (a,b,c,d) = array_refs![&r,16,16,16,16];
-        (TrainKey::new(*a), TrainKey::new(*b), ChainKey::new(*c), LinkKey::new(*d))
+        (TrainKey::make(*a), TrainKey::make(*b), ChainKey::make(*c), LinkKey::make(*d))
         // r
     }
 
     /// Advance a chain twig
     pub fn kdf_chain(&self, i: TwigIdx, ck: &ChainKey)
             -> (ChainKey,LinkKey) {
-        ck.assert_twigy();
+        ck.debug_assert_twigy();
 
         let mut r = [0u8; 2*16];
         debug_assert_eq!(::std::mem::size_of_val(&r),
@@ -177,14 +185,14 @@ impl Branch {
 
         // (ChainKey(r[0..15]), LinkKey(r[15..31]))
         let (a,b) = array_refs![&r,16,16];
-        (ChainKey::new(*a), LinkKey::new(*b))
+        (ChainKey::make(*a), LinkKey::make(*b))
         // r
     }
 
     /// Sphinx berry KDF
     pub fn kdf_berry(&self, linkkey: &LinkKey, s: &SphinxSecret)
             -> (MessageKey, BerryKey) {
-        linkkey.assert_twigy();
+        linkkey.debug_assert_twigy();
 
         let mut r = [0u8; 32+16];
         debug_assert_eq!(::std::mem::size_of_val(&r),
@@ -211,14 +219,14 @@ impl Branch {
 
         // (MessageKey::new(r[0..31]), BerryKey(r[32..47]))
         let (a,b) = array_refs![&r,32,16];
-        (MessageKey::new(*a), BerryKey::new(*b))
+        (MessageKey::new(*a), BerryKey::make(*b))
         // r
     }
 
     /// Produce a new branch from a berry
     pub fn kdf_branch(&self, i: TwigIdx, bk: &BerryKey)
             -> (BranchId, Branch, TrainKey) {
-        bk.assert_twigy();
+        bk.debug_assert_twigy();
 
         let mut r = [0u8; 32+16];
         debug_assert_eq!(::std::mem::size_of_val(&r),
@@ -246,7 +254,7 @@ impl Branch {
                 extra: ExtraKey(*e),   // ExtraKey(r[0..31])
                 chain: TRAIN_START,
             }, 
-            TrainKey::new(*t)  // BranchName(r[32..47])
+            TrainKey::make(*t)  // BranchName(r[32..47])
         )
     }
 
@@ -272,10 +280,22 @@ impl Branch {
                 extra: ExtraKey(*e),  // ExtraKey(r[0..31])
                 chain: TRAIN_START,
             },
-            TrainKey::new(*t)  // TrainKey(r[48..63])
+            TrainKey::make(*t)  // TrainKey(r[48..63])
         )
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustc_serialize::hex::ToHex;
+
+    #[test]
+    fn need_tests() {
+    }
+}
+
 
 
 

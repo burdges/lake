@@ -14,7 +14,7 @@ use rand::{self, Rng};
 
 
 /// Sets our Hasher choice.  Also removes insecure `new()` methods.
-#[derive(Debug)]
+#[derive(Debug)] // Clone, Copy
 #[allow(deprecated)]
 pub struct SecureHasher(SipHasher24);
 
@@ -32,6 +32,7 @@ impl Hasher for SecureHasher {
 
 
 /// Initial state for our secure hashers
+#[derive(Debug)] // Clone, Copy
 pub struct HasherState(u64,u64);
 
 impl HasherState {
@@ -85,7 +86,9 @@ pub trait Storage {
 }
 
 /// Rudementary `HashMap` based `Storage`
-pub struct HashMapStorage<K,V>(pub HashMap<K,V,HasherState>);
+#[derive(Debug)] // Clone
+pub struct HashMapStorage<K,V>(pub HashMap<K,V,HasherState>)
+  where K: Hash+PartialEq+Eq;
 
 impl<K,V> Storage for HashMapStorage<K,V> 
   where K: Eq + Hash {
@@ -155,7 +158,9 @@ pub trait Filter {
 }
 
 /// Rudementary `HashSet` based `Filter`
-pub struct HashSetFilter<K>(pub HashSet<K,HasherState>);
+#[derive(Debug)] // Clone
+pub struct HashSetFilter<K>(pub HashSet<K,HasherState>)
+  where K: Hash+PartialEq+Eq;
 
 impl<K> Filter for HashSetFilter<K> 
   where K: Eq + Hash {
