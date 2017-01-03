@@ -2,6 +2,8 @@
 \usepackage{amsmath} % {amssymb,amsfonts}
 % \usepackage{colortbl}
 
+\usepackage{comment}
+
 % \usepackage{booktabs, multicol, multirow, adjustbox}
 \usepackage{array, adjustbox,url}
 \usepackage{pifont,marvosym} % wasysym
@@ -65,11 +67,11 @@
 
 
 \begin{frame}{Asynchronous messaging aka E-mail}
+Email with GnuPG provides authenticity and confidentiality...
   \begin{itemize}
-  \item Email with GnuPG provides authenticity and confidentiality... % \pause
   \item ... but fails to provide forward secrecy, aka key erasure,
   \item ... and fails to {\em protect meta-data}
-  \end{itemize}  
+  \end{itemize} 
 \end{frame}
 
 
@@ -89,18 +91,18 @@
 \begin{frame}{Axolotl ratchet by Trevor Perrin and Moxie Marlinspike}
 \begin{columns}[T]
 \column{0.6\textwidth}
-\includegraphics[width=\textwidth]{../pics/axolotl_animal-1.jpg}
+\includegraphics[width=0.8\textwidth]{../pics/axolotl_animal-1.jpg}
 
 Approach: \\
 \hspace*{2pt} Run DH whenever possible \\
 % \hspace*{5pt} 2-step vs 3-step \\
 \hspace*{2pt} Iterate key by hashing otherwise 
 
-\onslide<2>{
+% \onslide<2>{
 \bigskip
 Neutral against Shor's algorithm \\
  \hspace*{2pt} running on a quantum computer. 
-}
+% }
 
 \column{0.4\textwidth}
 \includegraphics[width=\textwidth]{../pics/axolotl_diagram}
@@ -116,6 +118,7 @@ Neutral against Shor's algorithm \\
 % }
 
 
+\begin{comment}
 \begin{frame}{Axolotl questions}
 
 Suggested questions on Axolotl during lunch, dinner, etc. : 
@@ -130,7 +133,7 @@ Suggested questions on Axolotl during lunch, dinner, etc. :
 \end{itemize}
 
 \end{frame}
-
+\end{comment}
 
 % Metadata : entropique2015.tex
 
@@ -170,12 +173,14 @@ Suggested questions on Axolotl during lunch, dinner, etc. :
 
 \smallskip
 
-We also need an anonymizing transport that handles latency well, \\
-\hspace*{2pt} only asynchronous mix networks appear realistic.
+We do need an anonymizing transport that handles latency well, \\
+\hspace*{2pt} only asynchronous mix networks appear realistic, \\
+\hspace*{2pt} due to $O(n^2)$ scalling of bandwidth or computation.
 
 \end{frame}
 
 
+\begin{comment}
 \begin{frame}[t]{Onion Routing vs Mix Networks vs ...}
 
 Anonymizing transports for spherical cows :
@@ -189,6 +194,7 @@ Anonymizing transports for spherical cows :
 \end{itemize}
 
 \end{frame}
+\end{comment}
 
 
 \begin{frame}[t]{Onion Routing vs Mix Networks vs ...}
@@ -215,123 +221,9 @@ Mix networks encodes all routing and key material into one packet
   New protocol :  No TCP, UDP, etc.
 \end{itemize}
 
-\end{frame}
-
-
-\begin{frame}{Architecture}
-
+\medskip\pause
 Email handicapped past mix network efforts like Mixminion \\
- \hspace*{10pt} Do not attempt to support email!
-\medskip
-
-A mix network packet has a header, SURB, and body where
-\begin{itemize}
-\item the header is an onion of authenticated public-key exchanges,
-\item the body is encrypted using a wide block cypher, \\
-  but not authenticated, and
-\item the Single-Use Reply Block (SURB) is a second header, \\
- \hspace*{2pt} providing recipient and two-way anonymity.
-\end{itemize}
-\[ \cdots \to S_{k-1} \to S_k \to \textrm{Cross} \to R_1 \to R_2 \to \cdots \]
-
-\medskip
-\pause
-
-At a high level, our design constraints are to : 
-\begin{itemize}
-\item provide desired delivery properties using SURBs, and 
-\item ensure users have the necessary SURBs.
-\end{itemize}
-
-\end{frame}
-
-
-\begin{frame}[t]{Delivery strategy : Instant-ish }
-
-\[ \begin{aligned}
-\textrm{SURBs}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
-\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Cross} \to \cdots \to R_k \to \textrm{Rodger}
-\end{aligned} \]
-
-Issues :
-\begin{itemize}
-\item Sam needs a {\em very recent} SURB from Rodger.  
-\item $R_k$ should hold messages if Rodger went offline, but \\ 
- \hspace*{2pt} Rodger's ``Guard'' $R_k$ knows their IP. \\
-\end{itemize}
-
-% \pause
-
-Solutions : 
-\begin{itemize}
-\item Rodger asks Sam not to use his SURBs for long. \\
-\item Rodger sends SURBs to $R_k$ when they connect later.
-\end{itemize}
-
-\bigskip
-Are these measures sufficient?  No. \\
- \hspace*{2pt} Rodger might have too many guard nodes.
-
-\end{frame}
-
-
-\begin{frame}[t]{Delivery strategy : Checked mailbox}
-\[ \begin{aligned}
-\textrm{Long SURBs}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
-\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Cross}
-  \to \cdots \to R_k \to \textrm{Mailbox} \\
-\textrm{Short SURBs}\quad & \textrm{Rodger} \to \cdots \to \textrm{Mailbox} \\
-\textrm{Messages}\quad & \textrm{Mailbox} \to \cdots \to R_k \to \textrm{Rodger} \\
-\textrm{Deletion}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Mailbox} 
-\end{aligned} \]
-
-\smallskip
-
-We win lovely delivery properties from the cross-over point \\
- \hspace*{2pt} since Sam cannot flood, hack, etc. Rodger's mailbox server.
-
-\smallskip
-
-% Yet again :
-\begin{itemize}
-\item Sam needs a {\em less recent} and {\em longer lived} SURBs. % from Rodger.  
-\item $R_k$ still holds messages if Rodger goes offline, but \\
- \hspace*{2pt} SURBs using $R_k$ are {\em short lived}. % and \\
-% \hspace*{2pt} maybe Rodger confirms deletion on Mailbox.
-\end{itemize}
-
-% \pause
-
-\medskip
-Is this enough?  No.  \\
- \hspace*{2pt} No SURB can live forever!
-
-\end{frame}
-
-
-\begin{frame}[t]{Delivery strategy : Mailbox gateway}
-
-\[ \begin{aligned}
-\textrm{Credential}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
-\textrm{Long SURBs}\quad & \textrm{Rodger} \to \cdots \to \textrm{Gateway} \\
-\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Gateway} \\
-\textrm{Messages}\quad & \textrm{Gateway} \to \cdots \to R_k \to \textrm{Mailbox} \\
- \cdots
-\end{aligned} \]
-
-% \smallskip
-
-Credentials could be either 
-\begin{itemize}
-\item Single-use HMAC tokens to limit Sam's message sending, 
-\item BBS or VLR group signatures for unlimited messages,
-\item or nothing to allow a public contact point.
-\end{itemize}
-
-\bigskip
-Is this one strategy to rule them all?  No. \\
- \hspace*{2pt} Sam can easily attack the gateway. \\
- \hspace*{2pt} And our instant-ish scheme is much faster.
+ \hspace*{10pt} {\bf Do not attempt to support email!}
 
 \end{frame}
 
@@ -348,6 +240,7 @@ Sphinx is a packet format for an asynchronous mix network.
 \end{frame}
 
 
+% \begin{comment}
 \begin{frame}{Sphinx by George Danezis and Ian Goldberg}
 Sphinx is provably secure in the universal composability model \\
 \hspace*{2pt} [Camenisch \& Lysyanskaya '05, Canetti '01]
@@ -370,6 +263,7 @@ And Sphinx is far more compact than alternatives.
 
 {\small $^*$ Wrap-resistance helps prevent nodes from acting as decryption oracles.}
 \end{frame}
+% \end{comment}
 
 
 \begin{frame}{Sphinx by George Danezis and Ian Goldberg}
@@ -377,13 +271,15 @@ And Sphinx is far more compact than alternatives.
 \end{frame}
 % LIONNESS???
 
+
 \def\mathcomma{}
 
+% \begin{comment}
 \begin{frame}{Build a Sphinx header}
 First, select a sequence of $\nu$ nodes $n_i$ with keys $X_i = x_i G$ for $i<\nu$,
  an initial private scalar $a_0$, and
  the public curve point $\alpha_0 = a_0 G$.
-Now recursively define 
+Now recursively define
 \[ \begin{aligned}
 \textrm{shared secret}\quad
  s_i &:= a_i X_i = x_i \alpha_i \mathcomma \\
@@ -396,38 +292,10 @@ Now recursively define
 \end{aligned} \]
 % Our $i$th node replaces $\alpha_i$ by $\alpha_{i+1}$.
 
-Next, compute the filler strings
-\[ \begin{aligned}
- \phi_0 &:= \rho(\textrm{rnd})[0 \ldots z - \nu l] \\
- \phi_{i+1} &:= (\phi_i || 0_l) \oplus \rho(h_\rho(s_i))[ z-il \ldots z+l ] \\
-\end{aligned} \]
-where $l = |n| + |\gamma|$ and $l \nu < z = |\beta|$
+Next, ...
 
 \end{frame}
-
-
-\begin{frame}{Build a Sphinx header}
-Next, compute the filler strings
-\[ \begin{aligned}
- \phi_0 &:= \Delta || \rho(\textrm{rnd})[0 \ldots z - \nu l - |\Delta|] \\
- \phi_{i+1} &:= (\phi_i || 0_l) \oplus \rho(H_\rho(s_i))[ z-il \ldots z+l ] \\
-\end{aligned} \]
-where $l = |n| + |\gamma|$ and $l \nu < z = |\beta|$
-
-\medskip
-
-Finally, generate the headers $M_i = (\alpha_i,\beta_i,\gamma_i)$ where 
-\[ \begin{aligned}
- \beta_{\nu-1} &:= \big( 0_l \oplus \rho(H_\rho(s_{\nu-1}))[ 0 \ldots l ] \big)
-   || \phi_{\nu-1} \\
- \beta_{i-1} &:= n_i || \gamma_i || \beta_i[0 \ldots z-l] \\
- \gamma_i &:= \textrm{HMAC}(s_i,\beta_i) \\
-\end{aligned} \]
-
-\medskip
-Output $M_0$ and $s_0,\ldots,s_\nu$.
-
-\end{frame}
+% \end{comment}
 
 
 \begin{frame}[t]{Replies vs. Key erasure}
@@ -449,7 +317,7 @@ An anonymous recipient simply
 \begin{itemize}
 \item creates a Sphinx header $(\alpha, \beta, \gamma)$, 
  and a symmetric key $k$, 
-\item communicates this to the sender $n$ in advance, and 
+\item communicates this SURB to the sender $n$ in advance, and 
 \item remembers these symmetric keys as each hop encrypts $\delta$.
 \end{itemize}
 
@@ -460,51 +328,6 @@ Problem : SURB lifetime = Node key lifetime
 
 \medskip
 \hspace*{80pt} Can we do better?
-
-\end{frame}
-
-
-% delivery : 32c3.tex
-
-
-% \begin{frame}{?}
-% \end{frame}
-
-
-\begin{frame}{Post-quantum Sphinx?}
-
-A quantum computer factored 15 without cheating last year. \\
-That might not sound like much progress for 20 years, but \\
-\hspace*{3pt}  one should expect slow progress to continue, and \\
-\hspace*{3pt}  one cannot expect negative results. \\
-
-\medskip
-
-We could worry for many decades even if they are impossible!
-
-\end{frame}
-
-
-\begin{frame}{Post-quantum Sphinx?}
-
-We have two seemingly post-quantum key exchanges :
-\begin{itemize}
-\item Ring learning with errors and
-\item Super-singular isogenies Diffie Hellman 
-\end{itemize}
-
-\medskip
-In both cases, we need a blinding operations presumably based on
- the key exchange operation, but..
-\begin{itemize}
-\item anonymity is far more delicate than cryptography,
-\item blinding is more fragile than key exchange, 
-\item fewer researchers will ever study blinding, ..
-\end{itemize}
-
-\smallskip
-
-And blinding is weakened by using multiple systems!
 
 \end{frame}
 
@@ -553,11 +376,11 @@ Idea: Client directs ratchet state
 
 \bigskip
 Chain keys evolve like Axolotl, 
- \hspace*{2pt} producing leaf keys. % \\ not message keys.
+ \hspace*{2pt} producing berry keys. % \\ not message keys.
 
 \smallskip
 Create message keys by hashing \\
- \hspace*{2pt} a leaf key with a Sphinx ECDH \\ % result.
+ \hspace*{2pt} a berry key with a Sphinx ECDH \\ % result.
  \hspace*{10pt} $s_i := x_i \alpha_i$ \  ($= a_i X_i$) \\
 \smallskip
  \hspace*{10pt} $\textrm{mk} := H(\textrm{lk},H'(s_i))$
@@ -567,13 +390,10 @@ Create message keys by hashing \\
 Packets identify the message key from which their chain started.
 
 \smallskip % \hspace*{2pt}
-And their leaf key sequence no. % number.
-%}
+And their berry key sequence no. % number.
 
-\smallskip
-% \onslide<3>{ % \hspace*{2pt}
-And parent max sequence no.
-%And their parent chain's max sequence no.
+% \smallskip
+% And parent max sequence no.
 }
 
 \column{0.45\textwidth}
@@ -590,10 +410,10 @@ Not all hops need a ratchet, but \\
  \hspace*{1pt} ratchet hops must decrypt $\beta$ twice,
  \hspace*{1pt} requiring extra $\phi_j$. 
 
-\medskip
+% \medskip
 
-We let $l$ differ for these virtual hops,
- \hspace*{1pt} so terms like $i l$ become $\sum_{j=0}^i l_j$.
+% We let $l$ differ for these virtual hops,
+%  \hspace*{1pt} so terms like $i l$ become $\sum_{j=0}^i l_j$.
 
 \medskip
 
@@ -664,118 +484,11 @@ Second, ratchets need not always be owned by the same user!
 
 
 
+% delivery : 32c3.tex
 
 
-
-
-
-
-\begin{frame}{Xolotl questions}
-
-Suggested questions on Axolotl during lunch, dinner, etc. : 
-
-\medskip
-\begin{itemize}
-\item What post \\ \medskip
-\item  \\ \medskip
-\item Is it safe to use a ratchet given to you by a friend?  \\
-\end{itemize}
-
-\end{frame}
-
-
-
-
-
-
-
-
-
-\begin{frame}[t]{Relay key replacement }
-Replay protection requires that relays replace keys regularly. 
-\begin{columns}[T]
-\column{0.6\textwidth}
-{\hfil Replay key lifetime = SURB lifetime \hfil}
-
-\medskip
-Longer lifetime improves:
-\begin{itemize}
-\item Delivery convenience
-\end{itemize}
-
-\smallskip
-Shorter lifetime improves:
-\begin{itemize}
-\item Throughput 
-\item Memory footprint
-\item Forward-secrecy
-\end{itemize}
-
-\column{0.4\textwidth}
-\includegraphics[width=1.2\textwidth]{../pics/Xolotl}
-\end{columns}
-\end{frame}
-
-
-
-
-
-
-
-\pause\medskip
-I doubted that SIDH admired the blinding used in Sphinx, \\
-\hspace*{3pt} but recently my opinion has changed. \\
-
-\smallskip
-
-% There are nevertheless several disadvantages, like
-% \begin{itemize}
-% \item 0.5kb+ public keys, and
-% \item 300 times slower than curve25519!
-% \end{itemize}
-
-We'd need composing isogenies to give a blinding operation too. 
-
-\smallskip
-
-And SIDH is 300 times slower than curve25519 anyways!
-
-
-
-
-
-
-
-
-
-
-\begin{frame}{A Ring-LWE straw-man Sphinx}
-
-We have a ring $R = (\Z/p\Z)[x]/\Phi(x)$ where ... \\
-\hspace*{3pt} $\Phi(x)$ is irreducible of degree 1024, maybe cyclotomic,
- and $p>1024$ is prime. 
-\smallskip
-
-A private key is polynomials $s$ and $e$ with small coefficients, \\
-\hspace*{3pt} while a public key is a random $a\in R$ and $b = s a + e$.
-
-\pause\smallskip
-A candidate blinding operation might be, pick $s'$, $e'$, and $e''$ small, \\
-\hspace*{3pt} to compute $a' = s' a + e'$ and $b' = s' b + e''$.
-
-\smallskip
-Imagine a path $n_1 \to n_2 \to n_3$ where $n_2$ is honest but \\
-\hspace*{3pt}  $n_1$ and $n_3$ controlled by the adversary.
-\begin{align*}
-a' b &= (s' a + e') (s a + e) = s' s a^2 + s' a e + e' s a + e' e \\
-a b' &= (s' (s a + e) + e'')a = s' s a^2 + s' e a + e'' a \\
-a' b - a b' &= e' s a + e' e - e'' a
-= e' b - e'' a
-= (e' s - e'') a + e' e
-\end{align*}
-
-\end{frame}
-
+% \begin{frame}{?}
+% \end{frame}
 
 
 

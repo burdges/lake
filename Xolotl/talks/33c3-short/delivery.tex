@@ -1,0 +1,92 @@
+
+\begin{frame}[t]{Delivery strategy : Instant-ish }
+
+\[ \begin{aligned}
+\textrm{SURBs}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
+\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Cross} \to \cdots \to R_k \to \textrm{Rodger}
+\end{aligned} \]
+
+Issues :
+\begin{itemize}
+\item Sam needs a {\em very recent} SURB from Rodger.  
+\item $R_k$ should hold messages if Rodger went offline, but \\ 
+ \hspace*{2pt} Rodger's ``Guard'' $R_k$ knows their IP. \\
+\end{itemize}
+
+% \pause
+
+Solutions : 
+\begin{itemize}
+\item Rodger asks Sam not to use his SURBs for long. \\
+\item Rodger sends SURBs to $R_k$ when they connect later.
+\end{itemize}
+
+\bigskip
+Are these measures sufficient?  No. \\
+ \hspace*{2pt} Rodger might have too many guard nodes.
+
+\end{frame}
+
+
+\begin{frame}[t]{Delivery strategy : Checked mailbox}
+\[ \begin{aligned}
+\textrm{Long SURBs}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
+\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Cross}
+  \to \cdots \to R_k \to \textrm{Mailbox} \\
+\textrm{Short SURBs}\quad & \textrm{Rodger} \to \cdots \to \textrm{Mailbox} \\
+\textrm{Messages}\quad & \textrm{Mailbox} \to \cdots \to R_k \to \textrm{Rodger} \\
+\textrm{Deletion}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Mailbox} 
+\end{aligned} \]
+
+\smallskip
+
+We win lovely delivery properties from the cross-over point \\
+ \hspace*{2pt} since Sam cannot flood, hack, etc. Rodger's mailbox server.
+
+\smallskip
+
+% Yet again :
+\begin{itemize}
+\item Sam needs a {\em less recent} and {\em longer lived} SURBs. % from Rodger.  
+\item $R_k$ still holds messages if Rodger goes offline, but \\
+ \hspace*{2pt} SURBs using $R_k$ are {\em short lived}. % and \\
+% \hspace*{2pt} maybe Rodger confirms deletion on Mailbox.
+\end{itemize}
+
+% \pause
+
+\medskip
+Is this enough?  No.  \\
+ \hspace*{2pt} No SURB can live forever!
+
+\end{frame}
+
+
+\begin{frame}[t]{Delivery strategy : Mailbox gateway}
+
+We know good schemes for delivery credentials, so...
+
+\[ \begin{aligned}
+\textrm{Credential}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
+\textrm{Long SURBs}\quad & \textrm{Rodger} \to \cdots \to \textrm{Gateway} \\
+\textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Gateway} \\
+\textrm{Messages}\quad & \textrm{Gateway} \to \cdots \to R_k \to \textrm{Mailbox} \\
+ \cdots
+\end{aligned} \]
+
+\bigskip
+Is this one strategy to rule them all?  No. \\
+ \hspace*{2pt} Sam can easily attack the gateway. \\
+ \hspace*{2pt} And our instant-ish scheme is much faster.
+
+\end{frame}
+\begin{comment}
+like 
+\begin{itemize}
+\item Single-use HMAC tokens to limit Sam's message sending, 
+\item BBS or VLR group signatures for unlimited messages,
+\item or nothing to allow a public contact point.
+\end{itemize}
+\end{comment}
+
+

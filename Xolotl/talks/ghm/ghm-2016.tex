@@ -348,10 +348,13 @@ Is this enough?  No.  \\
 
 \begin{frame}[t]{Delivery strategy : Mailbox gateway}
 
+
 \[ \begin{aligned}
 \textrm{Credential}\quad & \textrm{Rodger} \rightsquigarrow \textrm{Sam} \\
+% Supply
 \textrm{Long SURBs}\quad & \textrm{Rodger} \to \cdots \to \textrm{Gateway} \\
 \textrm{Messages}\quad & \textrm{Sam} \to \cdots \to \textrm{Gateway} \\
+% Use Long SURBs
 \textrm{Messages}\quad & \textrm{Gateway} \to \cdots \to R_k \to \textrm{Mailbox} \\
  \cdots
 \end{aligned} \]
@@ -560,7 +563,7 @@ Can we integrate a ratchet with Sphinx?
 \medskip
 Axolotl won't work because : 
 \begin{itemize}
-\item Replays never message users
+\item Relays never message users
 \item Cannot reuse curve elements
 \end{itemize}
 
