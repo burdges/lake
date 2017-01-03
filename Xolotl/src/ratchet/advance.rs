@@ -165,22 +165,6 @@ impl Drop for Advance {
 }
 
 impl Advance {
-    /*
-    // We found this forumation required excessive calls to clone()
-
-    /// Begin a transaction to advance the ratchet on the branch `bid`.
-    pub fn new(state: &Arc<State>, bid: BranchId)
-      -> Result<Advance,XolotlError> {
-        // Lock the branch untl Drop
-        Advance::new_from_locked_branch_id(lock_branch_id(state,bid) ?)
-          // PoisonError, BranchAlreadyLocked
-    }
-
-    /// Begin a transaction to advance the ratchet on a locked branch identity.
-    fn new_from_locked_branch_id(branch_id: BranchIdGuard)
-     -> Result<Advance,XolotlError> {
-    */
-
     /// Begin a transaction to advance the ratchet on the branch `bid`.
     pub fn new(state: &Arc<State>, bid: BranchId)
       -> Result<Advance,XolotlError> {
@@ -188,7 +172,6 @@ impl Advance {
         // We found passing in branch_id required an unecessary call to clone
         let branch_id = lock_branch_id(state,bid) ?;
 
-        let state = branch_id.0.clone();
         let branches = state.branches.read() ?;  // PoisonError
 
         if let Some(br) = branches.get(branch_id.id()) {
