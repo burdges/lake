@@ -1,0 +1,148 @@
+
+
+impl<'a> From<PoisonError<RwLockWriteGuard<'a, ParentStorage>>> for XolotlError {
+    fn from(e: PoisonError<RwLockWriteGuard<'a, ParentStorage>>) -> XolotlError {
+        XolotlError::PoisonError("RwLockWriteGuard","ParentStorage")
+    }
+}
+
+
+
+
+
+
+
+/*
+
+delete branch
+- read & write branch and twig
+
+create branch
+- write new branch and first twig
+- commit or rollback to previous berry
+- cache unecessary, keep berry
+
+advance twig
+- read branch and first twigs
+- write twigs
+- maybe write branch chain number
+- commit or rollback twigs only
+- cache twigs on failure maybe?  
+
+
+
+storage
+
+
+
+
+
+
+
+
+
+
+
+
+
+/// We need 256 bit secret symetric keys for anything that plays any
+/// serious role in halting a quantum adversary. 
+pub type BigKey = [u8; 32];
+
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MessageKey(pub BigKey);
+
+
+
+
+
+
+pub type TwigStorage = Storage<TwigId,TwigKey>;
+// impl StorageFlags for TwigStorage { const FLAGBITS: u8 = 2; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub type SeededHasher = Seeded<SipHasher24>;
+
+
+pub type FlagBits = u32;
+
+pub trait Storage<K,V> {
+    fn fetch(&mut self, ) -> Option<(FlagBits,V)>;
+    fn add(&mut self, k: K, fb: FlagBits, v: V);
+    fn remove(&mut self, k: K);
+    fn commit(&mut self, k: K);
+}
+
+pub trait StorageFlags {
+    const FLAGBITS: u8;
+}
+
+
+
+pub struct Storage<K,V> {
+    hashseed: (u64,u64),
+    hasmap: HashMap<K,V,Self>,
+    a: PhantomData<K>,
+    b: PhantomData<V>,
+}
+
+
+
+
+/*
+
+Filter 
+- Bloom filter
+- Cuckoo filter
+
+Ratchet storage
+- Identifier : 8 bytes or u64 - espilon
+  Targeted collisions are 2^{epsilon-64}
+  Shorter is fine :  curve25519 takes 67 us = 67*10^-6 s,
+  so 2^32 Sphinx starts takes half a week, and 2^40 takes 2.3 years.
+  A few random collisions should not cause problems.
+- Flags : epsilon < 1 byte
+  2 bits type
+  1 bit transacting?
+  1 bit writing?
+  4 bits counter?
+- RSKs : 16 bytes or 128 bits
+
+*/
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+}
+
+
+
+// store_train
+// store_chain
+
+

@@ -1,0 +1,437 @@
+// Copyright 2016 Jeffrey Burdges.
+
+//! Xolotl hash iteration ratchet twigs
+//!
+//! ...
+
+use super::branch::*;
+use super::super::state::*;
+
+use std::hash::{Hash, SipHasher24, Hasher};
+use std::sync::{Arc, RwLock};
+
+/// We store only a 128 bit secret symetric keys in a hash iteration
+/// ratchet step to reduce our storage reuirements.  We therefore 
+/// enjoy 128 bit of classical security for our forward secrecy 
+/// properties arising from the hash iteration ratchet.
+pub type TwigKey = [u8; 16];
+
+/// Train keys are faster chain keys that iterate in a tree.
+/// Iterating the train key i yields the train keys with indices 2 i
+/// and 2 i+1 along with a chain key and a link key.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TrainKey(pub TwigKey); 
+
+/// Chain keys iterate linearly, yielding the next chain key and
+/// a link key.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ChainKey(pub TwigKey);
+
+/// Link keys are combined with a Sphinx shared secret to produce
+/// a message key and a berry key to be stored.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LinkKey(pub TwigKey);
+
+/// Berry keys can be used to start a new hash iteration ratchet.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BerryKey(pub TwigKey);
+
+/// Associated constant to record the twig key type for storage
+pub trait Twigy {
+    /// Key Type
+    const TYPE: u8;
+    fn make(TwigKey) -> Self;
+    fn dump(self) -> TwigKey;
+}
+
+macro_rules! impl_Twigy {
+    ($a:ident,$b:expr) => { 
+        impl Twigy for $a { 
+            const TYPE: u8 = $b;
+            fn make(k: TwigKey) -> Self { $a(k) }
+            fn dump(self) -> TwigKey { self.0 }
+        }
+    };
+}
+impl_Twigy!(TrainKey, 0x00);
+impl_Twigy!(ChainKey, 0x01);
+impl_Twigy!(LinkKey, 0x02);
+impl_Twigy!(BerryKey, 0x03);
+
+
+/// Enum for twig keys types returned by fetch
+pub enum TwigState {
+    Train(TrainKey),
+    Chain(ChainKey),
+    Link(LinkKey),
+    Berry(BerryKey)
+}
+
+impl TwigState {
+    fn make(t: u8, k: TwigKey) -> TwigState {
+        use self::TwigState::*;
+        match t & 0x03 {
+            0x00 => Train(TrainKey(k)),
+            0x01 => Chain(ChainKey(k)),
+            0x02 => Link(LinkKey(k)),
+            0x03 => Berry(BerryKey(k)),
+            _ => unreachable!(),
+        }
+    }
+
+    fn ty(&self) -> u8 {
+        use self::TwigState::*;
+        match self {
+            Train(_) => 0x00,
+            Chain(_) => 0x01,
+            Link(_) => 0x02,
+            Berry(_) => 0x03
+        }
+    }
+}
+
+
+/// Index of a twig in a Xolotl ratchet.
+///
+/// We imagine 2^16 to be excessively large already, but unusual
+/// usages of a ratchet might need more hash iteration steps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TwigIdx(pub TwigIdxT);
+
+/// An TwigIdx's low ChainVsTrainWidth bits determin the chain
+/// position.  It's high 16-ChainVsTrainWidth bits determine the
+/// train position.
+const ChainVsTrainWidth : u8 = 8;
+
+const ChainMask : TwigIdxT = (1 << ChainVsTrainWidth) - 1;
+
+impl TwigIdx {
+    /// Convert an index into a hash iteration ratchet into a pair of
+    /// bytes in little endian.
+    pub fn to_bytes(self) -> [u8; 2] {
+        [ (self.0 & 0xFF) as u8, (self.0 >> 8) as u8 ]
+    }
+
+    /// Convert a pair of bytes in little endian into an index into a
+    /// hash iteration ratchet. 
+    pub fn from_bytes(b : [u8; 2]) -> TwigIdx {
+        TwigIdx( ((b[1] as u16) << 8) | (b[0] as u16) )
+    }
+
+    /// Split an TwigIdx into train and chain parts.
+    fn split(idx : TwigIdx) -> (u16,u16) {
+        (idx.0 >> ChainVsTrainWidth, idx.0 & ChainMask)
+    }
+
+    /// Make an TwigIdx from train and chain parts.
+    fn make(i: u16, j: u16) -> TwigIdx {
+        TwigIdx( (i << ChainVsTrainWidth) + (j & ChainMask) )
+    }
+
+    // /// Increment TwigIdx when wrapping cannot happen.
+    // fn increment_branch(self) -> TwigIdx
+    //     { TwigIdx(self.0+1) }
+
+    /// Increment TwigIdx while preventing wrapping.
+    fn increment(self) -> Option<TwigIdx> {
+        if self.0 < TwigIdxT::max_value() { Some(TwigIdx(self.0+1)) } else { None }
+    }
+
+    /// Says if we progress to the next train step.
+    fn is_pure_train(self) -> bool  {  (self.0 & ChainMask) == 0  }
+
+    fn is_okay_train(i: u16) -> bool  {  i < (TwigIdxT::max_value() >> ChainVsTrainWidth)  }
+
+    /// Unique parent of train position
+    fn train_parent(i: u16) -> Option<u16>
+        {  if i>=1 { Some(i/2) } else { None }  }
+
+    /// Two children of train position
+    fn train_children(i: u16) -> Option<(u16,u16)>
+        {  if Self::is_okay_train(2*i) { None } else { Some((2*i, 2*i+1)) }  }
+        // Assumes ChainVsTrainWidth > 0 so fix if that changes
+}
+
+/// We manually implement Hash for TwigIdx to impose little
+/// endianness, just in case our data is moved between machines.
+impl Hash for TwigIdx {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // self.to_bytes().hash(state);
+        self.0.to_le().hash(state);
+    }
+}
+
+// In storage, twigs are identified by the branch they inhabit
+// along with their index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TwigId(BranchId, TwigIdx);
+
+
+/* -- branch:: -- */
+
+
+#[derive(Debug)]
+pub enum TwigErr {
+    UnexpectedTrain,
+    UnexpectedChain,
+    UnexpectedLink,
+    UnexpectedBerry,
+    KeyNotFound,
+    // Poisoned(PoisonError<??>)
+}
+type R<T> = Result<T,TwigErr>;
+
+
+/// A twigs' index and state together
+struct TwigIS {
+    idx: TwigIdx,
+    key: TwigState
+}
+
+pub type TwigStorage = Storage<TwigId,TwigKey>;
+impl StorageFlags for TwigStorage { const FLAGBITS: u8 = 2; }
+
+
+/// Information needed to rollback a branch update
+struct Stash {
+    /// Original chain position
+    pub chain: TwigIdx,
+    /// Initial key overwritten by first do_chain_step() call
+    pub key: TwigIS,
+}
+
+/// A transaction for an attempt to advance our hash iteration ratchet.
+/// We can roll back any changes this makes to the database.
+pub struct TwigTrans {
+    /// Branch identifier
+    pub branch_id: BranchId,
+
+    /// A copy of the branch data?
+    pub branch: Branch,
+
+    /// 
+    storage: Arc<RwLock<TwigStorage>>,
+
+    /// Keys to insert upon confirmation
+    inserts: Vec<TwigIS>,
+
+    /// Branch status stashed for rollback 
+    stashed: Option<Stash>,
+}
+
+/* 
+impl TwigTrans {
+    fn new(storage: Arc<RwLock<TwigStorage>>, branch: Branch) -> TwigTrans {
+        TwigTrans {
+            branch_id: ???,
+            branch: branch,
+            storage: storage,
+            inserts: Vec::new(), // zero capasity, no allocation
+            stashed: Some( Stash {
+                chain: branch.chain,
+                key: Default::default(),
+            })
+        }
+        // lock branch
+    }
+
+    fn fetch_key(&self, idx: TwigIdx) -> Option<TwigState> {
+        let s = self.storage.read().unwrap();  // FIXME PoisonError
+        let (t,k) = s.fetch(TwigId(self.branch_id, idx)).unwrap_or_else({ return None });
+        Some( TwigState::make(t,k) )
+    }
+
+    // Overwrites idx if present.
+    fn add_key<K: Twigy>(&mut self, idx: TwigIdx, k: K) {
+        self.inserts.push( TwigIS {
+            idx: TwigId(self.branch_id, idx)
+            key: TwigState::make(K::TYPE,k.dump())
+        } );
+    }
+
+    fn commit_keys(&self) {
+        let s = self.storage.write().unwrap();  // FIXME PoisonError
+        for idx in self.inserts.iter.rev() {
+            s.commit(TwigId(self.branch_id, idx));
+        }
+    }
+
+    fn do_chain_step(&mut self, idx: TwigIdx) -> R<LinkKey> {
+        let linkkey: LinkKey;
+
+        let sk = match self.fetch_key(idx) {
+            None => return Err(KeyNotFound),
+            Some(x) => x
+        };
+        if stashed_key.dump() == Default::default() {
+            stashed_key = sk;
+        }
+
+        let (i,j) = idx.split();
+        if j==0 /* idx.is_pure_train() */ {
+
+            let tk = match sk {
+                Train(tk) => tk,
+                Chain(_) => return Err(UnexpectedChain),
+                Link(lk) => return Some(lk),  // FIXME Questionable
+                Berry(_) => return Err(UnexpectedBerry);
+            }
+
+            let x,y,z;
+            (x,y,z,linkkey) = self.branch.kdf_train(idx,tk);
+            if let Some(a,b) = TwigIdx::train_children(j) {
+                self.add_key(TwigIdx::make(a,0),x);
+                self.add_key(TwigIdx::make(b,0),y);
+            } // Not addressable otherwise so no error needed
+
+            if let Some(next) = idx.increment() {
+                self.add_key(next,z);
+            }
+
+        } else {
+
+            let ck = match sk {
+                Train(_) => return Err(UnexpectedTrain),
+                Chain(ck) => ck,
+                Link(lk) => return Some(lk),  // FIXME Questionable
+                Berry(_) => return Err(UnexpectedBerry);
+            }
+
+            let z;
+            (z,linkkey) = self.branch.kdf_chain(idx,ck);
+            if let Some(next) = idx.increment() && ! next.is_pure_train() {
+                self.add_key(next,z);
+            }
+
+        }
+
+        self.add_key(idx,linkkey);
+        if let Some(next) = idx.increment() && next > self.branch.chain {
+            self.branch.chain = next;
+        }
+        Some(linkkey)
+    }
+
+    fn done_known_link(&mut self, idx: TwigIdx, linkkey: LinkKey, s: SphinxSecret)
+            -> R<MessageKey> {
+        let (messagekey,berrykey) = self.branch.kdf_berry(linkkey,s);
+        self.add_key(idx,berrykey);
+        Some(messagekey)
+    }
+
+    fn done_fetched_link(&self, idx: TwigIdx, s: SphinxSecret) -> R<MessageKey> {
+        let sk = match self.fetch_key(idx) {
+            None => return Err(KeyNotFound),
+            Some(sk) => sk
+        };
+        match sk {
+            Train(tk) => Err(UnexpectedTrain),  // FIXME Recover?
+            Chain(ck) => Err(UnexpectedChain),  // FIXME Recover?
+            Link(linkkey) => self.done_known_link(idx,linkkey,s),
+            Berry(_) => Err(UnexpectedBerry);
+        }
+    }
+}
+
+
+impl Drop for TwigTrans {
+    fn drop(&mut self) {
+        // unlock branch
+        if Some(Stash { chain: ck, key: sk}) = self.stash {
+            let s = self.storage.write().unwrap();  // FIXME PoisonError
+            let t = TwigId(self.branch_id, sk.idx);
+            s.add(t, sk.ty(), sk.dump());
+            self.branch.chain = ck;  // Unneeded
+            self.stash = None;
+        }
+    }
+}
+
+
+pub struct UserTwigTrans(TwigTrans);
+
+impl UserTwigTrans {
+    pub fn click(&self, s: SphinxSecret) -> R<MessageKey> {
+        let ci = self.0.branch.chain;
+        let linkkey = try!(self.0.do_chain_step(ci));
+        self.0.done_known_link(ci,linkkey,s)
+    }
+}
+
+
+pub struct NodeTwigTrans(TwigTrans);
+
+impl NodeTwigTrans {
+    fn clicks_chain_only(&self, s: SphinxSecret, cidx,tidx: TwigIdx) -> R<MessageKey> {
+        debug_assert!(tidx.split().0 == cidx.split().0);
+        let linkkey: LinkKey;
+        if cidx > tidx {
+            return self.0.done_fetched_link(tidx,s);
+        }
+        self.0.inserts.reserve(tidx.0-cidx.0+2);
+        for ii in cidx.0 .. tidx.0+1 {
+            linkkey = try!(self.0.do_chain_step( TwigIdx(ii) ));
+            // It's safer to call  self.0.add_key(idx,linkkey);
+            // in do_chain_step() rather than usng complex loop
+            // structure to avert one extra write here.
+        }
+        // we effectively have cidx==tidx+1 now.
+        self.done_known_link(tidx,linkkey,s)
+    }
+
+    fn clicks(&self, s: SphinxSecret, target: TwigIdx ) -> R<MessageKey> {
+        let (ti,_) = target.split();
+        let cidx = self.0.branch.chain;
+        let (ci,_) = cidx.split();
+
+        if ti == ci {
+            return self.clicks_chain_only(s,cidx,target);
+        }
+
+        let mut (i,j) = (ti,0);
+        while i>0 {
+            match self.0.fetch_key(TwigIdx::make(i,0)) {
+                None => i = TwigIdx::train_parent(i),
+                Some(Train(_)) => break,
+                Some(Chain(_)) => return Err(UnexpectedChain),
+                Some(Link(_)) => return Err(UnexpectedLink),
+                Some(Berry(_)) => return Err(UnexpectedBerry),
+            }
+            j++;
+        }
+        self.0.inserts.reserve(3*j+1);
+        while j>=0 {
+            i = ti >> j;  // Iterate TwigIdx::train_parent j times.
+            try!(self.0.do_chain_step( TwigIdx::make(i,0) ));
+            j--;
+        }
+        self.clicks_chain_only(s,TwigIdx::make(i,0),target)
+    }
+}
+
+*/
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn twig_endianness_test() {
+        assert_eq!(TwigIdx::from_bytes([0xE5,0x37]), TwigIdx(0x37E5));
+        assert_eq!(TwigIdx(0xC249).to_bytes(), [0x49,0xC2]);
+        assert_eq!(TwigIdx::from_bytes([0x27,0x6D]).to_bytes(), [0x27,0x6D]);
+        assert_eq!(TwigIdx::from_bytes(TwigIdx(0xF912).to_bytes()), TwigIdx(0xF912));
+    }
+
+    #[test]
+    fn twigy_test() {
+        for i in 0..3 {
+            assert_eq!(i,TwigState::make(i,Default::default()).ty());
+        }
+    }
+}
+
+
+
+
