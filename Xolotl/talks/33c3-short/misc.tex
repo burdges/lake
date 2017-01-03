@@ -1,0 +1,23 @@
+
+
+\begin{frame}{Architecture}
+
+
+A mix network packet has a header, a SURB, and a body where
+\begin{itemize}
+\item the header is an onion of authenticated public-key exchanges,
+\item the body is encrypted using a wide block cypher, \\
+  but not authenticated, and
+\item the Single-Use Reply Block (SURB) is a second header, \\
+ \hspace*{2pt} providing recipient and two-way anonymity.
+\end{itemize}
+\[ \cdots \to S_{k-1} \to S_k \to \textrm{Cross} \to R_1 \to R_2 \to \cdots \]
+
+\medskip
+\pause
+All usability properties are determined by how we handle SURBs.
+
+\end{frame}
+
+
+
