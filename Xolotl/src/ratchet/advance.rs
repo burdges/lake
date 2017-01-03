@@ -210,14 +210,22 @@ impl Advance {
         })
     }
 
+    /// Retrieve an unspecified twig type using `BranchIdGuard::get_twig(...)`
     fn get_twig(&self, idx: TwigIdx) -> Result<TwigState,XolotlError> {
         let tid = TwigId(*self.branch_id.id(), idx);
         self.branch_id.get_twig(&tid)
     }
 
+    /// Retrieve a specific twig type using `BranchIdGuard::get_twigy(...)`
     fn get_twigy<T: Twigy>(&self, idx: TwigIdx) -> Result<T,XolotlError> {
         let tid = TwigId(*self.branch_id.id(), idx);
         self.branch_id.get_twigy(&tid)
+    }
+
+    /// Add a twig to an advance transaction's insert queue.
+    fn insert_twig<T>(&mut self, idx: TwigIdx, t: T) 
+      where /* T: Twigy, */ TwigState: From<T> {
+        self.inserts.push( TwigIS(idx,t.into()) );
     }
 
 }
@@ -226,26 +234,6 @@ impl Advance {
 /*
 
 impl Advance {
-    fn fetch_key(&self, idx: TwigIdx) -> Option<TwigState> {
-        let s = self.storage.read().unwrap();  // FIXME PoisonError
-        s.fetch(TwigId(self.branch_id, idx)).map( |k| TwigState::new(k) )
-    }
-
-    // Overwrites idx if present.
-    fn add_key<K: Twigy>(&mut self, idx: TwigIdx, k: K) {
-        k.assert_twigy();
-        self.inserts.push( TwigIS {
-            idx: TwigId(self.branch_id, idx)
-            key: k.0
-        } );
-    }
-
-    fn commit_keys(&self) {
-        let s = self.storage.write().unwrap();  // FIXME PoisonError
-        for idx in self.inserts.iter.rev() {
-            s.commit(TwigId(self.branch_id, idx));
-        }
-    }
 
     fn do_chain_step(&mut self, idx: TwigIdx) -> R<LinkKey> {
         let linkkey: LinkKey;

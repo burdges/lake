@@ -83,7 +83,7 @@ macro_rules! impl_Twigy {
 
         impl From<$a> for TwigState {
             fn from(k: $a) -> TwigState {
-                debug_assert_eq!(k.0[0] & TWIG_KEY_TYPE_MASK,$v);
+                k.debug_assert_twigy();
                 TwigState::$e(k)
             }
         }
