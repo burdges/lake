@@ -24,33 +24,35 @@ const TWIGKEY_ZERO : TwigKey = [0u8; 16];
 /// Iterating the train key with index i yields the train keys with
 /// indices 2 i and 2 i+1 along with a chain key and a link key.
 // #[never_forget]
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone)]
 pub struct TrainKey(pub TwigKey); 
 
-impl_KeyDrop!(TrainKey,TWIGKEY_ZERO);
+
+impl_ZeroingDrop!(TrainKey,TWIGKEY_ZERO);
 
 /// Chain keys iterate linearly, yielding the next chain key and
 /// a link key.
 // #[never_forget]
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone)]
 pub struct ChainKey(pub TwigKey);
 
-impl_KeyDrop!(ChainKey,TWIGKEY_ZERO);
+impl_ZeroingDrop!(ChainKey,TWIGKEY_ZERO);
 
 /// Link keys are combined with a Sphinx shared secret to produce
 /// a message key and a berry key to be stored.
 // #[never_forget]
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone)]
 pub struct LinkKey(pub TwigKey);
 
-impl_KeyDrop!(LinkKey, TWIGKEY_ZERO);
+impl_ZeroingDrop!(LinkKey, TWIGKEY_ZERO);
 
 /// Berry keys can be used to start a new hash iteration ratchet.
 // #[never_forget]
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone)]
 pub struct BerryKey(pub TwigKey);
 
-impl_KeyDrop!(BerryKey, TWIGKEY_ZERO);
+impl_ZeroingDrop!(BerryKey, TWIGKEY_ZERO);
+
 
 /// Mask for teh two bits we deduct from a TwigKey to identify its type.
 const TWIG_KEY_TYPE_MASK: u8 = 0x03;

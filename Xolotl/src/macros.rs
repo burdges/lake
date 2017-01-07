@@ -25,7 +25,7 @@ macro_rules! impl_Display_as_hex_for_WrapperStruct {
 /// of the first and other reasons.
 /// See https://github.com/rust-lang/rfcs/pull/320#issuecomment-270680263
 /// and https://github.com/isislovecruft/curve25519-dalek/issues/11
-macro_rules! impl_KeyDrop {
+macro_rules! impl_ZeroingDrop {
     ($t:ident,$zero:expr) => {
         impl Drop for $t {
             fn drop(&mut self) {
