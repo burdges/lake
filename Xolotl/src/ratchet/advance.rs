@@ -290,19 +290,19 @@ impl Advance {
         Ok(linkkey)
     }
 
+    fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, s: &::sphinx::SphinxSecret)
+      -> Result<super::MessageKey,XolotlError> {
+        let (messagekey,berrykey) = self.branch.kdf_berry(linkkey,s);
+        self.insert_twig(idx, berrykey);
+        Ok(messagekey)
+    }
+
 }
 
 
 /*
 
 impl Advance {
-
-    fn done_known_link(&mut self, idx: TwigIdx, linkkey: LinkKey, s: SphinxSecret)
-            -> R<MessageKey> {
-        let (messagekey,berrykey) = self.branch.kdf_berry(linkkey,s);
-        self.add_key(idx,berrykey);
-        Some(messagekey)
-    }
 
     fn done_fetched_link(&self, idx: TwigIdx, s: SphinxSecret) -> R<MessageKey> {
         let linkkey: LinkKey = self.get_twigy::<LinkKey>(idx) ?; 
