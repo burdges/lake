@@ -4,13 +4,13 @@
 //!
 //! ...
 
-use super::branch::*;
-
 use std::hash::{Hash, Hasher};
 
 use std::fmt;
 use rustc_serialize::hex::ToHex;
 
+use super::branch::*;
+use super::error::XolotlError;
 
 /// We store only a 128-2 = 126 bit secret symetric keys in a hash
 /// iteration ratchet step to reduce our storage reuirements.  
@@ -57,11 +57,12 @@ pub trait Twigy : Sized {
     const KEYTYPE: u8;
 
     #[inline]
-    fn verify(t: TwigKey) -> Result<Self,u8>;
+    fn verify(t: &TwigKey) -> Result<Self,u8>;
 
     #[inline]
     fn debug_assert_twigy(&self);
 }
+
 
 /// Enum for twig keys types returned by fetch
 #[derive(Debug, Clone)] // Default, Copy
@@ -75,6 +76,7 @@ pub enum TwigState {
 macro_rules! impl_Twigy {
     ($a:ident,$e:ident,$v:expr) => {
         impl $a {
+            #[inline]
             pub fn make(mut t: TwigKey) -> $a {
                 t[0] &= ! TWIG_KEY_TYPE_MASK;
                 t[0] |= $v;
@@ -92,9 +94,10 @@ macro_rules! impl_Twigy {
         impl Twigy for $a { 
             const KEYTYPE: u8 = $v;
 
-            fn verify(t: TwigKey) -> Result<$a,u8> {
+            #[inline]
+            fn verify(t: &TwigKey) -> Result<$a,u8> {
                 let ty: u8 = t[0] & TWIG_KEY_TYPE_MASK;
-                if ty == $v { Ok($a(t)) } else { Err(ty) }
+                if ty == $v { Ok($a(*t)) } else { Err(ty) }
             }
 
             fn debug_assert_twigy(&self) {
@@ -110,6 +113,7 @@ impl_Twigy!(LinkKey, Link, 0x02);
 impl_Twigy!(BerryKey, Berry, 0x03);
 
 impl TwigState {
+    #[inline]
     pub fn new(k: TwigKey) -> TwigState {
         use self::TwigState::*;
         match k[0] & TWIG_KEY_TYPE_MASK {
@@ -129,6 +133,18 @@ impl TwigState {
             Link(linkkey) => linkkey.0,
             Berry(berrykey) => berrykey.0,
         }
+    }
+}
+
+/// Verify the twig has the given type or thow `WrongTwigType`.
+/// Uses `Twigy::verify`.
+#[inline]
+pub fn verify_twigy<T: Twigy>(tid: &TwigId, twigkey: &TwigKey)
+  -> Result<T,XolotlError> {
+    use super::error::XolotlError;
+    match T::verify(twigkey) {
+        Ok(y) => Ok(y),
+        Err(e) => Err( XolotlError::WrongTwigType(*tid,e,T::KEYTYPE) )
     }
 }
 
@@ -173,12 +189,12 @@ impl TwigIdx {
     }
 
     /// Split an TwigIdx into train and chain parts.
-    fn split(idx : TwigIdx) -> (u16,u16) {
-        (idx.0 >> CHAIN_V_TRAIN_WIDTH, idx.0 & CHAIN_MASK)
+    pub fn split(self) -> (u16,u16) {
+        (self.0 >> CHAIN_V_TRAIN_WIDTH, self.0 & CHAIN_MASK)
     }
 
     /// Make an TwigIdx from train and chain parts.
-    fn make(i: u16, j: u16) -> TwigIdx {
+    pub fn make(i: u16, j: u16) -> TwigIdx {
         TwigIdx( (i << CHAIN_V_TRAIN_WIDTH) + (j & CHAIN_MASK) )
     }
 
@@ -187,21 +203,21 @@ impl TwigIdx {
     //     { TwigIdx(self.0+1) }
 
     /// Increment TwigIdx while preventing wrapping.
-    fn increment(self) -> Option<TwigIdx> {
+    pub fn increment(self) -> Option<TwigIdx> {
         if self.0 < TwigIdxT::max_value() { Some(TwigIdx(self.0+1)) } else { None }
     }
 
     /// Says if we progress to the next train step.
-    fn is_pure_train(self) -> bool  {  (self.0 & CHAIN_MASK) == 0  }
+    pub fn is_pure_train(self) -> bool  {  (self.0 & CHAIN_MASK) == 0  }
 
-    fn is_okay_train(i: u16) -> bool  {  i < (TwigIdxT::max_value() >> CHAIN_V_TRAIN_WIDTH)  }
+    pub fn is_okay_train(i: u16) -> bool  {  i < (TwigIdxT::max_value() >> CHAIN_V_TRAIN_WIDTH)  }
 
     /// Unique parent of train position
-    fn train_parent(i: u16) -> Option<u16>
+    pub fn train_parent(i: u16) -> Option<u16>
         {  if i>=1 { Some(i/2) } else { None }  }
 
     /// Two children of train position
-    fn train_children(i: u16) -> Option<(u16,u16)>
+    pub fn train_children(i: u16) -> Option<(u16,u16)>
         {  if Self::is_okay_train(2*i) { Some((2*i, 2*i+1)) } else { None }  }
         // Assumes CHAIN_V_TRAIN_WIDTH > 0 so fix if that changes
 }

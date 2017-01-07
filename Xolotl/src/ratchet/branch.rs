@@ -116,6 +116,7 @@ impl Branch {
         sha.result(&mut r);
         sha.reset();
 
+        // let a = array_ref![&r,14];
         BranchName(r)
     }
 

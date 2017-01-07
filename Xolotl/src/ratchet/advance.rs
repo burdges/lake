@@ -228,70 +228,74 @@ impl Advance {
         self.inserts.push( TwigIS(idx,t.into()) );
     }
 
+    fn verify_twigy<T: Twigy>(&self, idx: TwigIdx, twigkey: &TwigKey)
+      -> Result<T,XolotlError> {
+        let tid = TwigId(*self.branch_id.id(), idx);
+        verify_twigy::<T>(&tid, twigkey)
+    }
+
+    fn verify_twigstate<T: Twigy>(&self, idx: TwigIdx, twigstate: &TwigState)
+      -> Result<T,XolotlError> {
+        // TODO Remove enum from TwigState
+        let tk : TwigKey;
+        /* assert_eq!(T::KEYTYPE, match *twigstate { 
+            TwigState::Train(_) => <TrainKey as Twigy>::KEYTYPE,
+            TwigState::Chain(_) => <ChainKey as Twigy>::KEYTYPE,
+            TwigState::Link(_)  => <LinkKey as Twigy>::KEYTYPE,
+            TwigState::Berry(_) => <BerryKey as Twigy>::KEYTYPE,
+        } ); */
+        // TODO Refactor to avoid this clone
+        self.verify_twigy::<T>(idx, &twigstate.clone().data())
+    }
+
+    fn do_chain_step(&mut self, idx: TwigIdx) -> Result<LinkKey,XolotlError> {
+        let twig = self.get_twig(idx) ?; // ???
+          // PoisonError, MissingTwig
+        if let TwigState::Link(lk) = twig { return Ok(lk); }  // FIXME Questionable
+
+        let linkkey: LinkKey;
+
+        let (i,j) = idx.split();
+        if j==0 /* idx.is_pure_train() */ {
+
+            let trainkey = self.verify_twigstate::<TrainKey>(idx, &twig) ?;
+
+            let (x,y,z,lk) = self.branch.kdf_train(idx,&trainkey);
+            linkkey = lk;
+            if let Some((a,b)) = TwigIdx::train_children(j) {
+                self.insert_twig(TwigIdx::make(a,0), x);
+                self.insert_twig(TwigIdx::make(b,0), y);
+            } // Not addressable otherwise so no error needed
+
+            if let Some(next) = idx.increment() {
+                self.insert_twig(next,z);
+            }
+
+        } else {
+
+            let chainkey = self.verify_twigstate::<ChainKey>(idx, &twig) ?;
+
+            let (z,lk) = self.branch.kdf_chain(idx,&chainkey);
+            linkkey = lk;
+            if let Some(next) = idx.increment() { if ! next.is_pure_train() {
+                self.insert_twig(next,z);
+            } }
+
+        }
+
+        self.insert_twig(idx,linkkey.clone());
+        if let Some(next) = idx.increment() { if next > self.branch.chain {
+                self.branch.chain = next;
+        } }
+        Ok(linkkey)
+    }
+
 }
 
 
 /*
 
 impl Advance {
-
-    fn do_chain_step(&mut self, idx: TwigIdx) -> R<LinkKey> {
-        let linkkey: LinkKey;
-
-        let sk = match self.branch_id.get_twig(idx) ?;
-
-fetch_key(idx) {
-            None => return Err(KeyNotFound),
-            Some(x) => x
-        };
-        if stashed_key.dump() == Default::default() {
-            stashed_key = sk;
-        }
-
-        let (i,j) = idx.split();
-        if j==0 /* idx.is_pure_train() */ {
-
-            let tk = match sk {
-                Train(tk) => tk,
-                Chain(_) => return Err(UnexpectedChain),
-                Link(lk) => return Some(lk),  // FIXME Questionable
-                Berry(_) => return Err(UnexpectedBerry);
-            }
-
-            let x,y,z;
-            (x,y,z,linkkey) = self.branch.kdf_train(idx,tk);
-            if let Some(a,b) = TwigIdx::train_children(j) {
-                self.add_key(TwigIdx::make(a,0),x);
-                self.add_key(TwigIdx::make(b,0),y);
-            } // Not addressable otherwise so no error needed
-
-            if let Some(next) = idx.increment() {
-                self.add_key(next,z);
-            }
-
-        } else {
-
-            let ck = match sk {
-                Train(_) => return Err(UnexpectedTrain),
-                Chain(ck) => ck,
-                Link(lk) => return Some(lk),  // FIXME Questionable
-                Berry(_) => return Err(UnexpectedBerry);
-            }
-
-            let z;
-            (z,linkkey) = self.branch.kdf_chain(idx,ck);
-            if let Some(next) = idx.increment() && ! next.is_pure_train() {
-                self.add_key(next,z);
-            }
-
-        }
-
-        self.add_key(idx,linkkey);
-        if let Some(next) = idx.increment() && next > self.branch.chain {
-            self.branch.chain = next;
-        }
-        Some(linkkey)
-    }
 
     fn done_known_link(&mut self, idx: TwigIdx, linkkey: LinkKey, s: SphinxSecret)
             -> R<MessageKey> {
@@ -301,6 +305,13 @@ fetch_key(idx) {
     }
 
     fn done_fetched_link(&self, idx: TwigIdx, s: SphinxSecret) -> R<MessageKey> {
+        let linkkey: LinkKey = self.get_twigy::<LinkKey>(idx) ?; 
+          // PoisonError, MissingTwig, WrongTwigType
+        self.done_known_link(idx,linkkey,s)
+
+
+
+
         let sk = match self.fetch_key(idx) {
             None => return Err(KeyNotFound),
             Some(sk) => sk

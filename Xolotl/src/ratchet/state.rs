@@ -117,16 +117,13 @@ impl BranchIdGuard {
         }
     }
 
-    /// Retrieve a specific twig type.  Throw error MissingTwig if
-    /// not found or WrongTwigType error if type does not match.
+    /// Retrieve a specific twig type.  Throw error `MissingTwig` if
+    /// not found or `WrongTwigType` error if type does not match.
     /// Avoids holding twigs read lock.
     pub fn get_twigy<T: Twigy>(&self, tid: &TwigId) -> Result<T,XolotlError> {
         let twigs = self.state().twigs.read() ?;  // PoisonError
         if let Some(x) = twigs.get(tid) {
-            match T::verify(*x) {
-                Ok(y) => Ok(y),
-                Err(e) => Err( XolotlError::WrongTwigType(*tid,e,T::KEYTYPE) )
-            }
+            verify_twigy::<T>(tid,x)
         } else {
             Err( XolotlError::MissingTwig(*tid) )
         }
