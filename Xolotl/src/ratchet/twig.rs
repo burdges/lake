@@ -234,6 +234,7 @@ pub struct TwigIS(pub TwigIdx,pub TwigState);
 /* -- branch:: -- */
 
 
+/*
 #[derive(Debug)]
 pub enum TwigErr {
     UnexpectedTrain,
@@ -244,7 +245,7 @@ pub enum TwigErr {
     // Poisoned(PoisonError<??>)
 }
 type R<T> = Result<T,TwigErr>;
-
+*/
 
 
 
