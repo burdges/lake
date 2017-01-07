@@ -21,6 +21,8 @@ macro_rules! impl_Display_as_hex_for_WrapperStruct {
 /// - ensure your code cannot panic. 
 /// - take care with `Weak`, and
 /// - examine the data structures you use for violations of these rules.
+/// All such rules are collectively termed `#[never_forget]` in honor
+/// of the first and other reasons.
 /// See https://github.com/rust-lang/rfcs/pull/320#issuecomment-270680263
 /// and https://github.com/isislovecruft/curve25519-dalek/issues/11
 macro_rules! impl_KeyDrop {

@@ -8,6 +8,7 @@
 /// Secret supplied by the Diffie-Hellman key exchange in Sphinx. 
 /// Also secret symmetric key supploied by Xolotl, which must be
 /// 256 bits for post-quantum security.
+// #[never_forget]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SphinxSecret(pub [u8; 32]);
 

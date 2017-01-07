@@ -25,6 +25,7 @@ use super::twig::*;
 /// In principle, we could employ only a 128 bit extra key here, as
 /// an adversary probably cannot gain enough information to deploy
 /// Grover's algorithm against any given hash iteration step.
+// #[never_forget]
 #[derive(Debug, Default, Clone)] // Hash
 pub struct ExtraKey(pub [u8; 32]);
 
