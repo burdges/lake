@@ -28,7 +28,7 @@ use super::twig::*;
 #[derive(Debug, Default, Clone)] // Hash
 pub struct ExtraKey(pub [u8; 32]);
 
-impl_KeyDrop!(ExtraKey);
+impl_KeyDrop!(ExtraKey, [0u8; 32]);
 
 
 /// Use constant time equality for `ExtraKey`.  Arguably, one should not
@@ -150,7 +150,7 @@ impl Branch {
         //  ChainKey(r[32..47]), LinkKey(r[48..63]))
         let (a,b,c,d) = array_refs![&r,16,16,16,16];
         (TrainKey::make(*a), TrainKey::make(*b), ChainKey::make(*c), LinkKey::make(*d))
-        // r
+        // TODO Zero r
     }
 
     /// Advance a chain twig
@@ -183,7 +183,7 @@ impl Branch {
         // (ChainKey(r[0..15]), LinkKey(r[15..31]))
         let (a,b) = array_refs![&r,16,16];
         (ChainKey::make(*a), LinkKey::make(*b))
-        // r
+        // TODO Zero r
     }
 
     /// Sphinx berry KDF
@@ -217,7 +217,7 @@ impl Branch {
         // (MessageKey::new(r[0..31]), BerryKey(r[32..47]))
         let (a,b) = array_refs![&r,32,16];
         (MessageKey::new(*a), BerryKey::make(*b))
-        // r
+        // TODO Zero r
     }
 
     /// Produce a new branch from a berry
@@ -253,6 +253,7 @@ impl Branch {
             }, 
             TrainKey::make(*t)  // BranchName(r[32..47])
         )
+        // TODO Zero r
     }
 
     pub fn new_kdf(seed: &[u8]) -> (BranchId, Branch, TrainKey) {
@@ -279,6 +280,7 @@ impl Branch {
             },
             TrainKey::make(*t)  // TrainKey(r[48..63])
         )
+        // TODO Zero r
     }
 }
 

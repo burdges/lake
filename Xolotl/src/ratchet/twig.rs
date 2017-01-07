@@ -18,6 +18,7 @@ use rustc_serialize::hex::ToHex;
 /// secrecy properties arising from the hash iteration ratchet.
 /// We use the remaining 2 bits to identify the twig type.
 pub type TwigKey = [u8; 16];
+const TWIGKEY_ZERO : TwigKey = [0u8; 16];
 
 /// Train keys are faster chain keys that iterate in a tree.
 /// Iterating the train key with index i yields the train keys with
@@ -25,27 +26,27 @@ pub type TwigKey = [u8; 16];
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct TrainKey(pub TwigKey); 
 
-impl_KeyDrop!(TrainKey);
+impl_KeyDrop!(TrainKey,TWIGKEY_ZERO);
 
 /// Chain keys iterate linearly, yielding the next chain key and
 /// a link key.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct ChainKey(pub TwigKey);
 
-impl_KeyDrop!(ChainKey);
+impl_KeyDrop!(ChainKey,TWIGKEY_ZERO);
 
 /// Link keys are combined with a Sphinx shared secret to produce
 /// a message key and a berry key to be stored.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct LinkKey(pub TwigKey);
 
-impl_KeyDrop!(LinkKey);
+impl_KeyDrop!(LinkKey, TWIGKEY_ZERO);
 
 /// Berry keys can be used to start a new hash iteration ratchet.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct BerryKey(pub TwigKey);
 
-impl_KeyDrop!(BerryKey);
+impl_KeyDrop!(BerryKey, TWIGKEY_ZERO);
 
 /// Mask for teh two bits we deduct from a TwigKey to identify its type.
 const TWIG_KEY_TYPE_MASK: u8 = 0x03;

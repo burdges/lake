@@ -24,10 +24,10 @@ macro_rules! impl_Display_as_hex_for_WrapperStruct {
 /// See https://github.com/rust-lang/rfcs/pull/320#issuecomment-270680263
 /// and https://github.com/isislovecruft/curve25519-dalek/issues/11
 macro_rules! impl_KeyDrop {
-    ($t:ident) => {
+    ($t:ident,$zero:expr) => {
         impl Drop for $t {
             fn drop(&mut self) {
-                unsafe { ::std::intrinsics::volatile_set_memory(self,0,1); }
+                unsafe { ::std::ptr::write_volatile::<$t>(self, $t($zero)); }
             }
         }
     }
