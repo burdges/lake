@@ -32,23 +32,34 @@ macro_rules! impl_ZeroingDrop {
                 unsafe { ::std::ptr::write_volatile::<$t>(self, $t($zero)); }
             }
         }
+
+/*
+        #[test]
+        fn concat_idents!(zeroing_drop_,$t)() {
+            let p : *const $t;
+            { let s = $t([1u8; 32]); p = &s; ::std::mem::drop(s); }
+            unsafe { assert_eq!(*p,$t([0u8; 32])); }
+        }
+*/
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use xolotl::branch::ExtraKey;
-    // #[derive(Debug,PartialEq,Eq)]
-    // struct SecretKey(pub [u8; 32]);
+    use ::sphinx::SphinxSecret;
+    use ::xolotl::branch::ExtraKey;
 
     #[test]
-    fn zeroing_drop() {
-        let p : *const SecretKey;
+    fn zeroing_drop_extrakey() {
+        let p : *const SphinxSecret;
+        { let s = SphinxSecret([1u8; 32]); p = &s; ::std::mem::drop(s); }
+        unsafe { assert_eq!(*p,SphinxSecret([0u8; 32])); }
+
+        let p : *const ExtraKey;
         { let s = ExtraKey([1u8; 32]); p = &s; ::std::mem::drop(s); }
         unsafe { assert_eq!(*p,ExtraKey([0u8; 32])); }
     }
 }
-
 
 
