@@ -6,13 +6,14 @@ use std::collections::{HashMap,HashSet};
 use std::sync::Arc; // RwLock, RwLockReadGuard, RwLockWriteGuard
 use std::ops::Deref; // DerefMut
 
+use super::MessageKey;
+use ::sphinx::SphinxSecret;
 use super::branch::*;
 use super::twig::*;
 use super::error::*;
 
 use super::state::*;
 use super::super::state::*;
-
 
 pub trait Transaction {
     /// Access Xolotl Branch and Twig state data.
@@ -37,9 +38,10 @@ pub trait Transaction {
     fn abandon(&mut self) -> Result<(),XolotlError>;
 }
 
-/// A transaction for an attempt to advance our hash iteration ratchet.
-/// All real writes to state occur in `Transaction::confirm` although 
-/// cache manipulation occurs in `Drop::drop` as well.
+/// A transaction for attempts to advance our hash iteration ratchet.
+///
+/// All writes to state occur in `Transaction::confirm` although cache
+/// manipulation occurs in `Drop::drop` as well.
 pub struct Advance {
     /// Locked Branch identifier together with Xolotl Branch and Twig state data.
     pub branch_id: BranchIdGuard,
@@ -55,8 +57,8 @@ pub struct Advance {
 }
 
 impl Transaction for Advance {
-    /// Use `self.branch_id.0` directly if this conflicts with borrow checker.
     fn state(&self) -> &State {
+        //! Use `self.branch_id.0` directly if this conflicts with borrow checker.
         self.branch_id.0.deref()
     }
 
@@ -290,77 +292,105 @@ impl Advance {
         Ok(linkkey)
     }
 
-    fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, s: &::sphinx::SphinxSecret)
-      -> Result<super::MessageKey,XolotlError> {
+    fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, s: &SphinxSecret)
+      -> Result<MessageKey,XolotlError> {
         let (messagekey,berrykey) = self.branch.kdf_berry(linkkey,s);
         self.insert_twig(idx, berrykey);
         Ok(messagekey)
     }
 
-}
-
-
-/*
-
-impl Advance {
-
-    fn done_fetched_link(&self, idx: TwigIdx, s: SphinxSecret) -> R<MessageKey> {
+    fn done_fetched_link(&mut self, idx: TwigIdx, s: &SphinxSecret)
+      -> Result<MessageKey,XolotlError> {
         let linkkey: LinkKey = self.get_twigy::<LinkKey>(idx) ?; 
           // PoisonError, MissingTwig, WrongTwigType
-        self.done_known_link(idx,linkkey,s)
-
-
-
-
-        let sk = match self.fetch_key(idx) {
-            None => return Err(KeyNotFound),
-            Some(sk) => sk
-        };
-        match sk {
-            Train(tk) => Err(UnexpectedTrain),  // FIXME Recover?
-            Chain(ck) => Err(UnexpectedChain),  // FIXME Recover?
-            Link(linkkey) => self.done_known_link(idx,linkkey,s),
-            Berry(_) => Err(UnexpectedBerry);
-        }
-    }
-}
-*/
-
-
-/* 
-
-pub struct AdvanceTwigUser(AdvanceTwig);
-
-impl AdvanceTwigUser {
-    pub fn click(&self, s: SphinxSecret) -> R<MessageKey> {
-        let ci = self.0.branch.chain;
-        let linkkey = try!(self.0.do_chain_step(ci));
-        self.0.done_known_link(ci,linkkey,s)
+        self.done_known_link(idx,&linkkey,s)
     }
 }
 
 
-pub struct AdvanceTwigNode(AdvanceTwig);
+/// A transaction for a user iterating their hash iteration ratchet
+/// by a single step.
+///
+/// All writes to state occur in `Transaction::confirm` although cache
+/// manipulation occurs in `Drop::drop` as well.
+pub struct AdvanceUser(Advance);
 
-impl AdvanceTwigNode {
-    fn clicks_chain_only(&self, s: SphinxSecret, cidx,tidx: TwigIdx) -> R<MessageKey> {
+impl Transaction for AdvanceUser {
+    fn state(&self) -> &State
+      { self.0.state() }
+    fn confirm(&mut self) -> Result<(),XolotlError>
+      { self.0.confirm() }
+    fn forget(&mut self)
+      { self.0.forget() }
+    fn abandon(&mut self) -> Result<(),XolotlError>
+      { self.0.abandon() }
+}
+
+impl AdvanceUser {
+    pub fn new(state: &Arc<State>, bid: BranchId)
+      -> Result<AdvanceUser,XolotlError> {
+        Ok( AdvanceUser(Advance::new(state,bid) ?) )
+    }
+
+    pub fn click(&mut self, s: &SphinxSecret) 
+      -> Result<MessageKey,XolotlError> {
+        let cidx = self.0.branch.chain;
+        let linkkey = self.0.do_chain_step(cidx) ?;
+          // .. PoisonError, MissingTwig, WrongTwigType .. ??
+        self.0.done_known_link(cidx,&linkkey,s)
+    }
+}
+
+
+/// A transaction for a mix node iterating a hash iteration ratchet
+/// as directed by a Sphinx packet.
+///
+/// All writes to state occur in `Transaction::confirm` although cache
+/// manipulation occurs in `Drop::drop` as well.
+pub struct AdvanceNode(Advance);
+
+impl Transaction for AdvanceNode {
+    fn state(&self) -> &State
+      { self.0.state() }
+    fn confirm(&mut self) -> Result<(),XolotlError>
+      { self.0.confirm() }
+    fn forget(&mut self)
+      { self.0.forget() }
+    fn abandon(&mut self) -> Result<(),XolotlError>
+      { self.0.abandon() }
+}
+
+impl AdvanceNode {
+    pub fn new(state: &Arc<State>, bid: BranchId)
+      -> Result<AdvanceNode,XolotlError> {
+        Ok( AdvanceNode(Advance::new(state,bid) ?) )
+    }
+
+    /// 
+    fn clicks_chain_only(&mut self, s: &SphinxSecret, cidx: TwigIdx,tidx: TwigIdx)
+      -> Result<MessageKey,XolotlError> {
         debug_assert!(tidx.split().0 == cidx.split().0);
-        let linkkey: LinkKey;
-        if cidx > tidx {
+        let mut linkkey = LinkKey(Default::default());
+        // Assign a range to try to show that linkkey gets initialized.
+        let r = cidx.0 .. tidx.0+1;
+        if r.len()==0 /* or r.is_empty() or cidx > tidx */ {
             return self.0.done_fetched_link(tidx,s);
         }
-        self.0.inserts.reserve(tidx.0-cidx.0+2);
-        for ii in cidx.0 .. tidx.0+1 {
-            linkkey = try!(self.0.do_chain_step( TwigIdx(ii) ));
-            // It's safer to call  self.0.add_key(idx,linkkey);
+        self.0.inserts.reserve(r.len() + 1);
+        for ii in r {
+            linkkey = self.0.do_chain_step( TwigIdx(ii) ) ?;
+            // Always runs at least once, so linkkey cannot remain `Default::default()`.
+            // It's safer to call  self.0.insert_twig(idx,linkkey);
             // in do_chain_step() rather than usng complex loop
             // structure to avert one extra write here.
         }
         // we effectively have cidx==tidx+1 now.
-        self.done_known_link(tidx,linkkey,s)
+        self.0.done_known_link(tidx,&linkkey,s)
     }
 
-    fn clicks(&self, s: SphinxSecret, target: TwigIdx ) -> R<MessageKey> {
+    ///
+    fn clicks(&mut self, s: &SphinxSecret, target: TwigIdx )
+      -> Result<MessageKey,XolotlError> {
         let (ti,_) = target.split();
         let cidx = self.0.branch.chain;
         let (ci,_) = cidx.split();
@@ -369,26 +399,54 @@ impl AdvanceTwigNode {
             return self.clicks_chain_only(s,cidx,target);
         }
 
-        let mut (i,j) = (ti,0);
+        let mut i = ti;
+        let mut j = 0;
         while i>0 {
-            match self.0.fetch_key(TwigIdx::make(i,0)) {
-                None => i = TwigIdx::train_parent(i),
-                Some(Train(_)) => break,
-                Some(Chain(_)) => return Err(UnexpectedChain),
-                Some(Link(_)) => return Err(UnexpectedLink),
-                Some(Berry(_)) => return Err(UnexpectedBerry),
-            }
-            j++;
+            let idx = TwigIdx::make(i,0);
+            match self.0.get_twig(idx) {
+                Ok(TwigState::Train(_)) => break,  // Train key found :)
+                Err( XolotlError::MissingTwig(_) ) => {
+                    // Not found, progress to parent train key index 
+                    if let Some(ii) = TwigIdx::train_parent(i) {
+                        i = ii;
+                    } else {
+                        return Err( XolotlError::CorruptBranch(
+                            *self.0.branch_id.id(), 
+                            "lacks twig data."
+                        ) );
+                    }
+                },
+                    // Not found, progress to parent train key index 
+                Ok(twig) => {
+                    // Non-train key found, internal error.
+                    self.0.verify_twigstate::<TrainKey>(idx, &twig) ?; 
+                    unreachable!(); 
+                },
+                Err(e) => return Err(e),  // PoisonError
+            };
+            j += 1;
         }
-        self.0.inserts.reserve(3*j+1);
+        self.0.inserts.reserve(3*j+1 as usize);
         while j>=0 {
             i = ti >> j;  // Iterate TwigIdx::train_parent j times.
-            try!(self.0.do_chain_step( TwigIdx::make(i,0) ));
-            j--;
+            self.0.do_chain_step( TwigIdx::make(i,0) ) ?;
+            j -= 1;
         }
         self.clicks_chain_only(s,TwigIdx::make(i,0),target)
     }
 }
 
-*/
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustc_serialize::hex::ToHex;
+
+    #[test]
+    fn need_tests() {
+    }
+}
+
+
+
 

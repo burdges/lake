@@ -12,7 +12,6 @@ use crypto::sha3::Sha3;
 
 use super::MessageKey;
 use ::sphinx::SphinxSecret;
-
 use super::twig::*;
 
 /// We keep an extra 256 bit secret symetric key associated to any
