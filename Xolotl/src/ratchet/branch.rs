@@ -125,12 +125,10 @@ impl Branch {
             -> (TrainKey, TrainKey, ChainKey, LinkKey) {
         ck.debug_assert_twigy();
 
-        let mut r = [0u8; 4*16];
+        let mut r = [0u8; 4*32];
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(TrainKey, TrainKey, ChainKey, LinkKey)>());
-        // let mut r: (TrainKey, TrainKey, ChainKey, LinkKey) = Default::default();
-        // debug_assert_eq!(mem::size_of_val(&r), 512/8);
-        let mut sha = Sha3::sha3_512();
+        let mut sha = Sha3::shake_256();
 
         sha.input_str( TIGER[0] );
         sha.input(&self.extra.0);  // was self.child_family_name().0
@@ -142,14 +140,11 @@ impl Branch {
         sha.input(&ck.0);
         sha.input_str( TIGER[3] );
         sha.result(&mut r);
-        // sha.result( 
-        //   unsafe { mem::transmute::<&mut (TrainKey, TrainKey, ChainKey, LinkKey),&mut [u8;4*16]>(&mut r) } 
-        // );
         sha.reset();
 
-        // (TrainKey(r[0..15]), TrainKey(r[16..31]),
-        //  ChainKey(r[32..47]), LinkKey(r[48..63]))
-        let (a,b,c,d) = array_refs![&r,16,16,16,16];
+        // (TrainKey(r[0..32]), TrainKey(r[32..64]),
+        //  ChainKey(r[64..96]), LinkKey(r[96..128]))
+        let (a,b,c,d) = array_refs![&r,32,32,32,32];
         (TrainKey::make(*a), TrainKey::make(*b), ChainKey::make(*c), LinkKey::make(*d))
         // TODO Zero r
     }
@@ -159,12 +154,10 @@ impl Branch {
             -> (ChainKey,LinkKey) {
         ck.debug_assert_twigy();
 
-        let mut r = [0u8; 2*16];
+        let mut r = [0u8; 2*32];
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ChainKey, LinkKey)>());
-        // let mut r: (ChainKey, LinkKey) = Default::default();
-        // debug_assert_eq!(mem::size_of_val(&r), 256/8);
-        let mut sha = Sha3::sha3_256();
+        let mut sha = Sha3::sha3_512();
 
         sha.input_str( TIGER[2] );
         sha.input(&self.extra.0);  // was self.child_family_name().0
@@ -176,13 +169,10 @@ impl Branch {
         sha.input(&ck.0);
         sha.input_str( TIGER[5] );
         sha.result(&mut r);
-        // sha.result( 
-        //   unsafe { mem::transmute::<&mut (LinkKey, ChainKey, ChainKey),&mut [u8;3*16]>(&mut r) } 
-        // );
         sha.reset();
 
-        // (ChainKey(r[0..15]), LinkKey(r[15..31]))
-        let (a,b) = array_refs![&r,16,16];
+        // (ChainKey(r[0..32]), LinkKey(r[32..64]))
+        let (a,b) = array_refs![&r,32,32];
         (ChainKey::make(*a), LinkKey::make(*b))
         // TODO Zero r
     }
@@ -192,12 +182,10 @@ impl Branch {
             -> (MessageKey, BerryKey) {
         linkkey.debug_assert_twigy();
 
-        let mut r = [0u8; 32+16];
+        let mut r = [0u8; 2*32];
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(MessageKey, BerryKey)>());
-        // let mut r: (MessageKey, BerryKey) = Default::default();
-        // debug_assert_eq!(mem::size_of_val(&r), 384/8);
-        let mut sha = Sha3::sha3_384();
+        let mut sha = Sha3::sha3_512();
 
         // Cannot incorporate self.extra.0 because we wish to give away
         // ratchet states, but maybe Advance::branch_id.id() works.
@@ -210,13 +198,10 @@ impl Branch {
         sha.input(&s.0);
         sha.input_str( TIGER[7] );
         sha.result(&mut r);
-        // sha.result(
-        //   unsafe { mem::transmute::<&mut (MessageKey, BerryKey),&mut [u8;32+16]>(&mut r) } 
-        // );
         sha.reset();
 
-        // (MessageKey::new(r[0..31]), BerryKey(r[32..47]))
-        let (a,b) = array_refs![&r,32,16];
+        // (MessageKey::new(r[0..32]), BerryKey(r[32..64]))
+        let (a,b) = array_refs![&r,32,32];
         (MessageKey::new(*a), BerryKey::make(*b))
         // TODO Zero r
     }
@@ -226,12 +211,10 @@ impl Branch {
             -> (BranchId, Branch, TrainKey) {
         bk.debug_assert_twigy();
 
-        let mut r = [0u8; 32+16];
+        let mut r = [0u8; 2*32];
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ExtraKey, TrainKey)>());
-        // let mut r: (ExtraKey, TrainKey) = Default::default();
-        // debug_assert_eq!(mem::size_of_val(&r), 384/8);
-        let mut sha = Sha3::sha3_384();
+        let mut sha = Sha3::sha3_512();
 
         // Cannot incorporate self.extra.0 because we wish to give away
         // ratchet states, but maybe Advance::branch_id.id() works.
@@ -244,7 +227,7 @@ impl Branch {
         sha.result(&mut r);
         sha.reset();
 
-        let (e,t) = array_refs![&r,32,16];
+        let (e,t) = array_refs![&r,32,32];
         ( 
             BranchId { family: self.child_family_name(), berry: i },
             Branch {
@@ -257,10 +240,10 @@ impl Branch {
     }
 
     pub fn new_kdf(seed: &[u8]) -> (BranchId, Branch, TrainKey) {
-        let mut r = [0u8; 32+16+16];
+        let mut r = [0u8; 32+16+32];
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ExtraKey, BranchName, TrainKey)>());
-        let mut sha = Sha3::sha3_512();
+        let mut sha = Sha3::shake_256();
 
         sha.input_str( TIGER[1] );
         sha.input(seed);
@@ -268,7 +251,7 @@ impl Branch {
         sha.result(&mut r);
         sha.reset();
 
-        let (e,f,t) = array_refs![&r,32,16,16];
+        let (e,f,t) = array_refs![&r,32,16,32];
         (
             BranchId { 
                 family: BranchName(*f),  // BranchName(r[32..47]),

@@ -17,8 +17,8 @@ use super::error::XolotlError;
 /// We therefore enjoy 126 bits of classical security for our forward
 /// secrecy properties arising from the hash iteration ratchet.
 /// We use the remaining 2 bits to identify the twig type.
-pub type TwigKey = [u8; 16];
-const TWIGKEY_ZERO : TwigKey = [0u8; 16];
+pub type TwigKey = [u8; 32];
+const TWIGKEY_ZERO : TwigKey = [0u8; 32];
 
 /// Train keys are faster chain keys that iterate in a tree.
 /// Iterating the train key with index i yields the train keys with
