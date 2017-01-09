@@ -199,15 +199,15 @@ impl Branch {
         // debug_assert_eq!(mem::size_of_val(&r), 384/8);
         let mut sha = Sha3::sha3_384();
 
+        // Cannot incorporate self.extra.0 because we wish to give away
+        // ratchet states, but maybe Advance::branch_id.id() works.
         sha.input_str( TIGER[4] );
-        sha.input(&self.extra.0);  // was self.child_family_name().0
         sha.input(&linkkey.0);
         sha.input_str( TIGER[5] );
         sha.input(&s.0);
-        sha.input(&self.extra.0);
         sha.input_str( TIGER[6] );
-        sha.input(&s.0);
         sha.input(&linkkey.0);
+        sha.input(&s.0);
         sha.input_str( TIGER[7] );
         sha.result(&mut r);
         // sha.result(
@@ -233,12 +233,11 @@ impl Branch {
         // debug_assert_eq!(mem::size_of_val(&r), 384/8);
         let mut sha = Sha3::sha3_384();
 
-        sha.input(&self.extra.0);
+        // Cannot incorporate self.extra.0 because we wish to give away
+        // ratchet states, but maybe Advance::branch_id.id() works.
         sha.input_str( TIGER[0] );
         sha.input(&bk.0);
-        sha.input_str( TIGER[2] );
-        sha.input(&self.extra.0);
-        sha.input_str( TIGER[4] );
+        sha.input_str( TIGER[3] );
         sha.input(& i.to_bytes());
         sha.input(&bk.0);
         sha.input_str( TIGER[6] );
