@@ -7,7 +7,7 @@
 use std::hash::{Hash, Hasher};
 
 use std::fmt;
-use rustc_serialize::hex::ToHex;
+// use rustc_serialize::hex::ToHex;
 
 use super::branch::*;
 use super::error::XolotlError;

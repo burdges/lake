@@ -6,6 +6,10 @@
 //! 
 //! ...
 
+// TODO Remove this !!!
+#![allow(dead_code)]
+
+#![feature(core_intrinsics)]
 #![feature(associated_consts)]
 
 // #![doc(html_root_url="...")]

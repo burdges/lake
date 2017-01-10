@@ -1,4 +1,5 @@
 
+
 // TODO: Write flexible macro for tuple structs.
 macro_rules! impl_Display_as_hex_for_WrapperStruct {
     ($t:ident) => {
@@ -6,6 +7,29 @@ macro_rules! impl_Display_as_hex_for_WrapperStruct {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 write!(f, concat!(stringify!($t), "({:x})"), self.0)
             }
+        }
+    }
+}
+
+
+#[derive(Debug, Default)]
+pub struct Secret<T>(pub T) where T: Copy;
+
+impl<T> Drop for Secret<T> where T: Copy {
+    fn drop(&mut self) {
+        unsafe { ::std::intrinsics::volatile_set_memory::<Secret<T>>(self, 0, 1); }
+    }
+}
+
+
+#[derive(Debug, Default)]
+pub struct DropSecret<T>(pub T) where T: Drop;
+
+impl<T> Drop for DropSecret<T> where T: Drop {
+    fn drop(&mut self) {
+        unsafe {
+            ::std::intrinsics::drop_in_place(&mut self.0);
+            ::std::intrinsics::volatile_set_memory::<DropSecret<T>>(self, 0, 1); 
         }
     }
 }
@@ -30,6 +54,7 @@ macro_rules! impl_ZeroingDrop {
         impl Drop for $t {
             fn drop(&mut self) {
                 unsafe { ::std::ptr::write_volatile::<$t>(self, $t($zero)); }
+                assert_eq!(self.0,$zero);
             }
         }
 
@@ -47,18 +72,44 @@ macro_rules! impl_ZeroingDrop {
 
 #[cfg(test)]
 mod tests {
+    use crypto::digest::Digest;
+    use crypto::sha3::Sha3;
     use ::sphinx::SphinxSecret;
-    use ::xolotl::branch::ExtraKey;
+    use ::ratchet::ExtraKey;
 
+    macro_rules! zeroing_drop_test {
+        ($n:path) => {
+            let p : *const $n;
+            {
+                let mut s = $n([3u8; 32]);  p = &s; 
+                // ::std::mem::drop(s); 
+                unsafe { ::std::intrinsics::drop_in_place(&mut s); }  
+            }
+            /*
+            let mut sha = Sha3::sha3_512();
+            let mut r = [0u8; 2*32];
+            for i in 0..1000 {
+                sha.input(&mut r);
+                sha.result(&mut r);
+                sha.reset();
+            }
+            */
+            // ::std::thread::sleep(::std::time::Duration::from_secs(10));
+            unsafe { assert_eq!((*p).0,[0u8; 32]); }
+        }
+    }
     #[test]
-    fn zeroing_drop_extrakey() {
-        let p : *const SphinxSecret;
-        { let s = SphinxSecret([1u8; 32]); p = &s; ::std::mem::drop(s); }
-        unsafe { assert_eq!(*p,SphinxSecret([0u8; 32])); }
-
-        let p : *const ExtraKey;
-        { let s = ExtraKey([1u8; 32]); p = &s; ::std::mem::drop(s); }
-        unsafe { assert_eq!(*p,ExtraKey([0u8; 32])); }
+    fn zeroing_drops() {
+        // zeroing_drop_test!(super::DropSecret<[u8; 32]>);
+        zeroing_drop_test!(super::Secret<[u8; 32]>);
+        zeroing_drop_test!(SphinxSecret);
+        zeroing_drop_test!(ExtraKey);
+/*
+        zeroing_drop_test!(self::ratchet::twig::TrainKey);
+        zeroing_drop_test!(self::ratchet::twig::ChainKey);
+        zeroing_drop_test!(self::ratchet::twig::LinkKey);
+        zeroing_drop_test!(self::ratchet::twig::BerryKey);
+*/
     }
 }
 

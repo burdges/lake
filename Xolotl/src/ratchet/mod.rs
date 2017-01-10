@@ -17,6 +17,8 @@ pub use self::state::{State};
 pub use self::advance::{Transaction,Advance};
 */
 
+pub use self::branch::ExtraKey;
+
 use ::sphinx::SphinxSecret;
 
 /// Secret symmetric key the Xolotl ratchet returns to Sphinx.

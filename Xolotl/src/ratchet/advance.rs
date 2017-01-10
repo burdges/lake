@@ -2,7 +2,7 @@
 
 //! Advance transaction for Xolotl ratchet
 
-use std::collections::{HashMap,HashSet};
+use std::collections::HashMap; // HashSet
 use std::sync::Arc; // RwLock, RwLockReadGuard, RwLockWriteGuard
 use std::ops::Deref; // DerefMut
 
@@ -186,13 +186,15 @@ impl Advance {
 
         /* branch_id.state() */
         let parent_bid = state.parent_id(branch_id.family()) ?;
-          // PoisonError, MissingParentBranch
+          // PoisonError, MissingParent
         let parent = if let Some(p) = branches.get(&parent_bid) { p.clone() } else {
             return Err(XolotlError::MissingBranch(parent_bid));
         };
         
         // Avoid holding branches read lock during crypto.  
         // We could do this lexically perhaps, but this should work fine.
+        // We still need to verify that however:
+        // https://stackoverflow.com/questions/41560442/is-there-any-safe-way-to-ensure-an-arbitrary-drop-happens-before-some-expensive
         ::std::mem::drop(branches);
 
         let tid = TwigId(parent_bid, branch_id.berry());
@@ -239,7 +241,6 @@ impl Advance {
     fn verify_twigstate<T: Twigy>(&self, idx: TwigIdx, twigstate: &TwigState)
       -> Result<T,XolotlError> {
         // TODO Remove enum from TwigState
-        let tk : TwigKey;
         /* assert_eq!(T::KEYTYPE, match *twigstate { 
             TwigState::Train(_) => <TrainKey as Twigy>::KEYTYPE,
             TwigState::Chain(_) => <ChainKey as Twigy>::KEYTYPE,
@@ -257,7 +258,7 @@ impl Advance {
 
         let linkkey: LinkKey;
 
-        let (i,j) = idx.split();
+        let (_i,j) = idx.split();
         if j==0 /* idx.is_pure_train() */ {
 
             let trainkey = self.verify_twigstate::<TrainKey>(idx, &twig) ?;
@@ -400,7 +401,7 @@ impl AdvanceNode {
         }
 
         let mut i = ti;
-        let mut j = 0;
+        let mut j: i16 = 0;
         while i>0 {
             let idx = TwigIdx::make(i,0);
             match self.0.get_twig(idx) {
@@ -426,7 +427,7 @@ impl AdvanceNode {
             };
             j += 1;
         }
-        self.0.inserts.reserve(3*j+1 as usize);
+        self.0.inserts.reserve((3*j+1) as usize);
         while j>=0 {
             i = ti >> j;  // Iterate TwigIdx::train_parent j times.
             self.0.do_chain_step( TwigIdx::make(i,0) ) ?;
