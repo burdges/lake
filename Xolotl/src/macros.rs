@@ -80,7 +80,7 @@ mod tests {
     fn zeroing_drops() {
         // zeroing_drop_test!(super::DropSecret<[u8; 32]>);
         zeroing_drop_test!(super::Secret<[u8; 32]>);
-        zeroing_drop_test!(SphinxSecret);
+        // zeroing_drop_test!(SphinxSecret);
         zeroing_drop_test!(ExtraKey);
 /*
         zeroing_drop_test!(self::ratchet::twig::TrainKey);

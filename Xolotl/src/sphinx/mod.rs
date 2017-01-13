@@ -9,14 +9,14 @@
 /// Also secret symmetric key supploied by Xolotl, which must be
 /// 256 bits for post-quantum security.
 // #[never_forget]
-#[derive(Debug, Default, Clone)]
-pub struct SphinxSecret(pub [u8; 32]);
+// #[derive(Debug, Default, Clone)]
+pub type SphinxSecret = ::Secret<[u8; 32]>;
 
-impl_ZeroingDrop!(SphinxSecret, [0u8; 32]);
+// impl_ZeroingDrop!(SphinxSecret, [0u8; 32]);
 
-impl SphinxSecret {
-    #[inline]
-    pub fn new(ss: [u8; 32]) -> SphinxSecret { SphinxSecret(ss) }
-}
+// impl SphinxSecret {
+//     #[inline]
+//     pub fn new(ss: [u8; 32]) -> SphinxSecret { SphinxSecret(ss) }
+// }
 
 

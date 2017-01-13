@@ -179,7 +179,7 @@ impl Branch {
     }
 
     /// Sphinx berry KDF
-    pub fn kdf_berry(&self, linkkey: &LinkKey, s: &SphinxSecret)
+    pub fn kdf_berry(&self, linkkey: &LinkKey, s: SphinxSecret)
             -> (MessageKey, BerryKey) {
         linkkey.debug_assert_twigy();
 
@@ -193,17 +193,17 @@ impl Branch {
         sha.input_str( TIGER[4] );
         sha.input(&linkkey.0);
         sha.input_str( TIGER[5] );
-        sha.input(&s.0);
+        sha.input(s.deref());
         sha.input_str( TIGER[6] );
         sha.input(&linkkey.0);
-        sha.input(&s.0);
+        sha.input(s.deref());
         sha.input_str( TIGER[7] );
         sha.result(r.deref_mut());
         sha.reset();
 
         // (MessageKey::new(r[0..32]), BerryKey(r[32..64]))
         let (a,b) = array_refs![r.deref(),32,32];
-        (MessageKey::new(*a), BerryKey::make(*b))
+        (MessageKey::new_copy(a), BerryKey::make(*b))
         // TODO Zero r
     }
 

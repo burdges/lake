@@ -293,14 +293,14 @@ impl Advance {
         Ok(linkkey)
     }
 
-    fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, s: &SphinxSecret)
+    fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, s: SphinxSecret)
       -> Result<MessageKey,XolotlError> {
         let (messagekey,berrykey) = self.branch.kdf_berry(linkkey,s);
         self.insert_twig(idx, berrykey);
         Ok(messagekey)
     }
 
-    fn done_fetched_link(&mut self, idx: TwigIdx, s: &SphinxSecret)
+    fn done_fetched_link(&mut self, idx: TwigIdx, s: SphinxSecret)
       -> Result<MessageKey,XolotlError> {
         let linkkey: LinkKey = self.get_twigy::<LinkKey>(idx) ?; 
           // PoisonError, MissingTwig, WrongTwigType
@@ -333,7 +333,7 @@ impl AdvanceUser {
         Ok( AdvanceUser(Advance::new(state,bid) ?) )
     }
 
-    pub fn click(&mut self, s: &SphinxSecret) 
+    pub fn click(&mut self, s: SphinxSecret) 
       -> Result<MessageKey,XolotlError> {
         let cidx = self.0.branch.chain;
         let linkkey = self.0.do_chain_step(cidx) ?;
@@ -368,7 +368,7 @@ impl AdvanceNode {
     }
 
     /// 
-    fn clicks_chain_only(&mut self, s: &SphinxSecret, cidx: TwigIdx,tidx: TwigIdx)
+    fn clicks_chain_only(&mut self, s: SphinxSecret, cidx: TwigIdx,tidx: TwigIdx)
       -> Result<MessageKey,XolotlError> {
         debug_assert!(tidx.split().0 == cidx.split().0);
         let mut linkkey = LinkKey(Default::default());
@@ -390,7 +390,7 @@ impl AdvanceNode {
     }
 
     ///
-    fn clicks(&mut self, s: &SphinxSecret, target: TwigIdx )
+    fn clicks(&mut self, s: SphinxSecret, target: TwigIdx )
       -> Result<MessageKey,XolotlError> {
         let (ti,_) = target.split();
         let cidx = self.0.branch.chain;
