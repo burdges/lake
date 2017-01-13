@@ -5,6 +5,7 @@
 //! ...
 
 use std::fmt;
+
 use rustc_serialize::hex::ToHex;
 
 use crypto::digest::Digest;
@@ -12,7 +13,6 @@ use crypto::sha3::Sha3;
 
 use super::MessageKey;
 use ::sphinx::SphinxSecret;
-use ::macros::Secret;
 use super::twig::*;
 
 /// We keep an extra 256 bit secret symetric key associated to any
@@ -126,7 +126,7 @@ impl Branch {
             -> (TrainKey, TrainKey, ChainKey, LinkKey) {
         ck.debug_assert_twigy();
 
-        let mut r = Secret([0u8; 4*32]);
+        let mut r = ::Secret::new_insecure([0u8; 4*32]);
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(TrainKey, TrainKey, ChainKey, LinkKey)>());
         let mut sha = Sha3::shake_256();
@@ -140,12 +140,12 @@ impl Branch {
         sha.input(& i.to_bytes());
         sha.input(&ck.0);
         sha.input_str( TIGER[3] );
-        sha.result(&mut r.0);
+        sha.result(r.as_mut());
         sha.reset();
 
         // (TrainKey(r[0..32]), TrainKey(r[32..64]),
         //  ChainKey(r[64..96]), LinkKey(r[96..128]))
-        let (a,b,c,d) = array_refs![&r.0,32,32,32,32];
+        let (a,b,c,d) = array_refs![&*r,32,32,32,32];
         (TrainKey::make(*a), TrainKey::make(*b), ChainKey::make(*c), LinkKey::make(*d))
         // TODO Zero r
     }
@@ -155,7 +155,7 @@ impl Branch {
             -> (ChainKey,LinkKey) {
         ck.debug_assert_twigy();
 
-        let mut r = Secret([0u8; 2*32]);
+        let mut r = ::Secret::new_insecure([0u8; 2*32]);
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ChainKey, LinkKey)>());
         let mut sha = Sha3::sha3_512();
@@ -169,11 +169,11 @@ impl Branch {
         sha.input_str( TIGER[4] );
         sha.input(&ck.0);
         sha.input_str( TIGER[5] );
-        sha.result(&mut r.0);
+        sha.result(r.as_mut());
         sha.reset();
 
         // (ChainKey(r[0..32]), LinkKey(r[32..64]))
-        let (a,b) = array_refs![&r.0,32,32];
+        let (a,b) = array_refs![&*r,32,32];
         (ChainKey::make(*a), LinkKey::make(*b))
         // TODO Zero r
     }
@@ -183,7 +183,7 @@ impl Branch {
             -> (MessageKey, BerryKey) {
         linkkey.debug_assert_twigy();
 
-        let mut r = Secret([0u8; 2*32]);
+        let mut r = ::Secret::new_insecure([0u8; 2*32]);
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(MessageKey, BerryKey)>());
         let mut sha = Sha3::sha3_512();
@@ -198,11 +198,11 @@ impl Branch {
         sha.input(&linkkey.0);
         sha.input(&s.0);
         sha.input_str( TIGER[7] );
-        sha.result(&mut r.0);
+        sha.result(r.as_mut());
         sha.reset();
 
         // (MessageKey::new(r[0..32]), BerryKey(r[32..64]))
-        let (a,b) = array_refs![&r.0,32,32];
+        let (a,b) = array_refs![&*r,32,32];
         (MessageKey::new(*a), BerryKey::make(*b))
         // TODO Zero r
     }
@@ -212,7 +212,7 @@ impl Branch {
             -> (BranchId, Branch, TrainKey) {
         bk.debug_assert_twigy();
 
-        let mut r = Secret([0u8; 2*32]);
+        let mut r = ::Secret::new_insecure([0u8; 2*32]);
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ExtraKey, TrainKey)>());
         let mut sha = Sha3::sha3_512();
@@ -225,10 +225,10 @@ impl Branch {
         sha.input(& i.to_bytes());
         sha.input(&bk.0);
         sha.input_str( TIGER[6] );
-        sha.result(&mut r.0);
+        sha.result(r.as_mut());
         sha.reset();
 
-        let (e,t) = array_refs![&r.0,32,32];
+        let (e,t) = array_refs![&*r,32,32];
         ( 
             BranchId { family: self.child_family_name(), berry: i },
             Branch {
@@ -241,7 +241,7 @@ impl Branch {
     }
 
     pub fn new_kdf(seed: &[u8]) -> (BranchId, Branch, TrainKey) {
-        let mut r = Secret([0u8; 32+16+32]);
+        let mut r = ::Secret::new_insecure([0u8; 32+16+32]);
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ExtraKey, BranchName, TrainKey)>());
         let mut sha = Sha3::shake_256();
@@ -249,10 +249,10 @@ impl Branch {
         sha.input_str( TIGER[1] );
         sha.input(seed);
         sha.input_str( TIGER[7] );
-        sha.result(&mut r.0);
+        sha.result(r.as_mut());
         sha.reset();
 
-        let (e,f,t) = array_refs![&r.0,32,16,32];
+        let (e,f,t) = array_refs![&*r,32,16,32];
         (
             BranchId { 
                 family: BranchName(*f),  // BranchName(r[32..47]),
