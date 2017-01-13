@@ -4,8 +4,8 @@
 //!
 //! ...
 
+use std::ops::{Deref,DerefMut};
 use std::fmt;
-
 use rustc_serialize::hex::ToHex;
 
 use crypto::digest::Digest;
@@ -140,12 +140,12 @@ impl Branch {
         sha.input(& i.to_bytes());
         sha.input(&ck.0);
         sha.input_str( TIGER[3] );
-        sha.result(r.as_mut());
+        sha.result(r.deref_mut());
         sha.reset();
 
         // (TrainKey(r[0..32]), TrainKey(r[32..64]),
         //  ChainKey(r[64..96]), LinkKey(r[96..128]))
-        let (a,b,c,d) = array_refs![&*r,32,32,32,32];
+        let (a,b,c,d) = array_refs![r.deref(),32,32,32,32];
         (TrainKey::make(*a), TrainKey::make(*b), ChainKey::make(*c), LinkKey::make(*d))
         // TODO Zero r
     }
@@ -169,11 +169,11 @@ impl Branch {
         sha.input_str( TIGER[4] );
         sha.input(&ck.0);
         sha.input_str( TIGER[5] );
-        sha.result(r.as_mut());
+        sha.result(r.deref_mut());
         sha.reset();
 
         // (ChainKey(r[0..32]), LinkKey(r[32..64]))
-        let (a,b) = array_refs![&*r,32,32];
+        let (a,b) = array_refs![r.deref(),32,32];
         (ChainKey::make(*a), LinkKey::make(*b))
         // TODO Zero r
     }
@@ -198,11 +198,11 @@ impl Branch {
         sha.input(&linkkey.0);
         sha.input(&s.0);
         sha.input_str( TIGER[7] );
-        sha.result(r.as_mut());
+        sha.result(r.deref_mut());
         sha.reset();
 
         // (MessageKey::new(r[0..32]), BerryKey(r[32..64]))
-        let (a,b) = array_refs![&*r,32,32];
+        let (a,b) = array_refs![r.deref(),32,32];
         (MessageKey::new(*a), BerryKey::make(*b))
         // TODO Zero r
     }
@@ -225,10 +225,10 @@ impl Branch {
         sha.input(& i.to_bytes());
         sha.input(&bk.0);
         sha.input_str( TIGER[6] );
-        sha.result(r.as_mut());
+        sha.result(r.deref_mut());
         sha.reset();
 
-        let (e,t) = array_refs![&*r,32,32];
+        let (e,t) = array_refs![r.deref(),32,32];
         ( 
             BranchId { family: self.child_family_name(), berry: i },
             Branch {
@@ -249,10 +249,10 @@ impl Branch {
         sha.input_str( TIGER[1] );
         sha.input(seed);
         sha.input_str( TIGER[7] );
-        sha.result(r.as_mut());
+        sha.result(r.deref_mut());
         sha.reset();
 
-        let (e,f,t) = array_refs![&*r,32,16,32];
+        let (e,f,t) = array_refs![r.deref(),32,16,32];
         (
             BranchId { 
                 family: BranchName(*f),  // BranchName(r[32..47]),
