@@ -26,6 +26,9 @@ extern crate consistenttime;
 // #![feature(sip_hash_13)]
 extern crate siphasher;
 
+extern crate zerodrop;
+type Secret<T> = zerodrop::ZeroDrop<T>;
+
 #[macro_use]
 extern crate arrayref;
 

@@ -22,19 +22,6 @@ impl<T> Drop for Secret<T> where T: Copy {
 }
 
 
-#[derive(Debug, Default)]
-pub struct DropSecret<T>(pub T) where T: Drop;
-
-impl<T> Drop for DropSecret<T> where T: Drop {
-    fn drop(&mut self) {
-        unsafe {
-            ::std::intrinsics::drop_in_place(&mut self.0);
-            ::std::intrinsics::volatile_set_memory::<DropSecret<T>>(self, 0, 1); 
-        }
-    }
-}
-
-
 /// Zeroing drop impl for secret key material.
 ///
 /// Rust does not zero non-`Drop` types when it drops them.  
@@ -57,15 +44,6 @@ macro_rules! impl_ZeroingDrop {
                 assert_eq!(self.0,$zero);
             }
         }
-
-/*
-        #[test]
-        fn concat_idents!(zeroing_drop_,$t)() {
-            let p : *const $t;
-            { let s = $t([1u8; 32]); p = &s; ::std::mem::drop(s); }
-            unsafe { assert_eq!(*p,$t([0u8; 32])); }
-        }
-*/
     }
 }
 
