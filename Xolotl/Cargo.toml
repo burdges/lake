@@ -1,5 +1,5 @@
 [package]
-name = "Xolotl"
+name = "xolotl"
 version = "0.0.1"
 authors = ["Jeff Burdges <burdges@gnunet.org>"]
 
