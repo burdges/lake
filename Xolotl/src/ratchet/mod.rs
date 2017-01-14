@@ -33,8 +33,8 @@ pub type MessageKey = SphinxSecret;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use rustc_serialize::hex::ToHex;
+    // use super::*;
+    // use rustc_serialize::hex::ToHex;
 
     #[test]
     fn need_tests() {

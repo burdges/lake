@@ -163,8 +163,8 @@ pub fn create_initial_branch(state: &Arc<State>, seed: &[u8])
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use rustc_serialize::hex::ToHex;
+    // use super::*;
+    // use rustc_serialize::hex::ToHex;
 
     #[test]
     fn need_tests() {

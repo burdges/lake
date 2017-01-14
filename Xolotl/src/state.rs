@@ -199,7 +199,7 @@ impl<K> Filter for CuckooFilter<K>
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
 }
 

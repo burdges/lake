@@ -50,9 +50,9 @@ macro_rules! impl_ZeroingDrop {
 
 #[cfg(test)]
 mod tests {
-    use crypto::digest::Digest;
-    use crypto::sha3::Sha3;
-    use ::sphinx::SphinxSecret;
+    // use crypto::digest::Digest;
+    // use crypto::sha3::Sha3;
+    // use ::sphinx::SphinxSecret;
     use ::ratchet::ExtraKey;
 
     macro_rules! zeroing_drop_test {
