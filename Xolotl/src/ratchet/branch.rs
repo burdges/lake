@@ -73,6 +73,9 @@ impl fmt::Display for BranchId {
     }
 }
 
+impl BranchId {
+}
+
 
 /// Branchs grow from leaves and DH key exchanges.  A branch's BranchId
 /// used for storage must be tracked seperately by trasaction objects.
@@ -125,7 +128,7 @@ impl Branch {
             -> (TrainKey, TrainKey, ChainKey, LinkKey) {
         ck.debug_assert_twigy();
 
-        let mut r = ::Secret::new_insecure([0u8; 4*32]);
+        let mut r = [0u8; 4*32];  // StackSecret
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(TrainKey, TrainKey, ChainKey, LinkKey)>());
         let mut sha = Sha3::shake_256();
@@ -144,7 +147,7 @@ impl Branch {
 
         // (TrainKey(r[0..32]), TrainKey(r[32..64]),
         //  ChainKey(r[64..96]), LinkKey(r[96..128]))
-        let (a,b,c,d) = array_refs![r.as_ref(),32,32,32,32];
+        let (a,b,c,d) = array_refs![&r,32,32,32,32];
         (TrainKey::make(*a), TrainKey::make(*b), ChainKey::make(*c), LinkKey::make(*d))
         // TODO Zero r
     }
@@ -154,7 +157,7 @@ impl Branch {
             -> (ChainKey,LinkKey) {
         ck.debug_assert_twigy();
 
-        let mut r = ::Secret::new_insecure([0u8; 2*32]);
+        let mut r = [0u8; 2*32];  // StackSecret
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ChainKey, LinkKey)>());
         let mut sha = Sha3::sha3_512();
@@ -172,7 +175,7 @@ impl Branch {
         sha.reset();
 
         // (ChainKey(r[0..32]), LinkKey(r[32..64]))
-        let (a,b) = array_refs![r.as_ref(),32,32];
+        let (a,b) = array_refs![&r,32,32];
         (ChainKey::make(*a), LinkKey::make(*b))
         // TODO Zero r
     }
@@ -182,7 +185,7 @@ impl Branch {
             -> (MessageKey, BerryKey) {
         linkkey.debug_assert_twigy();
 
-        let mut r = ::Secret::new_insecure([0u8; 2*32]);
+        let mut r = [0u8; 2*32];  // StackSecret
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(MessageKey, BerryKey)>());
         let mut sha = Sha3::sha3_512();
@@ -192,17 +195,17 @@ impl Branch {
         sha.input_str( TIGER[4] );
         sha.input(&linkkey.0);
         sha.input_str( TIGER[5] );
-        sha.input(s.as_ref());
+        sha.input(&s.0);
         sha.input_str( TIGER[6] );
         sha.input(&linkkey.0);
-        sha.input(s.as_ref());
+        sha.input(&s.0);
         sha.input_str( TIGER[7] );
         sha.result(r.as_mut());
         sha.reset();
 
         // (MessageKey::new(r[0..32]), BerryKey(r[32..64]))
-        let (a,b) = array_refs![r.as_ref(),32,32];
-        (MessageKey::new_copy(a), BerryKey::make(*b))
+        let (a,b) = array_refs![&r,32,32];
+        (MessageKey::new(a), BerryKey::make(*b))
         // TODO Zero r
     }
 
@@ -211,7 +214,7 @@ impl Branch {
             -> (BranchId, Branch, TrainKey) {
         bk.debug_assert_twigy();
 
-        let mut r = ::Secret::new_insecure([0u8; 2*32]);
+        let mut r = [0u8; 2*32];  // StackSecret
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ExtraKey, TrainKey)>());
         let mut sha = Sha3::sha3_512();
@@ -227,7 +230,7 @@ impl Branch {
         sha.result(r.as_mut());
         sha.reset();
 
-        let (e,t) = array_refs![r.as_ref(),32,32];
+        let (e,t) = array_refs![&r,32,32];
         ( 
             BranchId { family: self.child_family_name(), berry: i },
             Branch {
@@ -240,7 +243,7 @@ impl Branch {
     }
 
     pub fn new_kdf(seed: &[u8]) -> (BranchId, Branch, TrainKey) {
-        let mut r = ::Secret::new_insecure([0u8; 32+16+32]);
+        let mut r = [0u8; 32+16+32];  // StackSecret
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ExtraKey, BranchName, TrainKey)>());
         let mut sha = Sha3::shake_256();
@@ -251,7 +254,7 @@ impl Branch {
         sha.result(r.as_mut());
         sha.reset();
 
-        let (e,f,t) = array_refs![r.as_ref(),32,16,32];
+        let (e,f,t) = array_refs![&r,32,16,32];
         (
             BranchId { 
                 family: BranchName(*f),  // BranchName(r[32..47]),
