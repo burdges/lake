@@ -10,7 +10,6 @@ pub const MAXHOPS: usize = 8;
 pub const MAXHOPS: usize = 8;
 
 
-
 use std::hash::Hash;
 
 use crypto::digest::Digest;
@@ -28,20 +27,45 @@ pub NodeKey(pub [u8; 32]);
 pub struct SphinxSecret(pub [u8; 32]);
 
 
-/// Sphinx packet curve25519 public key.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub Alpha(pub [u8; 32]);
 
-/// Sphinx onion encrypted header
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub Beta(pub [u8; ??]);
+/// Non-functional replay filter for Sphinx packet and SURB creation.
+pub struct IgnoreReplays;
 
-/// Sphinx poly1305 MAC
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub Gamma(pub [u8; 16]);
+impl ::state::Filter for IgnoreReplays
+  where K: Eq + Hash {
+    type Key = ReplayCode;
 
+    #[inline]
+    fn new(_: HasherState) -> IgnoreReplays
+        {  IgnoreReplays  }
+
+    #[inline]
+    fn contains<Q: ?Sized>(&self, value: &Q) -> bool
+        where ReplayCode: Borrow<Q>, Q: Hash + Eq
+        {  false  }
+
+    #[inline]
+    fn insert(&mut self, value: K) -> bool 
+        {  true  }
+
+    #[inline]
+    fn remove<Q: ?Sized>(&mut self, value: &Q) -> bool
+        where K: Borrow<Q>, Q: Hash + Eq 
+        {  false  }
+}
+
+// hop = SphinxHop::new(&IgnoreReplays, s)
+//     create_gamma(&mut self, beta: &Beta, gamma_out: &mut Gamma) {
 
 /*
+
+
+
+
+
+
+
+
 
 fn mac()
 

@@ -10,13 +10,20 @@
 /// 256 bits for post-quantum security.
 // #[never_forget]
 // #[derive(Debug, Default, Clone)]
-pub type SphinxSecret = ::Secret<[u8; 32]>;
+pub struct SphinxSecret(pub [u8; 32]);  // StackSecret
 
-// impl_ZeroingDrop!(SphinxSecret, [0u8; 32]);
-
-// impl SphinxSecret {
-//     #[inline]
-//     pub fn new(ss: [u8; 32]) -> SphinxSecret { SphinxSecret(ss) }
-// }
+impl SphinxSecret {
+    pub fn new(ss: &[u8; 32]) -> SphinxSecret  {  SphinxSecret(*ss)  }
+}
 
 
+/*
+
+::crypto::Poly1305::
+
+
+trait Params {
+    /// Maximum number of Sphinx and Ratchet hops
+    const MAXHOPS: usize = 10;
+}
+*/
