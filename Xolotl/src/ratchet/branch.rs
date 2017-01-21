@@ -73,9 +73,6 @@ impl fmt::Display for BranchId {
     }
 }
 
-impl BranchId {
-}
-
 
 /// Branchs grow from leaves and DH key exchanges.  A branch's BranchId
 /// used for storage must be tracked seperately by trasaction objects.
@@ -179,7 +176,9 @@ impl Branch {
         (ChainKey::make(*a), LinkKey::make(*b))
         // TODO Zero r
     }
+}
 
+impl BranchId {
     /// Sphinx berry KDF
     pub fn kdf_berry(&self, linkkey: &LinkKey, s: SphinxSecret)
             -> (MessageKey, BerryKey) {
@@ -190,8 +189,8 @@ impl Branch {
           ::std::mem::size_of::<(MessageKey, BerryKey)>());
         let mut sha = Sha3::sha3_512();
 
-        // Cannot incorporate self.extra.0 because we wish to give away
-        // ratchet states, but maybe Advance::branch_id.id() works.
+        // Cannot incorporate Advance::branch.extra.0 because we wish to
+        // give away ratchet states, but Advance::branch_id.id() works.
         sha.input_str( TIGER[4] );
         sha.input(&linkkey.0);
         sha.input_str( TIGER[5] );
@@ -208,7 +207,9 @@ impl Branch {
         (MessageKey::new(a), BerryKey::make(*b))
         // TODO Zero r
     }
+}
 
+impl Branch {
     /// Produce a new branch from a berry
     pub fn kdf_branch(&self, i: TwigIdx, bk: &BerryKey)
             -> (BranchId, Branch, TrainKey) {

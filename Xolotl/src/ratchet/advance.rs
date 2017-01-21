@@ -295,7 +295,7 @@ impl Advance {
 
     fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, s: SphinxSecret)
       -> Result<MessageKey,XolotlError> {
-        let (messagekey,berrykey) = self.branch.kdf_berry(linkkey,s);
+        let (messagekey,berrykey) = self.branch_id.id().kdf_berry(linkkey,s);
         self.insert_twig(idx, berrykey);
         Ok(messagekey)
     }

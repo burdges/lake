@@ -9,41 +9,27 @@ use std::fmt;
 
 use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
 
-use super::branch::*;
-use super::twig::*;
-use super::state::*;
-
-
 #[derive(Debug, Clone)]
-pub enum XolotlError {
-    // InternalError(&'static str),
+pub enum SphinxError {
+    InternalError(&'static str),
     PoisonError(&'static str,&'static str),
-    BranchAlreadyLocked(BranchId),
-    MissingTwig(TwigId),
-    WrongTwigType(TwigId,u8,u8),
-    MissingBranch(BranchId),
-    MissingParent(BranchName),
-    CorruptBranch(BranchId, &'static str),
+    Replay(ReplayCode), 
+    InvalidMac(ReplayCode), 
 }
 
-impl fmt::Display for XolotlError {
+
+impl fmt::Display for SphinxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::XolotlError::*;
         match *self {
-            BranchAlreadyLocked(bid)
-                => write!(f, "Branch {} already locked.  Did you make a promise?", bid),
-            MissingTwig(tid)
-                => write!(f, "Missing train key {}.", tid),
-            WrongTwigType(tid,found,expected)
-                => write!(f, "Twig {} had type {:x} when {:x} expected.", tid, found, expected),
-            MissingBranch(bid)
-                => write!(f, "Missing branch {}.", bid),
-            MissingParent(bn)
-                => write!(f, "Missing parent branch {}", bn),
-            CorruptBranch(s,bid)
-                => write!(f, "Found corrupted branch {} {}.", bid, s),
+            InternalError(s)
+                => write!(f, "Internal error: ", s),
             PoisonError(l,t)
                 => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
+            Replay(id)
+                => write!(f, "Replay attack detected on {:x}.", id),
+            InvalidMac(id)
+                => write!(f, "Invalid mac on {:x}.", id),
         }
     }
 }
@@ -93,5 +79,6 @@ impl_XolotlPoisonError!(TwigStorage);
 impl_XolotlPoisonError!(BranchLocks);
 impl_XolotlPoisonError!(AdvanceFailCache);
 impl_XolotlPoisonError!(AdvanceDropErrors);
+
 
 

@@ -18,9 +18,6 @@ use crypto::sha3::Sha3;
 
 
 
-/// Sphinx node curve25519 public key.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub NodeKey(pub [u8; 32]);
 
 /// Secret supplied by the Diffie-Hellman key exchange in Sphinx. 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
