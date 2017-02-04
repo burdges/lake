@@ -4,12 +4,16 @@
 //!
 //! ...
 
+mod curve;
+mod stream;
+mod state;
+mod error;
 
 /// Secret supplied by the Diffie-Hellman key exchange in Sphinx. 
 /// Also secret symmetric key supploied by Xolotl, which must be
 /// 256 bits for post-quantum security.
 // #[never_forget]
-// #[derive(Debug, Default, Clone)]
+// #[derive(Debug, Default, Clone, Copy)]
 pub struct SphinxSecret(pub [u8; 32]);  // StackSecret
 
 impl SphinxSecret {
@@ -17,13 +21,3 @@ impl SphinxSecret {
 }
 
 
-/*
-
-::crypto::Poly1305::
-
-
-trait Params {
-    /// Maximum number of Sphinx and Ratchet hops
-    const MAXHOPS: usize = 10;
-}
-*/

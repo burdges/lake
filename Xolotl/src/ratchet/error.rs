@@ -9,6 +9,7 @@ use std::fmt;
 
 use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
 
+
 use super::branch::*;
 use super::twig::*;
 use super::state::*;
@@ -30,6 +31,8 @@ impl fmt::Display for XolotlError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::XolotlError::*;
         match *self {
+            PoisonError(l,t)
+                => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
             BranchAlreadyLocked(bid)
                 => write!(f, "Branch {} already locked.  Did you make a promise?", bid),
             MissingTwig(tid)
@@ -42,8 +45,6 @@ impl fmt::Display for XolotlError {
                 => write!(f, "Missing parent branch {}", bn),
             CorruptBranch(s,bid)
                 => write!(f, "Found corrupted branch {} {}.", bid, s),
-            PoisonError(l,t)
-                => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
         }
     }
 }
@@ -56,13 +57,13 @@ impl Error for XolotlError {
     fn cause(&self) -> Option<&Error> {
         use self::XolotlError::*;
         match *self {
+            PoisonError(_,_) => None, // Maybe here
             BranchAlreadyLocked(_) => None,
             MissingTwig(_) => None,
             WrongTwigType(_,_,_) => None,
             MissingBranch(_) => None,
             MissingParent(_) => None,
             CorruptBranch(_,_) => None,
-            PoisonError(_,_) => None, // Maybe here
         }
     }
 }

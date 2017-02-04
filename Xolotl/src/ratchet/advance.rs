@@ -11,7 +11,6 @@ use ::sphinx::SphinxSecret;
 use super::branch::*;
 use super::twig::*;
 use super::error::*;
-
 use super::state::*;
 use super::super::state::*;
 

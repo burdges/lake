@@ -51,8 +51,17 @@ impl ::state::Filter for IgnoreReplays
         {  false  }
 }
 
-// hop = SphinxHop::new(&IgnoreReplays, s)
-//     create_gamma(&mut self, beta: &Beta, gamma_out: &mut Gamma) {
+/*
+
+    let replayer = RwLock::new(IgnoreReplays);
+    let nt = NodeToken::generate(params,concensus,node);
+    let mut hop = SphinxHop::new(params,&replayer,&nt,s);
+
+
+
+    create_gamma(&mut self, beta: &Beta, gamma_out: &mut Gamma) {
+
+*/
 
 /*
 

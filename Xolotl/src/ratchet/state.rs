@@ -9,17 +9,19 @@ use std::sync::{Arc, RwLock}; // RwLockReadGuard, RwLockWriteGuard
 use std::ops::{Deref,DerefMut};
 // use std::hash::{Hash, Hasher};
 
-use ::state::*;
 
 use super::branch::*;
 use super::twig::*;
 use super::error::*;
+use ::state::*;
+
 
 pub type TwigStorage = HashMapStorage<TwigId,TwigKey>;
 pub type BranchStorage = HashMapStorage<BranchId,Branch>;
 pub type ParentStorage = HashMapStorage<BranchName,BranchId>;
 
 pub type BranchLocks = HashSet<BranchId>;
+
 
 /// The value site of a cached record of a failed advance transaction,
 /// excludes the BranchId which acts as a key.

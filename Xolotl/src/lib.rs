@@ -11,6 +11,7 @@
 
 #![feature(core_intrinsics)]
 #![feature(associated_consts)]
+#![feature(box_syntax)]
 
 // #![doc(html_root_url="...")]
 
@@ -38,7 +39,7 @@ extern crate arrayref;
 // type StackSecret<T> = T;
 
 extern crate clear_on_drop;
-type ClearedBox<T> = clear_on_drop::ClearOnDrop<T, Box<T>>;
+type ClearedBox<T> = clear_on_drop::ClearOnDrop<Box<T>>;
 
 #[macro_use]
 mod macros;

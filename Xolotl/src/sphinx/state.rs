@@ -9,6 +9,7 @@ use ::state::*;
 /// 
 #[derive(Debug,Clone,Copy,Default,PartialEq,Eq,Hash)]
 pub struct ReplayCode(pub [u8; 16]);
+pub const REPLAY_CODE_UNKNOWN : ReplayCode = ReplayCode([0u8; 16]);
 
 // pub type trait ReplayFilter = Filter<Key = ReplayCode>;
 

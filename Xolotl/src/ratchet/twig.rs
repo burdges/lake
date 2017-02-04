@@ -9,8 +9,10 @@ use std::hash::{Hash, Hasher};
 use std::fmt;
 // use rustc_serialize::hex::ToHex;
 
+
 use super::branch::*;
 use super::error::XolotlError;
+
 
 /// We store only a 128-2 = 126 bit secret symetric keys in a hash
 /// iteration ratchet step to reduce our storage reuirements.  
