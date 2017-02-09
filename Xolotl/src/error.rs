@@ -15,10 +15,10 @@ use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
 
 macro_rules! impl_type_PoisonError {
     ($l:ident, $t:ident) => {
-        impl<'a> From<::std::sync::PoisonError<$l<'a, $t>>> for XolotlError {
-            fn from(_: ::std::sync::PoisonError<$l<'a, $t>>) -> XolotlError {
+        impl<'a> From<::std::sync::PoisonError<$l<'a, $t>>> for RatchetError {
+            fn from(_: ::std::sync::PoisonError<$l<'a, $t>>) -> RatchetError {
                 // _.get_mut()
-                XolotlError::PoisonError(stringify!($l),stringify!($t),TypeId::of::<$t>)
+                RatchetError::PoisonError(stringify!($l),stringify!($t),TypeId::of::<$t>)
             }
         }
     };
@@ -34,10 +34,10 @@ macro_rules! impl_type_PoisonError {
 
 macro_rules! impl_trait_PoisonError {
     ($l:ident, $t:ident) => {
-        impl<'a,T> From<::std::sync::PoisonError<$l<'a, T>>> for XolotlError where T: $t + 'a {
-            fn from(_: ::std::sync::PoisonError<$l<'a, T>>) -> XolotlError {
+        impl<'a,T> From<::std::sync::PoisonError<$l<'a, T>>> for RatchetError where T: $t + 'a {
+            fn from(_: ::std::sync::PoisonError<$l<'a, T>>) -> RatchetError {
                 // _.get_mut()
-                XolotlError::PoisonError(stringify!($l),stringify!($t),TypeId::of::<T>)
+                RatchetError::PoisonError(stringify!($l),stringify!($t),TypeId::of::<T>)
             }
         }
     };

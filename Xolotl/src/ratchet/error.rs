@@ -16,7 +16,7 @@ use super::state::*;
 
 
 #[derive(Debug, Clone)]
-pub enum XolotlError {
+pub enum RatchetError {
     // InternalError(&'static str),
     PoisonError(&'static str,&'static str),
     BranchAlreadyLocked(BranchId),
@@ -27,9 +27,9 @@ pub enum XolotlError {
     CorruptBranch(BranchId, &'static str),
 }
 
-impl fmt::Display for XolotlError {
+impl fmt::Display for RatchetError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::XolotlError::*;
+        use self::RatchetError::*;
         match *self {
             PoisonError(l,t)
                 => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
@@ -49,13 +49,13 @@ impl fmt::Display for XolotlError {
     }
 }
 
-impl Error for XolotlError {
+impl Error for RatchetError {
     fn description(&self) -> &str {
         "I'm a Xolotl error."
     }
 
     fn cause(&self) -> Option<&Error> {
-        use self::XolotlError::*;
+        use self::RatchetError::*;
         match *self {
             PoisonError(_,_) => None, // Maybe here
             BranchAlreadyLocked(_) => None,
@@ -71,10 +71,10 @@ impl Error for XolotlError {
 
 macro_rules! impl_XolotlPoisonError {
     ($l:ident, $t:ident) => {
-        impl<'a> From<::std::sync::PoisonError<$l<'a, $t>>> for XolotlError {
-            fn from(_: ::std::sync::PoisonError<$l<'a, $t>>) -> XolotlError {
+        impl<'a> From<::std::sync::PoisonError<$l<'a, $t>>> for RatchetError {
+            fn from(_: ::std::sync::PoisonError<$l<'a, $t>>) -> RatchetError {
                 // _.get_mut()
-                XolotlError::PoisonError(stringify!($l),stringify!($t))
+                RatchetError::PoisonError(stringify!($l),stringify!($t))
             }
         }
     };

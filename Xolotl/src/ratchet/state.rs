@@ -40,7 +40,7 @@ pub struct AdvanceFailValue {
 /// A cache for of failed advance transactions.
 pub type AdvanceFailCache = HashMap<BranchId,AdvanceFailValue>;
 
-pub type AdvanceDropErrors = Vec<XolotlError>;
+pub type AdvanceDropErrors = Vec<RatchetError>;
 
 #[derive(Debug)]
 pub struct State {
@@ -66,24 +66,24 @@ pub struct State {
 
 impl State {
     /// Identify a branch's parent branch.
-    pub fn parent_id(&self, family: BranchName) -> Result<BranchId,XolotlError> {
+    pub fn parent_id(&self, family: BranchName) -> Result<BranchId,RatchetError> {
         let parents = self.parents.read() ?; // PoisonError
         if let Some(parent_bid) = parents.get(&family) {
             Ok(*parent_bid)
         } else {
-            Err(XolotlError::MissingParent(family))
+            Err(RatchetError::MissingParent(family))
         }
     }
 }
 
 /// Create a locked branch identifier.
-pub fn lock_branch_id(state: &Arc<State>, bid: BranchId) -> Result<BranchIdGuard,XolotlError> {
+pub fn lock_branch_id(state: &Arc<State>, bid: BranchId) -> Result<BranchIdGuard,RatchetError> {
     let mut locked = state.locked.write() ?; // PoisonError
     // let mut locked = wtf.deref_mut(); 
     if locked.insert(bid) {
         Ok( BranchIdGuard( state.clone(), bid ) )
     } else {
-        Err(XolotlError::BranchAlreadyLocked(bid))
+        Err(RatchetError::BranchAlreadyLocked(bid))
     }
 }
 
@@ -110,24 +110,24 @@ impl BranchIdGuard {
 
     /// Retrieve unspecified twig type.  Throw MissingTwig error if
     /// not found.  Avoids holding twigs read lock.
-    pub fn get_twig(&self, tid: &TwigId) -> Result<TwigState,XolotlError> {
+    pub fn get_twig(&self, tid: &TwigId) -> Result<TwigState,RatchetError> {
         let twigs = self.state().twigs.read() ?;  // PoisonError
         if let Some(tk) = twigs.get(tid) {
             Ok( TwigState::new(*tk) )
         } else {
-            Err( XolotlError::MissingTwig(*tid) )
+            Err( RatchetError::MissingTwig(*tid) )
         }
     }
 
     /// Retrieve a specific twig type.  Throw error `MissingTwig` if
     /// not found or `WrongTwigType` error if type does not match.
     /// Avoids holding twigs read lock.
-    pub fn get_twigy<T: Twigy>(&self, tid: &TwigId) -> Result<T,XolotlError> {
+    pub fn get_twigy<T: Twigy>(&self, tid: &TwigId) -> Result<T,RatchetError> {
         let twigs = self.state().twigs.read() ?;  // PoisonError
         if let Some(x) = twigs.get(tid) {
             verify_twigy::<T>(tid,x)
         } else {
-            Err( XolotlError::MissingTwig(*tid) )
+            Err( RatchetError::MissingTwig(*tid) )
         }
     }
 }
@@ -137,7 +137,7 @@ impl BranchIdGuard {
 /// so no transaction necessary. Only `create_initial_branch` and
 /// `Transaction::confirm` should write to `State::{branchs,parents,twigs}`
 pub fn create_initial_branch(state: &Arc<State>, seed: &[u8])
-  -> Result<(BranchId,Branch,TwigId,TrainKey),XolotlError> {
+  -> Result<(BranchId,Branch,TwigId,TrainKey),RatchetError> {
     let (bid, branch, tk): (BranchId, Branch, TrainKey) = Branch::new_kdf(seed);
     let tid = TwigId(bid,TRAIN_START);
 

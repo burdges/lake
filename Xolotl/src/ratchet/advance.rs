@@ -26,7 +26,7 @@ pub trait Transaction {
     /// Confirm the transaction and commit all updates.
     /// Used when MAC check succeeds.  Only `create_initial_branch`
     /// and `confirm` should write to `State::{branchs,parents,twigs}`
-    fn confirm(&mut self) -> Result<(),XolotlError>;
+    fn confirm(&mut self) -> Result<(),RatchetError>;
 
     /// Forget the inserted elements without caching them for future updates.
     /// Used when creating SURBs, which must identify themselves to us.
@@ -34,7 +34,7 @@ pub trait Transaction {
 
     /// Abandon this transaction but cache any cryptographic computations
     /// for future updates.  Used when MAC check fails, including Drop.
-    fn abandon(&mut self) -> Result<(),XolotlError>;
+    fn abandon(&mut self) -> Result<(),RatchetError>;
 }
 
 /// A transaction for attempts to advance our hash iteration ratchet.
@@ -61,7 +61,7 @@ impl Transaction for Advance {
         self.branch_id.0.deref()
     }
 
-    fn confirm(&mut self) -> Result<(),XolotlError> {
+    fn confirm(&mut self) -> Result<(),RatchetError> {
         let mut berry: Option<TwigId> = None;
 
         if self.inserts.len() == 0 { return Ok(()); }
@@ -98,7 +98,7 @@ impl Transaction for Advance {
         if self.inserts.len() != 0 {  self.inserts.clear();  }
     }
 
-    fn abandon(&mut self) -> Result<(),XolotlError> {
+    fn abandon(&mut self) -> Result<(),RatchetError> {
         if self.inserts.len() == 0 { return Ok(()); }
         let mut inserts0 = ::std::mem::replace(&mut self.inserts, Vec::new());
         let inserts = inserts0.drain(..).map( |TwigIS(idx,tk)| (idx,tk) );
@@ -118,7 +118,7 @@ impl Transaction for Advance {
                 (true,true) => "in abandon() when inserting ???",
             };
             if self.branch.extra != c_branch.extra {  // constant time
-                return Err(XolotlError::CorruptBranch(*self.branch_id.id(), s));
+                return Err(RatchetError::CorruptBranch(*self.branch_id.id(), s));
             }
 
             // FIXME Not Good !!!
@@ -154,7 +154,7 @@ impl Transaction for Advance {
 impl Drop for Advance {
     fn drop(&mut self) {
         let err = match self.abandon() { 
-            Err(e) => e.clone(),  // Only place XolotlError gets cloned?
+            Err(e) => e.clone(),  // Only place RatchetError gets cloned?
             Ok(()) => return,
         };
 
@@ -167,7 +167,7 @@ impl Drop for Advance {
 impl Advance {
     /// Begin a transaction to advance the ratchet on the branch `bid`.
     pub fn new(state: &Arc<State>, bid: BranchId)
-      -> Result<Advance,XolotlError> {
+      -> Result<Advance,RatchetError> {
 
         // We found passing in branch_id required an unecessary call to clone
         let branch_id = lock_branch_id(state,bid) ?;
@@ -187,7 +187,7 @@ impl Advance {
         let parent_bid = state.parent_id(branch_id.family()) ?;
           // PoisonError, MissingParent
         let parent = if let Some(p) = branches.get(&parent_bid) { p.clone() } else {
-            return Err(XolotlError::MissingBranch(parent_bid));
+            return Err(RatchetError::MissingBranch(parent_bid));
         };
         
         // Avoid holding branches read lock during crypto.  
@@ -203,7 +203,7 @@ impl Advance {
         let (child_bid,branch,tk) = parent.kdf_branch(branch_id.berry(), &berrykey);
         if child_bid != *branch_id.id() {
             // The parent's table entry or extra key looks corrupted.
-            return Err(XolotlError::CorruptBranch(parent_bid,"as parent"));
+            return Err(RatchetError::CorruptBranch(parent_bid,"as parent"));
         }
         Ok(Advance {
             branch_id: branch_id,
@@ -214,13 +214,13 @@ impl Advance {
     }
 
     /// Retrieve an unspecified twig type using `BranchIdGuard::get_twig(...)`
-    fn get_twig(&self, idx: TwigIdx) -> Result<TwigState,XolotlError> {
+    fn get_twig(&self, idx: TwigIdx) -> Result<TwigState,RatchetError> {
         let tid = TwigId(*self.branch_id.id(), idx);
         self.branch_id.get_twig(&tid)
     }
 
     /// Retrieve a specific twig type using `BranchIdGuard::get_twigy(...)`
-    fn get_twigy<T: Twigy>(&self, idx: TwigIdx) -> Result<T,XolotlError> {
+    fn get_twigy<T: Twigy>(&self, idx: TwigIdx) -> Result<T,RatchetError> {
         let tid = TwigId(*self.branch_id.id(), idx);
         self.branch_id.get_twigy(&tid)
     }
@@ -232,13 +232,13 @@ impl Advance {
     }
 
     fn verify_twigy<T: Twigy>(&self, idx: TwigIdx, twigkey: &TwigKey)
-      -> Result<T,XolotlError> {
+      -> Result<T,RatchetError> {
         let tid = TwigId(*self.branch_id.id(), idx);
         verify_twigy::<T>(&tid, twigkey)
     }
 
     fn verify_twigstate<T: Twigy>(&self, idx: TwigIdx, twigstate: &TwigState)
-      -> Result<T,XolotlError> {
+      -> Result<T,RatchetError> {
         // TODO Remove enum from TwigState
         /* assert_eq!(T::KEYTYPE, match *twigstate { 
             TwigState::Train(_) => <TrainKey as Twigy>::KEYTYPE,
@@ -250,7 +250,7 @@ impl Advance {
         self.verify_twigy::<T>(idx, &twigstate.clone().data())
     }
 
-    fn do_chain_step(&mut self, idx: TwigIdx) -> Result<LinkKey,XolotlError> {
+    fn do_chain_step(&mut self, idx: TwigIdx) -> Result<LinkKey,RatchetError> {
         let twig = self.get_twig(idx) ?; // ???
           // PoisonError, MissingTwig
         if let TwigState::Link(lk) = twig { return Ok(lk); }  // FIXME Questionable
@@ -293,14 +293,14 @@ impl Advance {
     }
 
     fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, s: SphinxSecret)
-      -> Result<MessageKey,XolotlError> {
+      -> Result<MessageKey,RatchetError> {
         let (messagekey,berrykey) = self.branch_id.id().kdf_berry(linkkey,s);
         self.insert_twig(idx, berrykey);
         Ok(messagekey)
     }
 
     fn done_fetched_link(&mut self, idx: TwigIdx, s: SphinxSecret)
-      -> Result<MessageKey,XolotlError> {
+      -> Result<MessageKey,RatchetError> {
         let linkkey: LinkKey = self.get_twigy::<LinkKey>(idx) ?; 
           // PoisonError, MissingTwig, WrongTwigType
         self.done_known_link(idx,&linkkey,s)
@@ -318,22 +318,22 @@ pub struct AdvanceUser(Advance);
 impl Transaction for AdvanceUser {
     fn state(&self) -> &State
       { self.0.state() }
-    fn confirm(&mut self) -> Result<(),XolotlError>
+    fn confirm(&mut self) -> Result<(),RatchetError>
       { self.0.confirm() }
     fn forget(&mut self)
       { self.0.forget() }
-    fn abandon(&mut self) -> Result<(),XolotlError>
+    fn abandon(&mut self) -> Result<(),RatchetError>
       { self.0.abandon() }
 }
 
 impl AdvanceUser {
     pub fn new(state: &Arc<State>, bid: BranchId)
-      -> Result<AdvanceUser,XolotlError> {
+      -> Result<AdvanceUser,RatchetError> {
         Ok( AdvanceUser(Advance::new(state,bid) ?) )
     }
 
     pub fn click(&mut self, s: SphinxSecret) 
-      -> Result<MessageKey,XolotlError> {
+      -> Result<MessageKey,RatchetError> {
         let cidx = self.0.branch.chain;
         let linkkey = self.0.do_chain_step(cidx) ?;
           // .. PoisonError, MissingTwig, WrongTwigType .. ??
@@ -352,23 +352,23 @@ pub struct AdvanceNode(Advance);
 impl Transaction for AdvanceNode {
     fn state(&self) -> &State
       { self.0.state() }
-    fn confirm(&mut self) -> Result<(),XolotlError>
+    fn confirm(&mut self) -> Result<(),RatchetError>
       { self.0.confirm() }
     fn forget(&mut self)
       { self.0.forget() }
-    fn abandon(&mut self) -> Result<(),XolotlError>
+    fn abandon(&mut self) -> Result<(),RatchetError>
       { self.0.abandon() }
 }
 
 impl AdvanceNode {
     pub fn new(state: &Arc<State>, bid: BranchId)
-      -> Result<AdvanceNode,XolotlError> {
+      -> Result<AdvanceNode,RatchetError> {
         Ok( AdvanceNode(Advance::new(state,bid) ?) )
     }
 
     /// 
     fn clicks_chain_only(&mut self, s: SphinxSecret, cidx: TwigIdx,tidx: TwigIdx)
-      -> Result<MessageKey,XolotlError> {
+      -> Result<MessageKey,RatchetError> {
         debug_assert!(tidx.split().0 == cidx.split().0);
         let mut linkkey = LinkKey(Default::default());
         // Assign a range to try to show that linkkey gets initialized.
@@ -390,7 +390,7 @@ impl AdvanceNode {
 
     ///
     fn clicks(&mut self, s: SphinxSecret, target: TwigIdx )
-      -> Result<MessageKey,XolotlError> {
+      -> Result<MessageKey,RatchetError> {
         let (ti,_) = target.split();
         let cidx = self.0.branch.chain;
         let (ci,_) = cidx.split();
@@ -405,12 +405,12 @@ impl AdvanceNode {
             let idx = TwigIdx::make(i,0);
             match self.0.get_twig(idx) {
                 Ok(TwigState::Train(_)) => break,  // Train key found :)
-                Err( XolotlError::MissingTwig(_) ) => {
+                Err( RatchetError::MissingTwig(_) ) => {
                     // Not found, progress to parent train key index 
                     if let Some(ii) = TwigIdx::train_parent(i) {
                         i = ii;
                     } else {
-                        return Err( XolotlError::CorruptBranch(
+                        return Err( RatchetError::CorruptBranch(
                             *self.0.branch_id.id(), 
                             "lacks twig data."
                         ) );

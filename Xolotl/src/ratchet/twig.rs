@@ -11,7 +11,7 @@ use std::fmt;
 
 
 use super::branch::*;
-use super::error::XolotlError;
+use super::error::RatchetError;
 
 
 /// We store only a 128-2 = 126 bit secret symetric keys in a hash
@@ -148,11 +148,11 @@ impl TwigState {
 /// Uses `Twigy::verify`.
 #[inline]
 pub fn verify_twigy<T: Twigy>(tid: &TwigId, twigkey: &TwigKey)
-  -> Result<T,XolotlError> {
-    use super::error::XolotlError;
+  -> Result<T,RatchetError> {
+    use super::error::RatchetError;
     match T::verify(twigkey) {
         Ok(y) => Ok(y),
-        Err(e) => Err( XolotlError::WrongTwigType(*tid,e,T::KEYTYPE) )
+        Err(e) => Err( RatchetError::WrongTwigType(*tid,e,T::KEYTYPE) )
     }
 }
 
