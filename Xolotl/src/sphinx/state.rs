@@ -11,8 +11,6 @@ use std::sync::RwLock;
 // use std::hash::{Hash, Hasher};
 use std::fmt;
 
-use consistenttime::ct_eq_slice;
-
 use super::error::*;
 use ::state::*;
 
@@ -56,7 +54,7 @@ impl ReplayChecker for IgnoreReplays {
 impl<'r,R> ReplayChecker for &'r mut R where R: Filter<Key=ReplayCode> + 'r {
     /// Replay detection logic for a `Filter<Key=ReplayCode>`.
     fn replay_check(self, replay_code: &ReplayCode) -> Result<(),SphinxError> {
-        // if ! ct_eq_slice(&replay_code.0, &REPLAY_CODE_UNKNOWN.0) {
+        // if ! ::consistenttime::ct_eq_slice(&replay_code.0, &REPLAY_CODE_UNKNOWN.0) {
         //     Err( SphinxError::InternalError("Replay Code Unknown !!") )
         // } else 
         if self.insert(*replay_code) {  // opposite of replays.contains(replay_code)
@@ -67,8 +65,8 @@ impl<'r,R> ReplayChecker for &'r mut R where R: Filter<Key=ReplayCode> + 'r {
     }
 }
 
-impl<'r,R> ReplayChecker for &'r RwLock<R> where &'r mut R: ReplayChecker {
-    /// Replay detection logic layer for `RwLock` 
+impl<'l,R> ReplayChecker for &'l RwLock<R> where for <'r> &'r mut R: ReplayChecker {
+    /// Replay detection logic layer for `RwLock`
     fn replay_check(self, replay_code: &ReplayCode) -> Result<(),SphinxError> {
         // We just log and ignore PoisonError here for now because
         // (a) we imagine that the routine that saves the replay table

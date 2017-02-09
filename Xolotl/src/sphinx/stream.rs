@@ -9,7 +9,6 @@ use std::sync::RwLock;
 use std::fmt;
 
 use clear_on_drop::ClearOnDrop;
-use consistenttime::ct_eq_slice;
 use crypto::mac::Mac;
 use crypto::poly1305::Poly1305;
 
@@ -188,7 +187,7 @@ impl SphinxHop {
     const NEW_OFFSET: Length = 64+64;
 
     /// Begin semetric cryptography for a single Sphinx hop.
-    pub fn new<RC>(params: &'static SphinxParams, replayer: &RC, 
+    pub fn new<RC>(params: &'static SphinxParams, replayer: RC, 
                    nt: &NodeToken,  ss: &SphinxSecret
       ) -> Result<SphinxHop,SphinxError>
       where RC: ReplayChecker
@@ -197,13 +196,13 @@ impl SphinxHop {
             params: params,
             replay_code: Default::default(),
             gamma_key: Default::default(),
-            blinding: Scalar::from_bytes(&[0u8; 32),
+            blinding: Scalar::from_bytes(&[0u8; 32]),
             stream: ChaCha20::new_xchacha20(&ss.0, &nt.0)
         };
 
         let mut b = &mut [0u8; 64];
         // let mut b = ClearOnDrop::new(&mut b);
-        /  let mut b = array_mut_ref![b.deref_mut(),0,64];
+        // let mut b = array_mut_ref![b.deref_mut(),0,64];
 
         hop.stream.xor_read(b);
         // let (replay_code,_,gamma_key) = array_refs![mr,16,16,32];        
@@ -256,7 +255,7 @@ impl SphinxHop {
         let mut gamma_found = [0u8; 16];
         let mut gamma_found = ClearOnDrop::new(&mut gamma_found);
         self.create_gamma(beta, gamma_found.as_mut()) ?;
-        if ! ct_eq_slice(gamma_given, gamma_found.as_mut()) {
+        if ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, gamma_found.as_mut()) {
             let replay_code = self.replay_code().unwrap_or(REPLAY_CODE_UNKNOWN);
             return Err( SphinxError::InvalidMac(replay_code) );
         }
