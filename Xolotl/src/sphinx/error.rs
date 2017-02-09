@@ -6,7 +6,7 @@ use std::error::Error;
 use std::convert::From;
 use std::fmt;
 
-use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
+// use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
 
 use rustc_serialize::hex::ToHex;
 

@@ -4,7 +4,7 @@
 //!
 //! ...
 
-// use consistenttime::ct_eq_slice;
+use rand::{Rng, Rand};
 
 use curve25519_dalek::field;
 use curve25519_dalek::curve;
@@ -46,13 +46,22 @@ impl Scalar {
 
     /// Return the scalar's standard byte representation for saving to disk.
     pub fn to_bytes(&self) -> [u8; 32] {
-        let scalar::Scalar(s) = self.0;  s
+        let scalar::Scalar(s) = self.0;
+        s
     }
 
     /// Construct a scalar loaded from its byte representation loaded from
     /// disk.  Do not create a blinding scalar with this functon.
     pub fn from_bytes(s: &[u8; 32]) -> Scalar {
         Scalar(scalar::Scalar(*s))
+    }
+}
+
+impl Rand for Scalar {
+    fn rand<R: Rng>(rng: &mut R) -> Scalar {
+        let mut s = [0u8; 64];
+        rng.fill_bytes(&mut s);
+        Scalar::make(&s)
     }
 }
 
@@ -125,7 +134,7 @@ impl Point {
 
 #[cfg(test)]
 mod tests {
-    use rand::{OsRng, Rng};
+    use rand::{OsRng, Rng, Rand};
     use super::*;
     // use rustc_serialize::hex::ToHex;
 
@@ -137,26 +146,31 @@ mod tests {
     fn test_scalar_reduce() {
         let mut r = os_rng();
         for i in 0..10 {
-            let mut b = [0u8; 64];  r.fill_bytes(&mut b);
-            let scalar::Scalar(a) = scalar::Scalar::reduce(&b);
-            rc_curve25519::sc_reduce(&mut b);
-            assert_eq!(a,b[0..32]);
+            let mut a = [0u8; 64];   r.fill_bytes(&mut a);
+            let Scalar(scalar::Scalar(c)) = Scalar::make(&a);
+            let scalar::Scalar(b) = scalar::Scalar::reduce(&a);
+            rc_curve25519::sc_reduce(&mut a);
+            assert_eq!(b,a[0..32]);
+            assert_eq!(b,c);
         }
     }
 
-    fn rand_bytes_scalar<R: Rng>(rng: &mut R) -> scalar::Scalar {
-        let mut s = [0u8; 32];
+    /*
+    fn rand_scalar<R: Rng>(rng: &mut R) -> Scalar {
+        let mut s = [0u8; 64];
         rng.fill_bytes(&mut s);
+        Scalar::make
         scalar::Scalar(s)
     }
+    */
 
     #[test]
     fn test_scalar_multiply_add() {
         let mut r = os_rng();
         for i in 0..10 {
-            let a = rand_bytes_scalar(&mut r);
-            let b = rand_bytes_scalar(&mut r);
-            let c = rand_bytes_scalar(&mut r);
+            let a = scalar::Scalar(Rand::rand(&mut r));
+            let b = scalar::Scalar(Rand::rand(&mut r));
+            let c = scalar::Scalar(Rand::rand(&mut r));
             let mut x = [0u8; 32];
             rc_curve25519::sc_muladd(&mut x,&a.0,&b.0,&c.0);
             let scalar::Scalar(y) = scalar::Scalar::multiply_add(&a,&b,&c);
@@ -164,7 +178,58 @@ mod tests {
         }
     }
 
+    fn scalar_mul_by_cofactor(b: &mut [u8; 32]) {
+        let mut r = 0;
+        for i in 0..31 {
+            let mut t = b[i] as u16;
+            t <<= 3;
+            t |= r;
+            b[i] = (t & 0xFF) as u8;
+            r = t >> 8;
+        }
+    }
+
+    #[test]
+    fn test_curve_scalarmult() {
+        let mut r = os_rng();
+        for i in 0..5 {
+            // Psedu-reduce the scalar by clearing the high bit or actually reducing it.
+            let a = if i % 2 == 1 {
+                let mut s = scalar::Scalar(Rand::rand(&mut r));
+                // s[0]  &= 248;  // Avoids small subgroup attack by multiplying by cofactor
+                s[31] &= 127;  // Zeros high bits
+                // s[31] |=  64;  // Sets high bit for constant time, probably unnecessary.
+                s
+            } else {
+                Scalar::rand(&mut r).0
+            };
+            let x = rc_curve25519::ge_scalarmult_base(&a.0);
+            let y = curve::ExtendedPoint::basepoint_mult(&a).compress().to_bytes();
+            assert_eq!(x.to_bytes(),y);
+            let z = Point::from_private(&Scalar(a));
+            assert_eq!(y,z.compress());
+
+            let mut b = Scalar::rand(&mut r).0;
+            // let z = curve::ExtendedPoint::scalar_mult(??,&s).compress().to_bytes();
+            // assert_eq!(z,y);
+
+            let zero = scalar::Scalar::zero();
+            let u = rc_curve25519::GeP2::double_scalarmult_vartime(&b.0, x, &zero.0);
+            let v = z.blind(&Scalar(b));
+            assert_eq!(u.to_bytes(), v.compress());
+
+            let w = v.0.mult_by_cofactor().compress().to_bytes();
+            assert_eq!(w, z.kex(&Scalar(b)).0);
+
+            scalar_mul_by_cofactor(&mut b.0);
+            // assert_eq!(w, z.blind(&Scalar(b)).compress());
+        }
+    }
+
 /*
+
+decompress()
+.from_bytes_negate_vartime()
 
     #[test]
     fn test_curve_scalar_mult() {
@@ -188,19 +253,6 @@ rc_curve25519::double_scalarmult_vartime
     }
 */
 
-    #[test]
-    fn test_curve_scalarmult_base() {
-        let mut r = os_rng();
-        for i in 0..10 {
-            let s = rand_bytes_scalar(&mut r);
-            // Wrong:  the scalar must be reduced
-            let x = rc_curve25519::ge_scalarmult_base(&s.0).to_bytes();
-            let y = curve::ExtendedPoint::basepoint_mult(&s).compress().to_bytes();
-            assert_eq!(x,y);
-            // let z = curve::ExtendedPoint::scalar_mult(??,&s).compress().to_bytes();
-            // assert_eq!(z,y);
-        }
-    }
 
 /*
     #[test]
