@@ -1,0 +1,172 @@
+
+
+
+    ///
+    /// We multiply by the cofactor when doing this to protect against
+    /// small subgroup attacks, which clients require because they
+    /// reduce multiplications mod l.  We should maybe verify the result
+    /// is not the identity either, but presumably building alpha with
+    /// scalars helps prevent this anyways.
+
+        // TODO: Remove this as decompress() yields the same result.
+        // let y = FieldElement::from_bytes(&alpha_bytes.0);
+        // if ct_eq_slice(&y.0, FieldElement::one().0) {
+        //     return Err( SphinxError::BadAlpha );
+        // }
+            .and_then(|p| {
+                // TODO: Return None if p == curve::ExtendedPoint::identity()
+                // after we multiply by the cofactor.  This should not be
+                // critical, but seems best.  Currently p.Y, etc. are private.
+                Some( p.mult_by_cofactor() )
+            })
+
+
+
+
+
+/// Sphinx node or packet private key consisting of a curve25519 scalar
+/// chosen from ℤ/8lℤ to have the form 2^254 + 8*x where 0 ≤ x ≤ 2^251-1.
+/// In principle we do not need the high bit set since our implementation
+/// should be constant-time, and setting it might be harmful against a
+/// quantum attacker, but we retain this feature and pre-blind our
+///
+/// TODO: We could use `scalar::UnpackedScalar` to avoid some calls to
+/// `Scalar::unpack`, but this can wait until things settle down.
+pub struct PrivateKey(pub [u8; 32]);
+
+impl PrivateKey {
+    /// Creates a Sphinx node or packet private key by generating a safe
+    /// curve25519 scalar with the usual "clamping" construction.
+    ///
+    /// 
+In fact, this "clamping" construction produces a value that
+    /// exceeds l by a factor of about 8, but zeroing the low three
+    /// bits gives us a multiple of 8, so that any points in the
+    /// cofactor become the identity, thereby avoiding small subgroup
+    /// attacks.
+you could do the same computations after right shifting this by
+    /// three bits, and mul, but 
+    /// it to an element of G.  Zeroing the low three bits means that
+    /// if you multiply a general element of the curve by this then
+    /// you should land in G.
+    pub fn make(s: &[u8; 32]) {
+        s[0]  &= 248;  // Avoids small subgroup attack by multiplying by cofactor
+        s[31] &= 127;  // Zeros high bits
+        s[31] |=  64;  // Sets high bit for constant time, probably unnecessary.
+        PrivateKey(s)
+    }
+
+    /// Multiply a Sphinx packet private key by a blinding factor.
+    pub fn blind(&self, blinding: &Blinding) -> PrivateKey {
+        let zero = scalar::Scalar::zero();
+        PrivateKey( scalar::Scalar::multiply_add(&self.0,&blinding.0,&zero) );
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* 
+
+/// Sphinx packet curve25519 public key, but decompressed.
+#[derive(Debug, Default, Clone, Copy)] // PartialEq, Eq, Hash
+pub struct AlphaEdwards(curve::ExtendedPoint);
+
+impl AlphaWork {
+    pub fn from_scalar(s: &scalar::Scalar) {
+        s[0]  &= 248;
+        s[31] &=  63;
+        s[31] |=  64;
+        Alpha( ExtendedPoint::basepoint_mult(s) )
+    }
+
+    pub fn from_bytes(alpha_bytes: &[u8; 32]) -> Result<Alpha,SphinxError> {
+        if let Some(ep) = curve::CompressedMontgomeryU(alpha.0).decompress() {
+            Ok( Alpha(ep) )
+        } else {
+            Err( SphinxError::BadAlpha(*alpha_bytes) )
+        }
+    }
+
+    pub fn to_sphinxsecret(&self) -> SphinxSecret { // [u8; 32]
+        SphinxSecret( self.compress().to_bytes() )
+    }
+
+    pub fn blind(&mut self, blinding: &Blinding) {
+        self.0.scalar_mult(&blinding.0);
+    }
+
+    
+}
+
+/// Sphinx curve25519 blinding scalar.
+#[derive(Debug, Default, Clone, Copy)] // PartialEq, Eq, Hash
+pub struct Blinding(scalar::Scalar);
+
+impl Blinding {
+    pub fn from_bytes(s: &[u8; 32]) -> AlphaPrivate {
+        let s = scalar::Scalar(b);
+        // s[0]  &= 248;
+        // s[31] &=  63;
+        // s[31] |=  64;
+        Blinding(s);
+    }
+}
+
+/// Sphinx packet curve25519 private key.
+#[derive(Debug, Default, Clone, Copy)] // PartialEq, Eq, Hash
+pub struct AlphaPrivate(scalar::Scalar);
+
+impl AlphaPrivate {
+    pub fn from_bytes(s: &[u8; 32]) -> AlphaPrivate {
+        let s = scalar::Scalar(b);
+        s[0]  &= 248;
+        s[31] &=  63;
+        s[31] |=  64;
+        AlphaPrivate(s);
+    }
+
+}
+
+*/
+
+
