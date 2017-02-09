@@ -4,9 +4,8 @@
 //!
 //! ...
 
-use std::collections::{HashMap,HashSet};
 use std::borrow::Borrow;
-
+use std::collections::{HashMap,HashSet};
 use std::hash::{Hash, Hasher, BuildHasher};
 
 use siphasher::sip::SipHasher24;
@@ -195,6 +194,9 @@ impl<K> Filter for CuckooFilter<K>
     ...
 }
 */
+
+
+
 
 
 #[cfg(test)]

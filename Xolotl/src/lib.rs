@@ -18,28 +18,24 @@
 // Sphinx could be built on only core, but Xolotl needs allocation.
 // extern crate core;  
 
-extern crate rustc_serialize;
-
-extern crate rand;
-extern crate crypto;
-extern crate consistenttime;
-
-extern crate siphasher;  // better than #![feature(sip_hash_13)]
-
 #[macro_use]
 extern crate arrayref;
 
-// extern crate zerodrop;
-// type Secret<T> = zerodrop::ZeroDrop<T>;
+extern crate rustc_serialize;
 
-/// Code marker for stack variables that should be zeroed when dropped.
-/// In fact stack variables cannot be zeroed safely, so this does
-/// nothing for now.
-/// See https://github.com/rust-lang/rfcs/issues/1853
-// type StackSecret<T> = T;
+extern crate siphasher;  // better than #![feature(sip_hash_13)]
 
+extern crate rand;
+extern crate consistenttime;
 extern crate clear_on_drop;
 type ClearedBox<T> = clear_on_drop::ClearOnDrop<Box<T>>;
+
+extern crate curve25519_dalek;
+extern crate keystream;
+extern crate chacha;
+
+extern crate crypto;  //  SHA3, Poly1305, checking curve25519_dalek
+
 
 #[macro_use]
 mod macros;

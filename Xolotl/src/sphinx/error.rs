@@ -4,14 +4,15 @@
 
 use std::error::Error;
 use std::convert::From;
-// use std::marker::PhantomData;
 use std::fmt;
 
 use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
 
+use rustc_serialize::hex::ToHex;
+
 
 use super::state::*;
-use self::ratchet::error::XolotlError;
+use ratchet::error::RatchetError;
 
 
 #[derive(Debug, Clone)]
@@ -33,16 +34,16 @@ impl fmt::Display for SphinxError {
             PoisonError(l,t)
                 => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
             Replay(id)
-                => write!(f, "Replay attack detected on {:x}.", id),
+                => write!(f, "Replay attack detected on {:?}.", id),
             InvalidMac(id)
-                => write!(f, "Invalid mac on {:x}.", id),
+                => write!(f, "Invalid MAC with {:?}.", id),
             BadAlpha(alpha)
-                => write!(f, "Invalid mac on {:x}.", alpha),
+                => write!(f, "Invalid Alpha {}.", alpha.to_hex()),
         }
     }
 }
 
-impl Error for XolotlError {
+impl Error for SphinxError {
     fn description(&self) -> &str {
         "I'm a Sphinx error."
     }
@@ -60,12 +61,13 @@ impl Error for XolotlError {
 }
 
 
-macro_rules! impl_XolotlPoisonError {
+
+macro_rules! impl_SphinxPoisonError {
     ($l:ident, $t:ident) => {
-        impl<'a> From<::std::sync::PoisonError<$l<'a, $t>>> for XolotlError {
-            fn from(_: ::std::sync::PoisonError<$l<'a, $t>>) -> XolotlError {
+        impl<'a> From<::std::sync::PoisonError<$l<'a, $t>>> for SphinxError {
+            fn from(_: ::std::sync::PoisonError<$l<'a, $t>>) -> SphinxError {
                 // _.get_mut()
-                XolotlError::PoisonError(stringify!($l),stringify!($t))
+                SphinxError::PoisonError(stringify!($l),stringify!($t))
             }
         }
     };

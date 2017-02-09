@@ -8,7 +8,7 @@ mod branch;
 mod twig;
 mod state;
 mod advance;
-mod error;
+pub mod error;
 
 /*
 pub use self::branch::{BranchId,BranchName};
