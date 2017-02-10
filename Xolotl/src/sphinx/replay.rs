@@ -4,7 +4,7 @@
 //!
 //! ...
 
-use std::collections::{HashMap,HashSet};
+use std::collections::HashSet;
 use std::sync::RwLock;
 // use std::sync::{Arc, RwLock}; // RwLockReadGuard, RwLockWriteGuard
 // use std::ops::{Deref,DerefMut};
@@ -38,7 +38,8 @@ pub trait ReplayChecker {
     /// `SphinxError::Replay(replay_code)`.  If `replay_code` is
     /// not present, then insert it and return `Ok`.
     ///
-    /// We use a by-value reciever so that ..
+    /// We use a by-value reciever as a cheap way to abstract over
+    /// the mutability differences of `&mut R` vs `&RwLock<R>`.
     fn replay_check(self, replay_code: &ReplayCode) -> Result<(),SphinxError>;
 }
 
@@ -47,7 +48,7 @@ pub struct IgnoreReplays;
 
 impl ReplayChecker for IgnoreReplays {
     fn replay_check(self, replay_code: &ReplayCode) -> Result<(),SphinxError> {
-        Ok(())
+        let _ = self;  let _ = replay_code;  Ok(())
     }
 }
 

@@ -29,48 +29,11 @@ use super::SphinxSecret;
 use super::curve::*;
 use super::header::{Length,SphinxParams};
 use super::replay::*;
+use super::node::NodeToken;
 use super::error::*;
 
 /// Portion of header key stream to reserve for the Lioness key
 const LIONESS_KEY_SIZE: Length = 4*64;
-
-
-/// Sphinx node curve25519 public key.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NodePublicKey(pub [u8; 32]);
-
-/// Identifier for the current concenus 
-pub struct ConcensusId(pub [u8; 32]);
-
-/// XChaCha20 not-a-nonce for all packets with a given `NodePublicKey`
-/// in a given `ConcensusId`.  Nodes should cache this with their
-/// `NodePrivateKey` but clients may simply generate it when building
-/// packets.
-pub struct NodeToken(pub [u8; 24]);
-
-impl NodeToken {
-    pub fn generate(params: &SphinxParams, 
-                    concensus: &ConcensusId, 
-                    node: &NodePublicKey
-      ) -> NodeToken {
-        use crypto::digest::Digest;
-        use crypto::sha3::Sha3;
-
-        let mut nk = [0u8; 24];
-        let mut sha = Sha3::sha3_512();
-
-        sha.input(&concensus.0);
-        sha.input(&node.0);
-        sha.input_str(params.node_token_key);
-        sha.input(&concensus.0);
-        sha.input(&node.0);
-        sha.result(&mut nk);
-        sha.reset();
-        NodeToken(nk)
-    }
-}
-
-
 
 
 struct Chunks {
@@ -96,17 +59,12 @@ impl SphinxParams {
         Chunks {
             beta:  reserve(self.beta_length,true),
             beta_tail:  reserve(self.max_beta_tail_length,false),
-            surb_log:  reserve(self.surblog_length,true),
-            surb:  reserve(self.surblog_length,true),
+            surb_log:  reserve(self.surb_log_length,true),
+            surb:  reserve(self.surb_log_length,true),
             lioness_key:  reserve(LIONESS_KEY_SIZE,true),
         }
     }
 }
-
-/*
-impl CipherRanges {    
-}
-*/
 
 // /// Sphinx onion encrypted routing information
 // pub type BetaBytes = [u8];
@@ -157,6 +115,7 @@ pub struct SphinxHop {
 impl ::clear_on_drop::clear::InitializableFromZeroed for SphinxHop {
     unsafe fn initialize(hop: *mut SphinxHop) {
         // (&mut *hop).params = INVALID_SPHINX_PARAMS;
+        let _ = hop;  // silence warn(unused_variables)
     }
 }
 
@@ -198,7 +157,7 @@ impl SphinxHop {
         // let mut b = ClearOnDrop::new(&mut b);
         // let mut b = array_mut_ref![b.deref_mut(),0,64];
 
-        hop.stream.xor_read(b);
+        hop.stream.xor_read(b) ?;
         // let (replay_code,_,gamma_key) = array_refs![mr,16,16,32];        
         hop.gamma_key = GammaKey(*array_ref![b,32,32]);
         hop.replay_code = ReplayCode(*array_ref![b,0,16]);
@@ -207,7 +166,7 @@ impl SphinxHop {
         // returns `Err( SphinxError::Replay(hop.replay_code) )`.
         replayer.replay_check(&hop.replay_code) ?;
 
-        hop.stream.xor_read(b);
+        hop.stream.xor_read(b) ?;
         hop.blinding = Scalar::make(b);
 
         Ok(hop)
@@ -247,10 +206,9 @@ impl SphinxHop {
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet
     pub fn verify_gamma(&mut self, beta: &[u8], surb: &[u8],
       gamma_given: &Gamma) -> SphinxResult<()> {
-        let mut gamma_found = [0u8; 16];
-        let mut gamma_found = ClearOnDrop::new(&mut gamma_found);
-        self.create_gamma(beta, gamma_found.as_mut()) ?;
-        if ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, gamma_found.as_mut()) {
+        let gamma_found = self.create_gamma(beta, surb) ?;
+        // let gamma_found = ClearOnDrop::new(&gamma_found);
+        if ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0) {
             let replay_code = self.replay_code().unwrap_or(REPLAY_CODE_UNKNOWN);
             return Err( SphinxError::InvalidMac(replay_code) );
         }
@@ -291,8 +249,8 @@ impl SphinxHop {
         Ok(())
     }
 
-    pub fn xor_surblog(&mut self, surb_log: &mut [u8]) -> SphinxResult<()> {
-        if surb_log.len() != self.params.surblog_length as usize {
+    pub fn xor_surb_log(&mut self, surb_log: &mut [u8]) -> SphinxResult<()> {
+        if surb_log.len() != self.params.surb_log_length {
             return Err( SphinxError::InternalError("SURB log has incorrect length!") );
         }
         self.stream.seek_to(self.chunks.surb_log.start as u64) ?;

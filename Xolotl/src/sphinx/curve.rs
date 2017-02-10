@@ -147,7 +147,7 @@ mod tests {
     #[test]
     fn test_scalar_reduce() {
         let mut r = os_rng();
-        for i in 0..10 {
+        for _ in 0..10 {
             let mut a = [0u8; 64];   r.fill_bytes(&mut a);
             let Scalar(scalar::Scalar(c)) = Scalar::make(&a);
             let scalar::Scalar(b) = scalar::Scalar::reduce(&a);
@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn test_scalar_multiply_add() {
         let mut r = os_rng();
-        for i in 0..10 {
+        for _ in 0..10 {
             let a = scalar::Scalar(Rand::rand(&mut r));
             let b = scalar::Scalar(Rand::rand(&mut r));
             let c = scalar::Scalar(Rand::rand(&mut r));
@@ -236,7 +236,7 @@ decompress()
     #[test]
     fn test_curve_scalar_mult() {
         let mut r = os_rng();
-        for i in 0..10 {
+        for _ in 0..10 {
 curve::Curve::scalar_mult
 rc_curve25519::double_scalarmult_vartime
             assert_eq!(x,y);
@@ -247,7 +247,7 @@ rc_curve25519::double_scalarmult_vartime
     #[test]
     fn test_curve_scalar_mult_double() {
         let mut r = os_rng();
-        for i in 0..10 {
+        for _ in 0..10 {
 curve::double_scalar_mult_vartime
 rc_curve25519::double_scalarmult_vartime
             assert_eq!(x,y);

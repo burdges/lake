@@ -8,6 +8,7 @@ mod curve;
 mod stream;
 mod header;
 mod replay;
+mod node;
 mod error;
 
 pub use self::header::SphinxParams;
