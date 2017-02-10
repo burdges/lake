@@ -9,7 +9,8 @@
 // TODO Remove this !!!
 #![allow(dead_code)]
 
-#![feature(core_intrinsics)]
+#![feature(conservative_impl_trait)]
+#![feature(core_intrinsics)] // Remove with ClearOnDrop
 #![feature(associated_consts)]
 #![feature(box_syntax)]
 

@@ -5,8 +5,8 @@
 //! ...
 
 
-use std::sync::RwLock;
 use std::fmt;
+use std::ops::Range;
 
 use clear_on_drop::ClearOnDrop;
 use crypto::mac::Mac;
@@ -25,66 +25,15 @@ impl<'a> From<KeystreamError> for SphinxError {
 }
 
 
-use ::state::Filter;
 use super::SphinxSecret;
 use super::curve::*;
+use super::header::{Length,SphinxParams};
+use super::replay::*;
 use super::error::*;
-use super::state::*;
-
-
-/// Alias for indexes into a Sphinx header
-pub type Length = u64;
 
 /// Portion of header key stream to reserve for the Lioness key
 const LIONESS_KEY_SIZE: Length = 4*64;
 
-#[inline(always)]
-pub fn chacha_blocks(i: Length) -> Length {
-    i/64 + 1  //  (if i%64==0 { 0 } else { 1 }) 
-}
-
-/// Sphinx `'static` runtime paramaters 
-///
-/// Amount of keystream consumed by `new()`.
-/// Optimial performance requires this be a multiple of 64.
-
-#[derive(Debug,Clone,Copy)]
-pub struct SphinxParams {
-    /// String 
-    pub node_token_key: &'static str,
-
-    /// Length of the routing information block `Beta`.
-    ///
-    /// A multiple of the ChaCha blocksize of 64 may produce better performance.
-    pub beta_length: Length,
-
-    /// Maximal amount of routing infomrmation in `Beta` consued
-    /// by a single sub-hop.
-    ///
-    /// A multiple of the ChaCha blocksize of 64 may produce better performance.
-    pub max_beta_tail_length: Length,
-
-    /// Length of the SURB log
-    ///
-    /// A multiple of the ChaCha blocksize of 64 may produce better performance.
-    pub surblog_length: Length,
-}
-
-impl SphinxParams {
-    #[inline(always)]
-    pub fn surb_length(&self) -> usize {
-        ::std::mem::size_of::<AlphaBytes>()
-        + ::std::mem::size_of::<Gamma>()
-        + self.beta_length as usize
-    }
-}
-
-const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
-    node_token_key: "Invalid Sphinx!",
-    beta_length: 0,
-    max_beta_tail_length: 0,
-    surblog_length: 0
-};
 
 /// Sphinx node curve25519 public key.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -122,24 +71,68 @@ impl NodeToken {
 }
 
 
-/// Sphinx onion encrypted routing information
-// #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub type Beta = [u8];
 
-/// Sphinx poly1305 MAC
+
+struct Chunks {
+    beta: Range<Length>,
+    beta_tail: Range<Length>,
+    surb_log: Range<Length>,
+    surb: Range<Length>,
+    lioness_key: Range<Length>,
+}
+
+impl SphinxParams {
+    #[inline]
+    fn stream_chunks(&self) -> Chunks {
+        let mut offset = SphinxHop::NEW_OFFSET;
+        let mut reserve = |l: Length, block: bool| -> Range<Length> {
+            if block { offset += 64 - offset % 64; }
+            let previous = offset;
+            offset += l;
+            let r = previous..offset;
+            debug_assert_eq!(r.len(), l);
+            r
+        };
+        Chunks {
+            beta:  reserve(self.beta_length,true),
+            beta_tail:  reserve(self.max_beta_tail_length,false),
+            surb_log:  reserve(self.surblog_length,true),
+            surb:  reserve(self.surblog_length,true),
+            lioness_key:  reserve(LIONESS_KEY_SIZE,true),
+        }
+    }
+}
+
+/*
+impl CipherRanges {    
+}
+*/
+
+// /// Sphinx onion encrypted routing information
+// pub type BetaBytes = [u8];
+
+pub const GAMMA_LENGTH : Length = 16;
+
+/// Unwrapped Sphinx poly1305 MAC 
+pub type GammaBytes = [u8; GAMMA_LENGTH];
+
+/// Wrapped Sphinx poly1305 MAC
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Gamma(pub [u8; 16]);
+pub struct Gamma(pub GammaBytes);
 
 /// Sphinx poly1305 MAC key
 #[derive(Debug,Clone,Copy,Default)]
 struct GammaKey(pub [u8; 32]);
 
-/// Semetric cryptography for a single Sphinx hop
-///
+/// Semetric cryptography for a single Sphinx sub-hop, usually
+/// meaning the whole hop.
 ///
 pub struct SphinxHop {
     /// Sphinx `'static` runtime paramaters 
     params: &'static SphinxParams,
+
+    /// Stream cipher ranges determined by `params`
+    chunks: Chunks,
 
     /// Replay code when reporting errors.
     ///
@@ -163,7 +156,7 @@ pub struct SphinxHop {
 // not dereference `self.params`.
 impl ::clear_on_drop::clear::InitializableFromZeroed for SphinxHop {
     unsafe fn initialize(hop: *mut SphinxHop) {
-        (&mut *hop).params = INVALID_SPHINX_PARAMS;
+        // (&mut *hop).params = INVALID_SPHINX_PARAMS;
     }
 }
 
@@ -189,11 +182,12 @@ impl SphinxHop {
     /// Begin semetric cryptography for a single Sphinx hop.
     pub fn new<RC>(params: &'static SphinxParams, replayer: RC, 
                    nt: &NodeToken,  ss: &SphinxSecret
-      ) -> Result<SphinxHop,SphinxError>
+      ) -> SphinxResult<SphinxHop>
       where RC: ReplayChecker
     {
         let mut hop = SphinxHop {
             params: params,
+            chunks: params.stream_chunks(),
             replay_code: Default::default(),
             gamma_key: Default::default(),
             blinding: Scalar::from_bytes(&[0u8; 32]),
@@ -220,7 +214,7 @@ impl SphinxHop {
     }
 
     /// Regenerate the `ReplayCode` for error reporting.
-    pub fn replay_code(&self) -> Result<ReplayCode,SphinxError> {
+    pub fn replay_code(&self) -> SphinxResult<ReplayCode> {
         // let mut rc = [0u8; 16];
         // self.stream.seek_to(0) ?;
         // self.stream.xor_read(&mut rc) ?;
@@ -229,7 +223,7 @@ impl SphinxHop {
     }
 
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
-    pub fn create_gamma(&mut self, beta: &Beta, surb: &[u8]) -> Result<Gamma,SphinxError> {
+    pub fn create_gamma(&mut self, beta: &[u8], surb: &[u8]) -> SphinxResult<Gamma> {
         if beta.len() != self.params.beta_length as usize {
             return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
         }
@@ -251,7 +245,8 @@ impl SphinxHop {
     }
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet
-    pub fn verify_gamma(&mut self, beta: &Beta, surb: &[u8], gamma_given: &Gamma) -> Result<(),SphinxError> {
+    pub fn verify_gamma(&mut self, beta: &[u8], surb: &[u8],
+      gamma_given: &Gamma) -> SphinxResult<()> {
         let mut gamma_found = [0u8; 16];
         let mut gamma_found = ClearOnDrop::new(&mut gamma_found);
         self.create_gamma(beta, gamma_found.as_mut()) ?;
@@ -265,86 +260,54 @@ impl SphinxHop {
     /// Assigns slice to contain the lionness key.
     ///
     /// TODO: Use a fixed length array for the lioness key
-    pub fn lionness_key(&mut self,lioness_key: &mut [u8]) -> Result<(), SphinxError> {
-        if lioness_key.len() > LIONESS_KEY_SIZE as usize {
+    pub fn lionness_key(&mut self,lioness_key: &mut [u8]) -> SphinxResult<()> {
+        if lioness_key.len() > LIONESS_KEY_SIZE {
             return Err( SphinxError::InternalError("Lioness key too long!") );
         }
-        self.stream.seek_to(SphinxHop::NEW_OFFSET) ?;
+        self.stream.seek_to(self.chunks.lioness_key.start as u64) ?;
         for x in lioness_key.iter_mut() { *x=0; }
         self.stream.xor_read(lioness_key) ?;
         Ok(())
     }
 
-    fn xor_beta(&mut self, beta: &mut Beta) -> Result<(), SphinxError> {
-        if beta.len() < self.params.beta_length as usize {
+    fn xor_beta(&mut self, beta: &mut [u8]) -> SphinxResult<()> {
+        if beta.len() < self.params.beta_length {
             return Err( SphinxError::InternalError("Beta too short to encrypt!") );
         }
         if beta.len() > (self.params.beta_length+self.params.max_beta_tail_length) as usize {
             return Err( SphinxError::InternalError("Beta too long to encrypt!") );
         }
-        self.stream.seek_to(
-          SphinxHop::NEW_OFFSET + LIONESS_KEY_SIZE
-        ) ?;
+        self.stream.seek_to(self.chunks.beta.start as u64) ?;
         self.stream.xor_read(beta) ?;
         Ok(())
     }
 
-    fn xor_beta_tail(&mut self, beta_tail: &mut [u8]) -> Result<(), SphinxError> {
-        if beta_tail.len() > self.params.max_beta_tail_length as usize {
+    fn xor_beta_tail(&mut self, beta_tail: &mut [u8]) -> SphinxResult<()> {
+        if beta_tail.len() > self.params.max_beta_tail_length {
             return Err( SphinxError::InternalError("Beta's tail is too long!") );
         }
-        self.stream.seek_to(
-          SphinxHop::NEW_OFFSET + LIONESS_KEY_SIZE
-          + self.params.beta_length
-        ) ?;
+        self.stream.seek_to(self.chunks.beta_tail.start as u64) ?;
         self.stream.xor_read(beta_tail) ?;
         Ok(())
     }
 
-    pub fn xor_surblog(&mut self, surb_log: &mut [u8]) -> Result<(), SphinxError> {
+    pub fn xor_surblog(&mut self, surb_log: &mut [u8]) -> SphinxResult<()> {
         if surb_log.len() != self.params.surblog_length as usize {
             return Err( SphinxError::InternalError("SURB log has incorrect length!") );
         }
-        self.stream.seek_to(
-          SphinxHop::NEW_OFFSET + LIONESS_KEY_SIZE 
-          + self.params.beta_length
-          + self.params.max_beta_tail_length
-        ) ?;
+        self.stream.seek_to(self.chunks.surb_log.start as u64) ?;
         self.stream.xor_read(surb_log) ?;
         Ok(())
     }
 
-    pub fn xor_surb(&mut self, surb: &mut [u8]) -> Result<(), SphinxError> {
+    pub fn xor_surb(&mut self, surb: &mut [u8]) -> SphinxResult<()> {
         if surb.len() != self.params.surb_length() {
             return Err( SphinxError::InternalError("SURB has incorrect length!") );
         }
-        self.stream.seek_to(
-          SphinxHop::NEW_OFFSET + LIONESS_KEY_SIZE
-          + self.params.beta_length
-          + self.params.max_beta_tail_length
-          + self.params.surblog_length
-        ) ?;
+        self.stream.seek_to(self.chunks.surb.start as u64) ?;
         self.stream.xor_read(surb) ?;
         Ok(())
     }
-
 }
-
-/*
-impl KeyStream for SphinxHop {
-    /// Allow 
-    fn xor_read(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        self.stream.xor_read(dest)
-    }
-}
-
-impl SeekableKeyStream for SphinxHop {
-    /// Hide any keystream 
-    fn seek_to(&mut self, byte_offset: u64) -> Result<(), Error> {
-        let skip = 64*chacha_blocks(SphinxHop::NEW_OFFSET+LIONESS_KEY_SIZE);
-        self.stream.seek_to(byte_offset + skip)
-    }
-}
-*/
 
 

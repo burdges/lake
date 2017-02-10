@@ -6,8 +6,11 @@
 
 mod curve;
 mod stream;
-mod state;
+mod header;
+mod replay;
 mod error;
+
+pub use self::header::SphinxParams;
 
 /// Secret supplied by the Diffie-Hellman key exchange in Sphinx. 
 /// Also secret symmetric key supploied by Xolotl, which must be

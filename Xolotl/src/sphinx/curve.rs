@@ -66,12 +66,14 @@ impl Rand for Scalar {
 }
 
 
+pub const ALPHA_LENGTH : usize = 32;
+
 /// Sphinx packet or node public key consisting of a curve25519 point
 /// represented in the compressed Edwards Y cordinate form given by
 /// `CompressedEdwardsY`, as opposed to the compressed Montgomery U form
 /// for the `curve25519()` Diffie-Hellman key exchange function Sphinx
 /// usually uses.
-pub type AlphaBytes = [u8; 32];
+pub type AlphaBytes = [u8; ALPHA_LENGTH];
 
 
 /// Sphinx packet or node public key consisting of a curve25519 point
@@ -99,7 +101,7 @@ impl Point {
 
     /// Decompress a point supplied in compressed Edwards Y cordinate form
     /// either from local storage or from a Sphinx packet's Alpha.
-    pub fn decompress(alpha_bytes: &AlphaBytes) -> Result<Point,SphinxError> {
+    pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
         curve::CompressedEdwardsY(*alpha_bytes).decompress()
             .map(|p| Point(p)).ok_or( SphinxError::BadAlpha(*alpha_bytes) )
     }
@@ -123,7 +125,7 @@ impl Point {
     /// we neglected to set the high bit of our scalars, as a measure
     /// against quantum adversaries who can observe blinding factors, so
     /// require that the scalar multiplicaiton operation has constant time.
-    pub fn kex(&self, private_key: &Scalar) -> SphinxSecret {
+    pub fn key_exchange(&self, private_key: &Scalar) -> SphinxSecret {
         SphinxSecret(
             self.0.mult_by_cofactor()
                 .scalar_mult(&private_key.0)
@@ -219,7 +221,7 @@ mod tests {
             assert_eq!(u.to_bytes(), v.compress());
 
             let w = v.0.mult_by_cofactor().compress().to_bytes();
-            assert_eq!(w, z.kex(&Scalar(b)).0);
+            assert_eq!(w, z.key_exchange(&Scalar(b)).0);
 
             scalar_mul_by_cofactor(&mut b.0);
             // assert_eq!(w, z.blind(&Scalar(b)).compress());

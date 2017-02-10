@@ -11,7 +11,7 @@ use std::fmt;
 use rustc_serialize::hex::ToHex;
 
 
-use super::state::*;
+use super::replay::*;
 use ratchet::error::RatchetError;
 
 
@@ -24,6 +24,7 @@ pub enum SphinxError {
     BadAlpha([u8; 32]),
 }
 
+pub type SphinxResult<T> = Result<T,SphinxError>;
 
 impl fmt::Display for SphinxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
