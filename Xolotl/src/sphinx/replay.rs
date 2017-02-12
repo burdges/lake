@@ -16,7 +16,7 @@ use ::state::*;
 
 
 /// Replay code used both for replay protection and when reporting errors.
-#[derive(Clone,Copy,Default,PartialEq,Eq,Hash)]
+#[derive(Clone,Copy)] // Default,PartialEq,Eq,Hash
 pub struct ReplayCode(pub [u8; 16]);
 pub const REPLAY_CODE_UNKNOWN : ReplayCode = ReplayCode([0u8; 16]);
 
@@ -61,7 +61,7 @@ impl<'r,R> ReplayChecker for &'r mut R where R: Filter<Key=ReplayCode> + 'r {
         if self.insert(*replay_code) {  // opposite of replays.contains(replay_code)
             Ok(())
         } else { 
-            Err( SphinxError::Replay(*replay_code) )
+            Err( SphinxError::Replay(replay_code.error_packet_id()) )
         }
     }
 }

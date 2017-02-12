@@ -1,0 +1,23 @@
+
+/*
+impl<'a> HeaderRefs<'a> {
+    pub fn iter(&self) -> SphinxResult<impl Iterator> {
+        if self.beta.len() != self.params.beta_length as usize {
+            return Err( SphinxError::InternalError("Beta has incorrect length!") );
+        }
+        if self.surb_log.len() != self.params.surb_log_length as usize {
+            return Err( SphinxError::InternalError("SURB log has incorrect length!") );
+        }
+        if self.surb.len() != self.params.surb_length() {
+            return Err( SphinxError::InternalError("SURB has incorrect length!") );
+        }
+        Ok( self.alpha.iter()
+            .chain(&*self.gamma)
+            .chain(&*self.beta)
+            .chain(&*self.surb_log)
+            .chain(&*self.surb) )
+    }
+}
+*/
+
+

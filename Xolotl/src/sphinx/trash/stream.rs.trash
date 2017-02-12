@@ -1,0 +1,45 @@
+
+/*
+impl KeyStream for SphinxHop {
+    /// Allow 
+    fn xor_read(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        self.stream.xor_read(dest)
+    }
+}
+
+#[inline(always)]
+pub fn chacha_blocks(i: Length) -> Length {
+    i/64 + 1  //  (if i%64==0 { 0 } else { 1 }) 
+}
+
+impl SeekableKeyStream for SphinxHop {
+    /// Hide any keystream 
+    fn seek_to(&mut self, byte_offset: u64) -> Result<(), Error> {
+        let skip = 64*chacha_blocks(SphinxHop::NEW_OFFSET+LIONESS_KEY_SIZE);
+        self.stream.seek_to(byte_offset + skip)
+    }
+}
+*/
+
+
+
+
+
+
+
+
+impl SphinxParams {
+    pub make_header(alpha: AlphaBytes, gamma: Gamma)
+
+    pub fn slice_header(packet: &[u8]) -> {
+        ;
+    }
+}
+
+impl Header {
+    pub fn to_bytes() {
+    }
+}
+
+
+

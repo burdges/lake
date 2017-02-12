@@ -37,7 +37,7 @@ impl NodeToken {
 
         sha.input(&concensus.0);
         sha.input(&node.0);
-        sha.input_str(params.node_token_key);
+        sha.input_str(params.protocol_name);
         sha.input(&concensus.0);
         sha.input(&node.0);
         sha.result(&mut nk);
@@ -45,6 +45,14 @@ impl NodeToken {
         NodeToken(nk)
     }
 }
+
+/// Secret supplied by the Diffie-Hellman key exchange in Sphinx. 
+/// Also secret symmetric key supploied by Xolotl, which must be
+/// 256 bits for post-quantum security.
+// #[never_forget]
+// #[derive(Debug, Default, Clone, Copy)]
+pub struct PreSphinxSecret(pub [u8; 32]);  // StackSecret
+
 
 
 /*

@@ -24,7 +24,6 @@ impl<'a> From<KeystreamError> for SphinxError {
     }
 }
 
-
 use super::SphinxSecret;
 use super::curve::*;
 use super::header::{Length,SphinxParams};
@@ -32,39 +31,6 @@ use super::replay::*;
 use super::node::NodeToken;
 use super::error::*;
 
-/// Portion of header key stream to reserve for the Lioness key
-const LIONESS_KEY_SIZE: Length = 4*64;
-
-
-struct Chunks {
-    beta: Range<Length>,
-    beta_tail: Range<Length>,
-    surb_log: Range<Length>,
-    surb: Range<Length>,
-    lioness_key: Range<Length>,
-}
-
-impl SphinxParams {
-    #[inline]
-    fn stream_chunks(&self) -> Chunks {
-        let mut offset = SphinxHop::NEW_OFFSET;
-        let mut reserve = |l: Length, block: bool| -> Range<Length> {
-            if block { offset += 64 - offset % 64; }
-            let previous = offset;
-            offset += l;
-            let r = previous..offset;
-            debug_assert_eq!(r.len(), l);
-            r
-        };
-        Chunks {
-            beta:  reserve(self.beta_length,true),
-            beta_tail:  reserve(self.max_beta_tail_length,false),
-            surb_log:  reserve(self.surb_log_length,true),
-            surb:  reserve(self.surb_log_length,true),
-            lioness_key:  reserve(LIONESS_KEY_SIZE,true),
-        }
-    }
-}
 
 // /// Sphinx onion encrypted routing information
 // pub type BetaBytes = [u8];
@@ -82,6 +48,124 @@ pub struct Gamma(pub GammaBytes);
 #[derive(Debug,Clone,Copy,Default)]
 struct GammaKey(pub [u8; 32]);
 
+/// Portion of header key stream to reserve for the Lioness key
+const LIONESS_KEY_SIZE: Length = 4*64;
+
+
+/// Sphinx KDF results consisting of the replay code, poly1305 key
+/// for our MAC gamma, and a nonce and key for the IETF Chacha20
+/// stream cipher used for everything else in the header.
+///
+/// Notes: We could improve performance by using the curve25519 point 
+/// derived in the key exchagne directly as the key for an XChaCha20
+/// instance, which includes some mixing, and using chacha for the 
+/// replay code and gamma key.  We descided to use SHA3's SHAKE256
+/// mode so that we have more and different mixing. 
+pub struct SphinxKDF {
+    /// Sphinx `'static` runtime paramaters 
+    params: &'static SphinxParams,
+
+    /// Replay code
+    replay_code: ReplayCode,
+
+    /// Sphinx poly1305 MAC key
+    gamma_key: GammaKey,
+
+    /// IETF ChaCha20 12 byte nonce
+    chacha_nonce: [u8; 12],
+
+    /// IETF ChaCha20 32 byte key
+    chacha_key: [u8; 32]
+}
+
+impl SphinxKDF {
+    /// Run our KDF to produce our replay code, poly1305 MAC key, and
+    /// nonce and key for Chacha20.
+    pub fn new(params: &'static SphinxParams, nt: &NodeToken, ss: &SphinxSecret) 
+      -> SphinxKDF {
+        use crypto::digest::Digest;
+        use crypto::sha3::Sha3;
+
+        let mut r = &mut [0u8; 16+16+32+32];  // ClearOnDrop
+        let mut sha = Sha3::shake_256();
+        sha.input_str( "Sphinx" );
+        sha.input(&ss.0);
+        sha.input_str( params.protocol_name );
+        sha.input(&nt.0);
+        sha.input(&ss.0);
+        sha.input_str( params.protocol_name );
+        sha.result(r);
+        sha.reset();
+
+        let (replay_code,nonce,_,gamma_key,key) = array_refs![r,16,12,4,32,32];        
+        SphinxKDF {
+            params: params,
+            replay_code: ReplayCode(*replay_code),
+            gamma_key: GammaKey(*gamma_key),
+            chacha_nonce: *nonce,
+            chacha_key: *key,
+        }
+    }
+
+    /// Checks for packet replays using the suplied `ReplayChecker`.
+    /// If none occur, then create the IETF ChaCha20 object to process
+    /// the header. 
+    ///
+    /// Replay protection requires that `ReplayChecker::replay_check`
+    /// returns `Err( SphinxError::Replay(hop.replay_code) )` when a
+    /// replay occurs.
+    ///
+    /// You may however use `IgnoreReplay` as the `ReplayChecker` for 
+    /// ratchet sub-hops  and for all subhops in packet creation. 
+    pub fn replay_check<RC: ReplayChecker>(&self, replayer: RC) -> SphinxResult<SphinxHop> {
+        replayer.replay_check(&self.replay_code) ?;
+
+        Ok( SphinxHop {
+            params: self.params,
+            chunks: self.params.stream_chunks(),
+            error_packet_id: self.replay_code.error_packet_id(),
+            gamma_key: self.gamma_key,
+            stream: ChaCha20::new_ietf(&self.chacha_key, &self.chacha_nonce)
+        } )
+    }
+}
+
+
+/// Allocation of cipher ranges for the IETF ChaCha20 inside
+/// `SphinxHop` to various keys and stream cipher roles needed
+/// to process a header.
+struct Chunks {
+    beta: Range<Length>,
+    beta_tail: Range<Length>,
+    surb_log: Range<Length>,
+    surb: Range<Length>,
+    blinding: Range<Length>,
+    lioness_key: Range<Length>,
+}
+
+impl SphinxParams {
+    #[inline]
+    fn stream_chunks(&self) -> Chunks {
+        let mut offset = 0;
+        let mut reserve = |l: Length, block: bool| -> Range<Length> {
+            if block { offset += 64 - offset % 64; }
+            let previous = offset;
+            offset += l;
+            let r = previous..offset;
+            debug_assert_eq!(r.len(), l);
+            r
+        };
+        Chunks {
+            beta:  reserve(self.beta_length,true),
+            beta_tail:  reserve(self.max_beta_tail_length,false),
+            surb_log:  reserve(self.surb_log_length,true),
+            surb:  reserve(self.surb_log_length,true),
+            blinding:  reserve(64,true),
+            lioness_key:  reserve(LIONESS_KEY_SIZE,true),
+        }
+    }
+}
+
 /// Semetric cryptography for a single Sphinx sub-hop, usually
 /// meaning the whole hop.
 ///
@@ -92,18 +176,10 @@ pub struct SphinxHop {
     /// Stream cipher ranges determined by `params`
     chunks: Chunks,
 
-    /// Replay code when reporting errors.
-    ///
-    /// We do replay protection in `SphinxHop::new()` so this exists
-    /// so that `SphinxHop::replay_code()` can avoid seeking stream
-    /// and safely take only an immutable reference.
-    replay_code: ReplayCode,
+    error_packet_id: ErrorPacketId,
 
     /// Sphinx poly1305 MAC key
     gamma_key: GammaKey,
-
-    /// Sphinx blinding factor given by a curve25519 scalar
-    blinding: Scalar,
 
     /// XChaCha20 Stream cipher used when processing the header
     stream: ChaCha20,
@@ -114,8 +190,7 @@ pub struct SphinxHop {
 // not dereference `self.params`.
 impl ::clear_on_drop::clear::InitializableFromZeroed for SphinxHop {
     unsafe fn initialize(hop: *mut SphinxHop) {
-        // (&mut *hop).params = INVALID_SPHINX_PARAMS;
-        let _ = hop;  // silence warn(unused_variables)
+        (&mut *hop).params = super::header::INVALID_SPHINX_PARAMS;
     }
 }
 
@@ -127,60 +202,11 @@ impl Drop for SphinxHop {
 
 impl fmt::Debug for SphinxHop {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let replay_code = self.replay_code().unwrap_or(REPLAY_CODE_UNKNOWN);
-        write!(f, "SphinxHop {{ {:?}, .. }}", replay_code)
+        write!(f, "SphinxHop {{ {:?}, .. }}", self.error_packet_id)
     }
 }
 
 impl SphinxHop {
-    /// Amount of keystream consumed by `new()`.
-    ///
-    /// Keep this multiple of the ChaCha blocksize of 64 for optimal performance.
-    const NEW_OFFSET: Length = 64+64;
-
-    /// Begin semetric cryptography for a single Sphinx hop.
-    pub fn new<RC>(params: &'static SphinxParams, replayer: RC, 
-                   nt: &NodeToken,  ss: &SphinxSecret
-      ) -> SphinxResult<SphinxHop>
-      where RC: ReplayChecker
-    {
-        let mut hop = SphinxHop {
-            params: params,
-            chunks: params.stream_chunks(),
-            replay_code: Default::default(),
-            gamma_key: Default::default(),
-            blinding: Scalar::from_bytes(&[0u8; 32]),
-            stream: ChaCha20::new_xchacha20(&ss.0, &nt.0)
-        };
-
-        let mut b = &mut [0u8; 64];
-        // let mut b = ClearOnDrop::new(&mut b);
-        // let mut b = array_mut_ref![b.deref_mut(),0,64];
-
-        hop.stream.xor_read(b) ?;
-        // let (replay_code,_,gamma_key) = array_refs![mr,16,16,32];        
-        hop.gamma_key = GammaKey(*array_ref![b,32,32]);
-        hop.replay_code = ReplayCode(*array_ref![b,0,16]);
-
-        // We require that, if a replay attack occurs, then `replay_check`
-        // returns `Err( SphinxError::Replay(hop.replay_code) )`.
-        replayer.replay_check(&hop.replay_code) ?;
-
-        hop.stream.xor_read(b) ?;
-        hop.blinding = Scalar::make(b);
-
-        Ok(hop)
-    }
-
-    /// Regenerate the `ReplayCode` for error reporting.
-    pub fn replay_code(&self) -> SphinxResult<ReplayCode> {
-        // let mut rc = [0u8; 16];
-        // self.stream.seek_to(0) ?;
-        // self.stream.xor_read(&mut rc) ?;
-        // ReplayCode(rc)
-        Ok(self.replay_code)
-    }
-
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
     pub fn create_gamma(&mut self, beta: &[u8], surb: &[u8]) -> SphinxResult<Gamma> {
         if beta.len() != self.params.beta_length as usize {
@@ -209,26 +235,28 @@ impl SphinxHop {
         let gamma_found = self.create_gamma(beta, surb) ?;
         // let gamma_found = ClearOnDrop::new(&gamma_found);
         if ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0) {
-            let replay_code = self.replay_code().unwrap_or(REPLAY_CODE_UNKNOWN);
-            return Err( SphinxError::InvalidMac(replay_code) );
+            return Err( SphinxError::InvalidMac(self.error_packet_id) );
         }
         Ok(())
     }
 
-    /// Assigns slice to contain the lionness key.
-    ///
-    /// TODO: Use a fixed length array for the lioness key
-    pub fn lionness_key(&mut self,lioness_key: &mut [u8]) -> SphinxResult<()> {
-        if lioness_key.len() > LIONESS_KEY_SIZE {
-            return Err( SphinxError::InternalError("Lioness key too long!") );
-        }
+    /// Returns the curve25519 scalar for blinding alpha in Sphinx.
+    pub fn blinding(&mut self) -> SphinxResult<Scalar> {
+        let mut b = &mut [0u8; 64];
+        self.stream.seek_to(self.chunks.blinding.start as u64) ?;
+        self.stream.xor_read(b) ?;
+        Ok( Scalar::make(b) )
+    }
+
+    /// Returns full key schedule for the lioness cipher for the body.
+    pub fn lionness_key(&mut self, ) -> SphinxResult<[u8; LIONESS_KEY_SIZE]> {
+        let lioness_key = &mut [0u8; LIONESS_KEY_SIZE];
         self.stream.seek_to(self.chunks.lioness_key.start as u64) ?;
-        for x in lioness_key.iter_mut() { *x=0; }
         self.stream.xor_read(lioness_key) ?;
-        Ok(())
+        Ok(*lioness_key)
     }
 
-    fn xor_beta(&mut self, beta: &mut [u8]) -> SphinxResult<()> {
+    pub fn xor_beta(&mut self, beta: &mut [u8]) -> SphinxResult<()> {
         if beta.len() < self.params.beta_length {
             return Err( SphinxError::InternalError("Beta too short to encrypt!") );
         }
@@ -240,7 +268,7 @@ impl SphinxHop {
         Ok(())
     }
 
-    fn xor_beta_tail(&mut self, beta_tail: &mut [u8]) -> SphinxResult<()> {
+    pub fn xor_beta_tail(&mut self, beta_tail: &mut [u8]) -> SphinxResult<()> {
         if beta_tail.len() > self.params.max_beta_tail_length {
             return Err( SphinxError::InternalError("Beta's tail is too long!") );
         }

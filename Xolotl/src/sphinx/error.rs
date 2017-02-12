@@ -1,6 +1,7 @@
 // Copyright 2016 Jeffrey Burdges 
 
-//! Error reporting for Xolotl ratchet
+//! Error reporting for Sphinx
+//!
 
 use std::error::Error;
 use std::convert::From;
@@ -8,19 +9,45 @@ use std::fmt;
 
 // use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
 
-use rustc_serialize::hex::ToHex;
+// use rustc_serialize::hex::ToHex;
 
 
 use super::replay::*;
 use ratchet::error::RatchetError;
+
+/// `ErrorPacketId` is a `ReplayCode` in testing and empty otherwise.
+#[cfg(not(test))]
+#[derive(Copy,Clone)]
+pub struct ErrorPacketId;
+
+/// `ErrorPacketId` is a `ReplayCode` in testing and empty otherwise.
+#[cfg(test)]
+pub type ErrorPacketId = ReplayCode;
+
+#[cfg(not(test))]
+impl ReplayCode {
+    pub fn error_packet_id(&self) -> ErrorPacketId { ErrorPacketId }
+}
+
+#[cfg(test)]
+impl ReplayCode {
+    pub fn error_packet_id(&self) -> ErrorPacketId { *self }
+}
+
+#[cfg(not(test))]
+impl fmt::Debug for ErrorPacketId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "packet details scrubed")
+    }
+}
 
 
 #[derive(Debug, Clone)]
 pub enum SphinxError {
     InternalError(&'static str),
     PoisonError(&'static str,&'static str),
-    Replay(ReplayCode), 
-    InvalidMac(ReplayCode),
+    Replay(ErrorPacketId), 
+    InvalidMac(ErrorPacketId),
     BadAlpha([u8; 32]),
 }
 
@@ -28,6 +55,7 @@ pub type SphinxResult<T> = Result<T,SphinxError>;
 
 impl fmt::Display for SphinxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use rustc_serialize::hex::ToHex;
         use self::SphinxError::*;
         match *self {
             InternalError(s)

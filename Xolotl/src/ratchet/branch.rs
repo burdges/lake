@@ -127,7 +127,7 @@ impl Branch {
             -> (TrainKey, TrainKey, ChainKey, LinkKey) {
         ck.debug_assert_twigy();
 
-        let mut r = [0u8; 4*32];  // StackSecret
+        let mut r = [0u8; 4*32];  // ClearOnDrop
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(TrainKey, TrainKey, ChainKey, LinkKey)>());
         let mut sha = Sha3::shake_256();
@@ -156,7 +156,7 @@ impl Branch {
             -> (ChainKey,LinkKey) {
         ck.debug_assert_twigy();
 
-        let mut r = [0u8; 2*32];  // StackSecret
+        let mut r = [0u8; 2*32];  // ClearOnDrop
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ChainKey, LinkKey)>());
         let mut sha = Sha3::sha3_512();
@@ -186,7 +186,7 @@ impl BranchId {
             -> (MessageKey, BerryKey) {
         linkkey.debug_assert_twigy();
 
-        let mut r = [0u8; 2*32];  // StackSecret
+        let mut r = [0u8; 2*32];  // ClearOnDrop
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(MessageKey, BerryKey)>());
         let mut sha = Sha3::sha3_512();
@@ -217,7 +217,7 @@ impl Branch {
             -> (BranchId, Branch, TrainKey) {
         bk.debug_assert_twigy();
 
-        let mut r = [0u8; 2*32];  // StackSecret
+        let mut r = [0u8; 2*32];  // ClearOnDrop
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ExtraKey, TrainKey)>());
         let mut sha = Sha3::sha3_512();
@@ -246,7 +246,7 @@ impl Branch {
     }
 
     pub fn new_kdf(seed: &[u8]) -> (BranchId, Branch, TrainKey) {
-        let mut r = [0u8; 32+16+32];  // StackSecret
+        let mut r = [0u8; 32+16+32];  // ClearOnDrop
         debug_assert_eq!(::std::mem::size_of_val(&r),
           ::std::mem::size_of::<(ExtraKey, BranchName, TrainKey)>());
         let mut sha = Sha3::shake_256();
