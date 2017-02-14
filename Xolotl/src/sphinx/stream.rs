@@ -31,6 +31,8 @@ impl<'a> From<KeystreamError> for SphinxError {
 use super::SphinxSecret;
 use super::curve::*;
 use super::header::{Length,SphinxParams};
+use super::body::{BodyCipher,BODY_CIPHER_KEY_SIZE};
+
 use super::replay::*;
 use super::node::NodeToken;
 use super::error::*;
@@ -51,9 +53,6 @@ pub struct Gamma(pub GammaBytes);
 /// Sphinx poly1305 MAC key
 #[derive(Debug,Clone,Copy,Default)]
 struct GammaKey(pub [u8; 32]);
-
-/// Portion of header key stream to reserve for the Lioness key
-const LIONESS_KEY_SIZE: Length = 4*64;
 
 /// Packet name used for unrolling SURBs
 pub struct PacketName(pub [u8; 16]);
@@ -168,11 +167,11 @@ impl SphinxParams {
                 beta_tail:  reserve(self.max_beta_tail_length,false),
                 surb_log:  reserve(self.surb_log_length,true),
                 surb:  reserve(self.surb_log_length,true),
-                lioness_key:  reserve(LIONESS_KEY_SIZE,true),
+                lioness_key:  reserve(BODY_CIPHER_KEY_SIZE,true),
                 blinding:  reserve(64,true),
                 packet_name:  reserve(64,true),
             }
-        };
+        }; // let chunks
         // We check that the maximum key stream length is not exceeded
         // here so that calls to both `seek_to` and `xor_read` can
         // safetly be `.unwrap()`ed, thereby avoiding `-> SphinxResult<_>`
@@ -258,11 +257,18 @@ impl SphinxHop {
     }
 
     /// Returns full key schedule for the lioness cipher for the body.
-    pub fn lionness_key(&mut self, ) -> [u8; LIONESS_KEY_SIZE] {
-        let lioness_key = &mut [0u8; LIONESS_KEY_SIZE];
+    pub fn lioness_key(&mut self) -> [u8; BODY_CIPHER_KEY_SIZE] {
+        let lioness_key = &mut [0u8; BODY_CIPHER_KEY_SIZE];
         self.stream.seek_to(self.chunks.lioness_key.start as u64).unwrap();
         self.stream.xor_read(lioness_key).unwrap();
         *lioness_key
+    }
+
+    pub fn body_cipher(&mut self) -> BodyCipher {
+        BodyCipher {
+            params: self.params,
+            cipher: ::lioness::LionessDefault::new_raw(& self.lioness_key())
+        }
     }
 
     /// Returns the curve25519 scalar for blinding alpha in Sphinx.

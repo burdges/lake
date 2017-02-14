@@ -18,7 +18,7 @@ pub type Length = usize;
 ///
 /// We require a `&'static SphinxParams` when used because the
 /// protocol specification should be compiled into the binary.
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug)] // Clone, Copy
 pub struct SphinxParams {
     /// Unique version identifier for the protocol
     pub protocol_name: &'static str,
@@ -38,6 +38,9 @@ pub struct SphinxParams {
     ///
     /// A multiple of the ChaCha blocksize of 64 may produce better performance.
     pub surb_log_length: Length,
+
+    /// Approved message body lengths
+    pub body_lengths: &'static [Length],
 }
 
 /// Returns an initial segment of a `mut &mut [T]` replacing the inner
@@ -100,16 +103,28 @@ impl SphinxParams {
         Ok(hr)
     }
 
-    // TODO: Consider using owning_refs crate to provide
-    // pub fn new_sliced_header(&self) -> SphinxResult<OwningHandle<Box<[u8]>,HeaderRefs>> { }
-    // ref.  https://kimundi.github.io/owning-ref-rs/owning_ref/struct.OwningHandle.html
+    /// Returns an error if the body length is not approved by the paramaters.
+    pub fn check_body_length(&self, body_length: Length) -> SphinxResult<()> {
+        if self.body_lengths.len() == 0 {
+            if body_length == 0 {
+                Ok(())  // All body lengths are zero if no body lengths were specified
+            } else {
+                Err( SphinxError::InternalError("Nonempty body with no body lengths specified.") )
+            }
+        } else if self.body_lengths.contains(&body_length) {
+            Ok(())
+        } else {
+            Err( SphinxError::BadBodyLength(body_length) )
+        }
+    }
 }
 
 pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
     protocol_name: "Invalid Sphinx!",
     beta_length: 0,
     max_beta_tail_length: 0,
-    surb_log_length: 0
+    surb_log_length: 0,
+    body_lengths: &[0]
 };
 
 pub struct HeaderRefs<'a> {
@@ -129,6 +144,10 @@ impl<'a> HeaderRefs<'a> {
     pub fn verify_gamma(&self, hop: SphinxHop) -> SphinxResult<()> {
         hop.verify_gamma(self.beta, self.surb, &Gamma(*self.gamma))
     }
+
+    // TODO: Consider using owning_refs crate to provide
+    // pub fn new_sliced_header(&self) -> SphinxResult<OwningHandle<Box<[u8]>,HeaderRefs>> { }
+    // ref.  https://kimundi.github.io/owning-ref-rs/owning_ref/struct.OwningHandle.html
 }
 
 /*

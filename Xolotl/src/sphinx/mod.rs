@@ -7,6 +7,7 @@
 mod curve;
 mod stream;
 mod header;
+mod body;
 mod replay;
 mod node;
 mod error;

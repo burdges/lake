@@ -12,6 +12,7 @@ use std::fmt;
 // use rustc_serialize::hex::ToHex;
 
 
+use super::header::Length;
 use super::replay::*;
 use ratchet::error::RatchetError;
 
@@ -45,6 +46,7 @@ impl fmt::Debug for ErrorPacketId {
 #[derive(Debug, Clone)]
 pub enum SphinxError {
     InternalError(&'static str),
+    BadBodyLength(Length),
     PoisonError(&'static str,&'static str),
     Replay(ErrorPacketId), 
     InvalidMac(ErrorPacketId),
@@ -60,6 +62,8 @@ impl fmt::Display for SphinxError {
         match *self {
             InternalError(s)
                 => write!(f, "Internal error: {}", s),
+            BadBodyLength(l)
+                => write!(f, "Invalid body length of {}", l),
             PoisonError(l,t)
                 => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
             Replay(id)
@@ -81,6 +85,7 @@ impl Error for SphinxError {
         use self::SphinxError::*;
         match *self {
             InternalError(_) => None,
+            BadBodyLength(_) => None,
             PoisonError(_,_) => None, // Maybe here
             Replay(_) => None, 
             InvalidMac(_) => None,
