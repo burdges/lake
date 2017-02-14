@@ -18,8 +18,12 @@ use keystream::Error as KeystreamError;
 impl<'a> From<KeystreamError> for SphinxError {
     fn from(ke: KeystreamError) -> SphinxError {
         match ke {
-            KeystreamError::EndReached =>
-                SphinxError::InternalError("XChaCha20 stream exceeded!"),
+            KeystreamError::EndReached => {
+                // We verify the maximum key stream length is not
+                // exceeded inside `SphinxParams::stream_chunks`.
+                panic!("Failed to unwrap ChaCha call!");
+                SphinxError::InternalError("XChaCha20 stream exceeded!")
+            },
         }
     }
 }
@@ -51,6 +55,8 @@ struct GammaKey(pub [u8; 32]);
 /// Portion of header key stream to reserve for the Lioness key
 const LIONESS_KEY_SIZE: Length = 4*64;
 
+/// Packet name used for unrolling SURBs
+pub struct PacketName(pub [u8; 16]);
 
 /// Sphinx KDF results consisting of the replay code, poly1305 key
 /// for our MAC gamma, and a nonce and key for the IETF Chacha20
@@ -122,7 +128,7 @@ impl SphinxKDF {
 
         Ok( SphinxHop {
             params: self.params,
-            chunks: self.params.stream_chunks(),
+            chunks: self.params.stream_chunks() ?,
             error_packet_id: self.replay_code.error_packet_id(),
             gamma_key: self.gamma_key,
             stream: ChaCha20::new_ietf(&self.chacha_key, &self.chacha_nonce)
@@ -139,30 +145,41 @@ struct Chunks {
     beta_tail: Range<Length>,
     surb_log: Range<Length>,
     surb: Range<Length>,
-    blinding: Range<Length>,
     lioness_key: Range<Length>,
+    blinding: Range<Length>,
+    packet_name: Range<Length>,
 }
 
 impl SphinxParams {
     #[inline]
-    fn stream_chunks(&self) -> Chunks {
+    fn stream_chunks(&self) -> SphinxResult<Chunks> {
         let mut offset = 0;
-        let mut reserve = |l: Length, block: bool| -> Range<Length> {
-            if block { offset += 64 - offset % 64; }
-            let previous = offset;
-            offset += l;
-            let r = previous..offset;
-            debug_assert_eq!(r.len(), l);
-            r
+        let chunks = {
+            let mut reserve = |l: Length, block: bool| -> Range<Length> {
+                if block { offset += 64 - offset % 64; }
+                let previous = offset;
+                offset += l;
+                let r = previous..offset;
+                debug_assert_eq!(r.len(), l);
+                r
+            };
+            Chunks {
+                beta:  reserve(self.beta_length,true),
+                beta_tail:  reserve(self.max_beta_tail_length,false),
+                surb_log:  reserve(self.surb_log_length,true),
+                surb:  reserve(self.surb_log_length,true),
+                lioness_key:  reserve(LIONESS_KEY_SIZE,true),
+                blinding:  reserve(64,true),
+                packet_name:  reserve(64,true),
+            }
         };
-        Chunks {
-            beta:  reserve(self.beta_length,true),
-            beta_tail:  reserve(self.max_beta_tail_length,false),
-            surb_log:  reserve(self.surb_log_length,true),
-            surb:  reserve(self.surb_log_length,true),
-            blinding:  reserve(64,true),
-            lioness_key:  reserve(LIONESS_KEY_SIZE,true),
-        }
+        // We check that the maximum key stream length is not exceeded
+        // here so that calls to both `seek_to` and `xor_read` can
+        // safetly be `.unwrap()`ed, thereby avoiding `-> SphinxResult<_>`
+        // everywhere.
+        if offset > 2^38 {
+            Err( SphinxError::InternalError("Paramaters exceed IETF ChaCha20 stream!") )
+        } else { Ok(chunks) }
     }
 }
 
@@ -208,7 +225,7 @@ impl fmt::Debug for SphinxHop {
 
 impl SphinxHop {
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
-    pub fn create_gamma(&mut self, beta: &[u8], surb: &[u8]) -> SphinxResult<Gamma> {
+    pub fn create_gamma(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<Gamma> {
         if beta.len() != self.params.beta_length as usize {
             return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
         }
@@ -230,7 +247,7 @@ impl SphinxHop {
     }
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet
-    pub fn verify_gamma(&mut self, beta: &[u8], surb: &[u8],
+    pub fn verify_gamma(&self, beta: &[u8], surb: &[u8],
       gamma_given: &Gamma) -> SphinxResult<()> {
         let gamma_found = self.create_gamma(beta, surb) ?;
         // let gamma_found = ClearOnDrop::new(&gamma_found);
@@ -240,20 +257,29 @@ impl SphinxHop {
         Ok(())
     }
 
-    /// Returns the curve25519 scalar for blinding alpha in Sphinx.
-    pub fn blinding(&mut self) -> SphinxResult<Scalar> {
-        let mut b = &mut [0u8; 64];
-        self.stream.seek_to(self.chunks.blinding.start as u64) ?;
-        self.stream.xor_read(b) ?;
-        Ok( Scalar::make(b) )
+    /// Returns full key schedule for the lioness cipher for the body.
+    pub fn lionness_key(&mut self, ) -> [u8; LIONESS_KEY_SIZE] {
+        let lioness_key = &mut [0u8; LIONESS_KEY_SIZE];
+        self.stream.seek_to(self.chunks.lioness_key.start as u64).unwrap();
+        self.stream.xor_read(lioness_key).unwrap();
+        *lioness_key
     }
 
-    /// Returns full key schedule for the lioness cipher for the body.
-    pub fn lionness_key(&mut self, ) -> SphinxResult<[u8; LIONESS_KEY_SIZE]> {
-        let lioness_key = &mut [0u8; LIONESS_KEY_SIZE];
-        self.stream.seek_to(self.chunks.lioness_key.start as u64) ?;
-        self.stream.xor_read(lioness_key) ?;
-        Ok(*lioness_key)
+    /// Returns the curve25519 scalar for blinding alpha in Sphinx.
+    pub fn blinding(&mut self) -> Scalar {
+        let mut b = &mut [0u8; 64];
+        self.stream.seek_to(self.chunks.blinding.start as u64).unwrap();
+        self.stream.xor_read(b).unwrap();
+        Scalar::make(b)
+    }
+
+    /// Returns our name for the packet for insertion into the SURB log
+    /// if the packet gets reforwarded.
+    pub fn packet_name(&mut self) -> PacketName {
+        let mut packet_name = &mut [0u8; 16];
+        self.stream.seek_to(self.chunks.blinding.start as u64).unwrap();
+        self.stream.xor_read(packet_name).unwrap();
+        PacketName(*packet_name)
     }
 
     pub fn xor_beta(&mut self, beta: &mut [u8]) -> SphinxResult<()> {
@@ -263,17 +289,18 @@ impl SphinxHop {
         if beta.len() > (self.params.beta_length+self.params.max_beta_tail_length) as usize {
             return Err( SphinxError::InternalError("Beta too long to encrypt!") );
         }
-        self.stream.seek_to(self.chunks.beta.start as u64) ?;
-        self.stream.xor_read(beta) ?;
+        self.stream.seek_to(self.chunks.beta.start as u64).unwrap();
+        self.stream.xor_read(beta).unwrap();
         Ok(())
     }
 
-    pub fn xor_beta_tail(&mut self, beta_tail: &mut [u8]) -> SphinxResult<()> {
+    pub fn set_beta_tail(&mut self, beta_tail: &mut [u8]) -> SphinxResult<()> {
         if beta_tail.len() > self.params.max_beta_tail_length {
             return Err( SphinxError::InternalError("Beta's tail is too long!") );
         }
-        self.stream.seek_to(self.chunks.beta_tail.start as u64) ?;
-        self.stream.xor_read(beta_tail) ?;
+        for i in beta_tail.iter_mut() { *i = 0; }
+        self.stream.seek_to(self.chunks.beta_tail.start as u64).unwrap();
+        self.stream.xor_read(beta_tail).unwrap();
         Ok(())
     }
 
@@ -281,8 +308,8 @@ impl SphinxHop {
         if surb_log.len() != self.params.surb_log_length {
             return Err( SphinxError::InternalError("SURB log has incorrect length!") );
         }
-        self.stream.seek_to(self.chunks.surb_log.start as u64) ?;
-        self.stream.xor_read(surb_log) ?;
+        self.stream.seek_to(self.chunks.surb_log.start as u64).unwrap();
+        self.stream.xor_read(surb_log).unwrap();
         Ok(())
     }
 
@@ -290,8 +317,8 @@ impl SphinxHop {
         if surb.len() != self.params.surb_length() {
             return Err( SphinxError::InternalError("SURB has incorrect length!") );
         }
-        self.stream.seek_to(self.chunks.surb.start as u64) ?;
-        self.stream.xor_read(surb) ?;
+        self.stream.seek_to(self.chunks.surb.start as u64).unwrap();
+        self.stream.xor_read(surb).unwrap();
         Ok(())
     }
 }

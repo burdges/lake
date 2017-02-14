@@ -6,7 +6,7 @@
 
 
 use super::curve::{AlphaBytes,ALPHA_LENGTH};
-use super::stream::{GammaBytes,GAMMA_LENGTH};
+use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH,SphinxHop};
 use super::node::NodeToken;
 use super::error::*;
 
@@ -58,15 +58,18 @@ macro_rules! reserve_fixed { ($heap:expr, $len:expr) => {
 
 impl SphinxParams {
     /// Sphinx SURB length
+    ///
+    /// Alpha and Gamma do not appear here currently because we encode
+    /// them into the "bottom" of beta; however, this could be changed.
     #[inline(always)]
     pub fn surb_length(&self) -> usize {
-        ALPHA_LENGTH + GAMMA_LENGTH + self.beta_length
+         self.beta_length
     }
 
     /// Sphinx header length
     #[inline(always)]
     pub fn header_length(&self) -> usize {
-        self.surb_length()
+        ALPHA_LENGTH + GAMMA_LENGTH + self.beta_length
         + self.surb_log_length
         + self.surb_length()
     }
@@ -118,6 +121,14 @@ pub struct HeaderRefs<'a> {
     pub beta:  &'a mut [u8],
     pub surb_log: &'a mut [u8],
     pub surb:  &'a mut [u8],
+}
+
+impl<'a> HeaderRefs<'a> {
+    /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
+    /// calling `SphinxHop::verify_gamma` with the provided fields.
+    pub fn verify_gamma(&self, hop: SphinxHop) -> SphinxResult<()> {
+        hop.verify_gamma(self.beta, self.surb, &Gamma(*self.gamma))
+    }
 }
 
 /*
