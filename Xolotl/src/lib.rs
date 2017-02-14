@@ -34,6 +34,7 @@ type ClearedBox<T> = clear_on_drop::ClearOnDrop<Box<T>>;
 extern crate curve25519_dalek;
 extern crate keystream;
 extern crate chacha;
+extern crate lioness;
 
 extern crate crypto;  //  SHA3, Poly1305, checking curve25519_dalek
 
