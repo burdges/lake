@@ -144,8 +144,8 @@ impl SphinxNode {
                 return Err( SphinxError::InternalError("Ate too much Beta!") );
             }
 
-            // We could reduce copies with alloca but no point so long as 
-            // the loop executes at most twice anyways.
+            // We could reduce copies with box, or preferably alloca, 
+            // but no point so long as the loop executes at most twice.
             for i in eaten..length {  beta[i-eaten] = beta[i];  }
             hop.set_beta_tail(refs.beta[length-eaten..length]);
 
@@ -220,8 +220,11 @@ impl SphinxNode {
     pub fn process(&self, header: &mut [u8], body &mut [u8]) -> SphinxError<()>
         ...
         let action = {
-            let refs = self.params.slice_header(header); 
-            self.do_crypto(refs,body) ? 
+            let refs = self.params.slice_header(header);
+            let mut kdf = SphinxKDF {
+                ss: self.do_alpha(refs) ?;
+            };
+            self.do_crypto(kdf,refs,body) ? 
         };
         match action {
             Action::Enqueue(node_name) =>

@@ -1,5 +1,42 @@
 
+
 /*
+
+
+
+
+
+
+    /// Arrival of a SURB we created with the specified seed and concensus.
+    ArrivalSeeded {
+        epoch_id: EpochId,
+        surb_seed: SurbSeed,
+    },
+
+    /// Arrival of a short lived SURB we created and archived to
+    /// improve performance.
+    ArrivalKnown,
+
+    /// Arrival of a message for a local application besides
+    ArrivalUnknown {
+        application: AppId,
+    },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 pub trait NodeInfo {
     // fn identify() -> [u8; 16];

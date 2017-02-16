@@ -54,8 +54,56 @@ pub struct Gamma(pub GammaBytes);
 #[derive(Debug,Clone,Copy,Default)]
 struct GammaKey(pub [u8; 32]);
 
+pub const PACKET_NAME_LENGTH = 16;
+pub type PacketNameBytes = [u8; PACKET_NAME_LENGTH];
 /// Packet name used for unrolling SURBs
-pub struct PacketName(pub [u8; 16]);
+pub struct PacketName(pub PacketNameBytes);
+
+
+/// Sphinx KDF paramaters
+pub struct SphinxKDFParams {
+    /// Sphinx `'static` runtime paramaters 
+    params: &'static SphinxParams,
+
+    /// 
+    node_public_token: &NodeToken,
+
+    /// 
+    node_secret_secret: &NodeToken,
+}
+
+impl SphinxKDFParams {
+    new_kdf(&self, ss: &SphinxSecret, secret: bool) -> SphinxKDF {
+        use crypto::digest::Digest;
+        use crypto::sha3::shake_256;
+
+        let token = if secret { &self.node_secret_token.0 } else { &self.node_public_token.0 };
+        let mut r = &mut [0u8; 16+16+32+32];  // ClearOnDrop
+        let mut sha = Sha3::sha_512();
+        sha.input(&ss.0);
+        sha.input(token);
+        sha.input_str( params.protocol_name );
+        sha.input(&ss.0);
+        // sha.input(&self.node_public_token.0);
+        sha.result(r);
+        sha.reset();
+
+        let (nonce,_,replay_code,key,gamma_key) = array_refs![r,12,4,16,32,32];
+        SphinxKDF {
+            params: params,
+            replay_code: ReplayCode(*replay_code),
+            chacha_nonce: *nonce,
+            chacha_key: *key,
+        }
+        
+    }
+
+    /// Run our KDF to produce our replay code, poly1305 MAC key, and
+    /// nonce and key for Chacha20.
+    pub fn new(params: &'static SphinxParams, nt: &NodeToken, ss: &SphinxSecret) 
+      -> SphinxKDF {
+    }
+}
 
 /// Sphinx KDF results consisting of the replay code, poly1305 key
 /// for our MAC gamma, and a nonce and key for the IETF Chacha20
@@ -89,10 +137,10 @@ impl SphinxKDF {
     pub fn new(params: &'static SphinxParams, nt: &NodeToken, ss: &SphinxSecret) 
       -> SphinxKDF {
         use crypto::digest::Digest;
-        use crypto::sha3::Sha3;
+        use crypto::sha3::shake_256;
 
         let mut r = &mut [0u8; 16+16+32+32];  // ClearOnDrop
-        let mut sha = Sha3::shake_256();
+        let mut sha = Sha3::sha_512();
         sha.input_str( "Sphinx" );
         sha.input(&ss.0);
         sha.input_str( params.protocol_name );
@@ -102,11 +150,10 @@ impl SphinxKDF {
         sha.result(r);
         sha.reset();
 
-        let (replay_code,nonce,_,gamma_key,key) = array_refs![r,16,12,4,32,32];        
+        let (nonce,_,replay_code,key) = array_refs![r,12,4,16,32];
         SphinxKDF {
             params: params,
             replay_code: ReplayCode(*replay_code),
-            gamma_key: GammaKey(*gamma_key),
             chacha_nonce: *nonce,
             chacha_key: *key,
         }
@@ -125,13 +172,22 @@ impl SphinxKDF {
     pub fn replay_check<RC: ReplayChecker>(&self, replayer: RC) -> SphinxResult<SphinxHop> {
         replayer.replay_check(&self.replay_code) ?;
 
-        Ok( SphinxHop {
+        let hop = SphinxHop {
             params: self.params,
             chunks: self.params.stream_chunks() ?,
             error_packet_id: self.replay_code.error_packet_id(),
-            gamma_key: self.gamma_key,
+            packet_name: Default::default(),
+            gamma_key: Default::default(),
             stream: ChaCha20::new_ietf(&self.chacha_key, &self.chacha_nonce)
-        } )
+        }
+
+        let mut r = &mut [0u8; 64];
+        self.stream.xor_read(r).unwrap();  // No KeystreamError::EndReached here.
+        let (packet_name,replay_code,gamma_key) = array_refs![r,16,16,32];
+        hop.packet_name = PacketName(*packet_name);
+        hop.gamma_key = GammaKey(*gamma_key);
+
+        Ok(hop)
     }
 }
 
@@ -152,7 +208,7 @@ struct Chunks {
 impl SphinxParams {
     #[inline]
     fn stream_chunks(&self) -> SphinxResult<Chunks> {
-        let mut offset = 0;
+        let mut offset = 64;  // 
         let chunks = {
             let mut reserve = |l: Length, block: bool| -> Range<Length> {
                 if block { offset += 64 - offset % 64; }
@@ -166,7 +222,7 @@ impl SphinxParams {
                 beta:  reserve(self.beta_length,true),
                 beta_tail:  reserve(self.max_beta_tail_length,false),
                 surb_log:  reserve(self.surb_log_length,true),
-                surb:  reserve(self.surb_log_length,true),
+                surb:  reserve(self.surb_length(),true),
                 lioness_key:  reserve(BODY_CIPHER_KEY_SIZE,true),
                 blinding:  reserve(64,true),
                 packet_name:  reserve(64,true),
@@ -192,7 +248,12 @@ pub struct SphinxHop {
     /// Stream cipher ranges determined by `params`
     chunks: Chunks,
 
+    /// An error_packet_id is a ReplayCode in test builds and
+    /// non-existant otherwise.
     error_packet_id: ErrorPacketId,
+
+    /// The packet's name for SURB unwinding
+    packet_name: PacketName,
 
     /// Sphinx poly1305 MAC key
     gamma_key: GammaKey,
@@ -223,20 +284,24 @@ impl fmt::Debug for SphinxHop {
 }
 
 impl SphinxHop {
-    /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
-    pub fn create_gamma(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<Gamma> {
+    /// Raise errors if beta 
+    fn check_lengths(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<()> {
         if beta.len() != self.params.beta_length as usize {
             return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
-        }
         if surb.len() != self.params.surb_length() {
             return Err( SphinxError::InternalError("SURB has the incorrect length for MAC!") );
         }
+    }
 
+    /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
+    pub fn create_gamma(&self, beta: &[u8], surb: &[u8], mask: &GammaKey) -> Gamma {
         // According to the current API gamma_out lies in a buffer supplied
         // by our caller, so no need for games to zero it here.
         let mut gamma_out: Gamma = Default::default();
 
-        let mut poly = Poly1305::new(&self.gamma_key.0);
+        let gamma_key = self.gamma_key.0;
+        for (i,j) in self.gamma_key.iter_mut().zip(mask.0.iter()) { &i ^= j; }
+        let mut poly = Poly1305::new(&gamma_key);
         // let mut poly = ClearOnDrop::new(&mut poly);
         poly.input(beta);
         poly.input(surb);
@@ -245,15 +310,31 @@ impl SphinxHop {
         Ok(gamma_out)
     }
 
-    /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet
+    /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet.
+    ///
+    /// Requires both Beta and the SURB, but not the SURB log.  Also,
+    /// requires several key masks with which to attempt verification,
+    /// given as a slice `&[GammaKey]`. 
+    ///
+    /// If gamma verifies with any given mask, then returns the index
+    /// of the that passing mask.  At most one mask should ever pass.
+    /// If gamma verification fails for all masks, then returns an
+    /// InvalidMac error.
     pub fn verify_gamma(&self, beta: &[u8], surb: &[u8],
-      gamma_given: &Gamma) -> SphinxResult<()> {
-        let gamma_found = self.create_gamma(beta, surb) ?;
-        // let gamma_found = ClearOnDrop::new(&gamma_found);
-        if ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0) {
-            return Err( SphinxError::InvalidMac(self.error_packet_id) );
+      mut masks: &[GammaKey], gamma_given: &Gamma) -> SphinxResult<usize> {
+        if masks.len() == 0 { masks = &[Default::default()] }
+        let passed = usize::max_value();
+        for (i,mask) in masks.iter().enumerate() {
+            let gamma_found = self.create_gamma(&mask, beta, surb);
+            // TODO: let gamma_found = ClearOnDrop::new(&gamma_found); ???
+            passed = ::consistenttime::ct_select_usize(
+                ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0),
+                i,0
+            );
         }
-        Ok(())
+        if passed == usize::max_value() {
+            Err( SphinxError::InvalidMac(self.error_packet_id) )
+        } else { Ok(passed) }
     }
 
     /// Returns full key schedule for the lioness cipher for the body.
@@ -281,18 +362,15 @@ impl SphinxHop {
 
     /// Returns our name for the packet for insertion into the SURB log
     /// if the packet gets reforwarded.
-    pub fn packet_name(&mut self) -> PacketName {
-        let mut packet_name = &mut [0u8; 16];
-        self.stream.seek_to(self.chunks.blinding.start as u64).unwrap();
-        self.stream.xor_read(packet_name).unwrap();
-        PacketName(*packet_name)
+    pub fn packet_name(&mut self) -> &PacketName {
+        &self.packet_name
     }
 
     pub fn xor_beta(&mut self, beta: &mut [u8]) -> SphinxResult<()> {
         if beta.len() < self.params.beta_length {
             return Err( SphinxError::InternalError("Beta too short to encrypt!") );
         }
-        if beta.len() > (self.params.beta_length+self.params.max_beta_tail_length) as usize {
+        if beta.len() > self.params.beta_length+self.params.max_beta_tail_length {
             return Err( SphinxError::InternalError("Beta too long to encrypt!") );
         }
         self.stream.seek_to(self.chunks.beta.start as u64).unwrap();

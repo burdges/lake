@@ -117,6 +117,20 @@ impl SphinxParams {
             Err( SphinxError::BadBodyLength(body_length) )
         }
     }
+
+    pub fn prepend_to_surb_log(&self, surb_log: &mut [u8], prepend: &[u8]) {
+        if surb_log.len() != self.params.surb_log_length {
+            return Err( SphinxError::InternalError("SURB log has incorrect length!") );
+        }
+        let start = prepend.len();
+        if surb_log.len() > start {
+            for i in start..surb_log.len() {
+                        *surb_log[i] = surb_log[i-start];
+            }
+        }
+        let start = min(start,surb_log.len());
+        surb_log[0..start].copy_from_slice(prepend);
+    }
 }
 
 pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
@@ -126,6 +140,7 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
     surb_log_length: 0,
     body_lengths: &[0]
 };
+
 
 pub struct HeaderRefs<'a> {
     /// Sphinx `'static` runtime paramaters 
