@@ -46,6 +46,25 @@ impl NodeToken {
     }
 }
 
+pub trait NodeInfo {
+}
+
+pub struct NodePublic {
+    /// Sphinx `'static` runtime paramaters 
+    params: &'static SphinxParams,
+
+    token: NodeToken,
+}
+
+pub struct NodeSecrets {
+    /// Sphinx `'static` runtime paramaters 
+    params: &'static SphinxParams,
+
+    token: NodeToken,
+
+    ,
+}
+
 
 /*
 
@@ -80,16 +99,14 @@ pub enum Command {
     /// Deliver message to the specified mailbox, roughly equivelent
     /// to transmition to a non-existant mix network node.
     Delivery {
+        /// Mailbox name
+        mailbox_name: MailboxName,
     },
 
-    /// Arrival of a short lived SURB we created and archived to
-    /// improve performance, so the body might be quasi-trusted
-    ArrivalSURB { 
-        // twig: TwigId,
-    },
+    /// Arrival of a SURB we created and archived.
+    ArrivalSURB { },
 
-    /// Arrival of a message for a local application besides, so
-    /// the body should not be trusted.
+    /// Arrival of a message for a local application.
     ArrivalDirect { },
 }
 
@@ -97,15 +114,35 @@ impl Command {
 }
 
 
+/// Action the node should take with a given packet.
 enum Action {
-
-    /// Arrival of a message for a local application besides
-    Arrival {
-        sender: SenderId,
-        application: AppId,
+    /// Deliver message to a local mailbox
+    Deliver {
+        /// Mailbox name
+        mailbox_name: MailboxName,
+        /// Packet name for SURB unwinding
+        packet_name: PacketName,
     },
 
+    /// Forward this message to another hop.
+    Transmit {
+        /// Next hop
+        node_name: NodeName,
+        /// Packet name for SURB unwinding
+        packet_name: PacketName,
+    },
+
+    /// Arrival of a message for some local application.
+    ///
+    /// There are situations where we could know the sender because
+    /// either we could know who we gave every SURB to, or else by
+    /// trusting them to identify themselves as a hint and doing the
+    /// authentication later.  Yet, these cases seem tricky to exploit.
+    Arrival { },
 }
+
+
+
 
 struct SphinxNode {
     params: &'static SphinxParams, 
@@ -117,6 +154,8 @@ impl SphinxNode {
     fn command(&self, &[u8]) -> SphinxError<(usize,Command)> {
     }
 
+    .
+
     fn do_crypto(&self, refs: HeaderRefs, body: &mut [u8]) -> SphinxError<()> {
         let length = self.params.beta_length;
         assert!(self.params.max_beta_tail_length < length);
@@ -125,16 +164,27 @@ impl SphinxNode {
         let alpha = refs.alpha.decompress() ?;  // BadAlpha
         let mut ss = alpha.key_exchange(node.private);
 
-        // Initalize stream cipher avoiding replay attacks.
-        let kdf = SphinxKDF::new(self.params,&self.node_token(),&ss);
-        let mut hop = kdf.replay_check(&self.replayer) ?; // Replay
+        // Initalize stream ciphers and check gamma cases.
+        let mut key = self.params.sphinx_key(&ss, self.node_info.public_token());
+        let mut hop = key.hop();
+        let okay = refs.verify_gamma(&hop);
 
-        // Avoid tagging attacks.
-        refs.verify_gamma(&hop) ?;  // InvalidMAC
+        let mykey = self.params.sphinx_kdf(&ss, self.node_info.secret_token());
+        let mut myhop = mykey.hop();
+        let mine = refs.verify_gamma(&myhop);
+
+        if !mine && !okay {
+            return hop.invalid_mac_error();  // InvalidMac
+        }
+        if mine { hop = myhop; }  // First timing leak
+
+        // Replay protection uses the replay code built with the secret token.
+        mykey.replay_check(&self.replayer) ?; // Replay
 
         // Onion decrypt beta, extracting commands, and processing the ratchet.
         // TODO: Restrict to a single ratchet invokation?
-        let command: Command;
+        let mut command: Command;
+        let mut ratchets = 0;
         loop {
             hop.xor_beta(refs.beta);
 
@@ -150,17 +200,19 @@ impl SphinxNode {
             hop.set_beta_tail(refs.beta[length-eaten..length]);
 
             if r @ Ratchet {..} = command {
-                ss = .. r.twig .. ?; // RatchetError
-                hop = SphinxKDF::new(params,&self.node_token(),&ss0)
-                    .replay_check(IgnoreReplay).unwrap();  // No Replay from IgnoreReplay
+                if mine {
+                    return Err( SphinxError::BadPacket("You ratcheted yourself?") );
+                }
+                if ratchets>0 {
+                    return Err( SphinxError::BadPacket("Tried to two 2+ ratchet subhops.") );
+                }
+                ratchets += 1;
+                key.chacha_key = AdvanceNode::single_click(state, &r.twig) ?; // RatchetError
+                hop = key.hop();
                 *refs.gamma = r.gamma;
-                refs.verify_gamma(&hop) ?;  // InvalidMAC
-            } else if c @ Command::ArrivalSURB {..} = command {
-                hop = SphinxKDF::new(params,&self.secret_node_token(),&ss)
-                    .replay_check(IgnoreReplay).unwrap();  // No Replay from IgnoreReplay
-                // *refs.gamma = r.gamma;
-                // refs.verify_gamma(&hop) ?;  // InvalidMAC
-                break; // No more information encoded in refs.beta
+                if ! refs.verify_gamma(&hop) {
+                    return hop.invalid_mac_error();  // InvalidMac
+                }
             } else { break; }
         }
 
@@ -207,11 +259,10 @@ impl SphinxNode {
                     packet_name: packet_name,
                 } )
             },
-            c @ Command::ArrivalSURB => {
-                Ok(self.surb_unwind(hop.packet_name(),refs.surb_log,body) ?)
-            },
-            c @ Command::ArrivalDirect {..} => {
-                Ok( Action::Arrival { } )
+            c @ Command::Arrival => {
+                if mine {
+                    self.surb_unwind(hop.packet_name(),refs.surb_log,body)
+                } else {  Ok( Action::Arrival { } )  }
             },
             Ratchet {..} => unreachable!(),
         }

@@ -60,108 +60,55 @@ pub type PacketNameBytes = [u8; PACKET_NAME_LENGTH];
 pub struct PacketName(pub PacketNameBytes);
 
 
-/// Sphinx KDF paramaters
-pub struct SphinxKDFParams {
-    /// Sphinx `'static` runtime paramaters 
-    params: &'static SphinxParams,
-
-    /// 
-    node_public_token: &NodeToken,
-
-    /// 
-    node_secret_secret: &NodeToken,
-}
-
-impl SphinxKDFParams {
-    new_kdf(&self, ss: &SphinxSecret, secret: bool) -> SphinxKDF {
-        use crypto::digest::Digest;
-        use crypto::sha3::shake_256;
-
-        let token = if secret { &self.node_secret_token.0 } else { &self.node_public_token.0 };
-        let mut r = &mut [0u8; 16+16+32+32];  // ClearOnDrop
-        let mut sha = Sha3::sha_512();
-        sha.input(&ss.0);
-        sha.input(token);
-        sha.input_str( params.protocol_name );
-        sha.input(&ss.0);
-        // sha.input(&self.node_public_token.0);
-        sha.result(r);
-        sha.reset();
-
-        let (nonce,_,replay_code,key,gamma_key) = array_refs![r,12,4,16,32,32];
-        SphinxKDF {
-            params: params,
-            replay_code: ReplayCode(*replay_code),
-            chacha_nonce: *nonce,
-            chacha_key: *key,
-        }
-        
-    }
-
-    /// Run our KDF to produce our replay code, poly1305 MAC key, and
-    /// nonce and key for Chacha20.
-    pub fn new(params: &'static SphinxParams, nt: &NodeToken, ss: &SphinxSecret) 
-      -> SphinxKDF {
-    }
-}
-
-/// Sphinx KDF results consisting of the replay code, poly1305 key
-/// for our MAC gamma, and a nonce and key for the IETF Chacha20
-/// stream cipher used for everything else in the header.
-///
-/// Notes: We could improve performance by using the curve25519 point 
-/// derived in the key exchagne directly as the key for an XChaCha20
-/// instance, which includes some mixing, and using chacha for the 
-/// replay code and gamma key.  We descided to use SHA3's SHAKE256
-/// mode so that we have more and different mixing. 
+/// Sphinx KDF results consisting of the nonce and key for our
+/// IETF Chacha20 stream cipher, which produces everything else
+/// in the header.
 pub struct SphinxKDF {
     /// Sphinx `'static` runtime paramaters 
     params: &'static SphinxParams,
 
-    /// Replay code
-    replay_code: ReplayCode,
+    /// Replay code for replay protection.
+    pub replay_code: ReplayCode,
 
-    /// Sphinx poly1305 MAC key
-    gamma_key: GammaKey,
+    /// IETF ChaCha20 12 byte nonce 
+    pub chacha_nonce: [u8; 12],
 
-    /// IETF ChaCha20 12 byte nonce
-    chacha_nonce: [u8; 12],
-
-    /// IETF ChaCha20 32 byte key
-    chacha_key: [u8; 32]
+    /// IETF ChaCha20 32 byte key 
+    pub chacha_key: [u8; 32],
 }
 
-impl SphinxKDF {
-    /// Run our KDF to produce our replay code, poly1305 MAC key, and
-    /// nonce and key for Chacha20.
-    pub fn new(params: &'static SphinxParams, nt: &NodeToken, ss: &SphinxSecret) 
-      -> SphinxKDF {
+impl SphinxParams {
+    /// Derive our stream cipher keys and replay code.
+    sphinx_kdf(&'static self, ss: &SphinxSecret, node_token: &NodeToken) -> SphinxKDF {
         use crypto::digest::Digest;
         use crypto::sha3::shake_256;
 
-        let mut r = &mut [0u8; 16+16+32+32];  // ClearOnDrop
-        let mut sha = Sha3::sha_512();
+        let mut r = &mut [0u8; 32+32];  // ClearOnDrop
+        let mut sha = Sha3::shake_256();
+        sha.input(&ss.0);
         sha.input_str( "Sphinx" );
+        sha.input(&node_token.0);
+        sha.input_str( self.protocol_name );
         sha.input(&ss.0);
-        sha.input_str( params.protocol_name );
-        sha.input(&nt.0);
-        sha.input(&ss.0);
-        sha.input_str( params.protocol_name );
         sha.result(r);
         sha.reset();
 
-        let (nonce,_,replay_code,key) = array_refs![r,12,4,16,32];
-        SphinxKDF {
-            params: params,
+        let (chacha_key,replay_code,chacha_nonce,_) = array_refs![r,32,16,12,4];
+        SphinxKeys {
+            params: self,
             replay_code: ReplayCode(*replay_code),
-            chacha_nonce: *nonce,
-            chacha_key: *key,
+            chacha_nonce: *chacha_nonce,
+            chacha_key: *chacha_key,
         }
+    }
+}
+
+impl SphinxKDF {
+    pub fn new<N: NodeInfo>(&node: N, ss: &SphinxSecret) -> SphinxKDF {
+        self.params.sphinx_key(ss, self.node_token())
     }
 
     /// Checks for packet replays using the suplied `ReplayChecker`.
-    /// If none occur, then create the IETF ChaCha20 object to process
-    /// the header. 
     ///
     /// Replay protection requires that `ReplayChecker::replay_check`
     /// returns `Err( SphinxError::Replay(hop.replay_code) )` when a
@@ -169,9 +116,20 @@ impl SphinxKDF {
     ///
     /// You may however use `IgnoreReplay` as the `ReplayChecker` for 
     /// ratchet sub-hops  and for all subhops in packet creation. 
-    pub fn replay_check<RC: ReplayChecker>(&self, replayer: RC) -> SphinxResult<SphinxHop> {
-        replayer.replay_check(&self.replay_code) ?;
+    pub fn replay_check<RC: ReplayChecker>(&self, replayer: RC) -> SphinxResult<()> {
+        replayer.replay_check(&self.replay_code)
+    }
 
+    /// Initalize an IETF ChaCha20 stream cipher with our key material
+    /// and use it to generate the poly1305 key for our MAC gamma, and
+    /// the packet's name for SURB unwinding.
+    ///
+    /// Notes: We could improve performance by using the curve25519 point
+    /// derived in the key exchagne directly as the key for an XChaCha20
+    /// instance, which includes some mixing, and using chacha for the
+    /// replay code and gamma key.  We descided to use SHA3's SHAKE256
+    /// mode so that we have more and different mixing.
+    pub fn hop(&self, replayer: RC) -> SphinxResult<SphinxHop> {
         let hop = SphinxHop {
             params: self.params,
             chunks: self.params.stream_chunks() ?,
@@ -189,6 +147,7 @@ impl SphinxKDF {
 
         Ok(hop)
     }
+
 }
 
 
@@ -284,6 +243,8 @@ impl fmt::Debug for SphinxHop {
 }
 
 impl SphinxHop {
+
+
     /// Raise errors if beta 
     fn check_lengths(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<()> {
         if beta.len() != self.params.beta_length as usize {
@@ -294,14 +255,12 @@ impl SphinxHop {
     }
 
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
-    pub fn create_gamma(&self, beta: &[u8], surb: &[u8], mask: &GammaKey) -> Gamma {
+    pub fn create_gamma(&self, beta: &[u8], surb: &[u8]) -> Gamma {
         // According to the current API gamma_out lies in a buffer supplied
         // by our caller, so no need for games to zero it here.
         let mut gamma_out: Gamma = Default::default();
 
-        let gamma_key = self.gamma_key.0;
-        for (i,j) in self.gamma_key.iter_mut().zip(mask.0.iter()) { &i ^= j; }
-        let mut poly = Poly1305::new(&gamma_key);
+        let mut poly = Poly1305::new(&self.gamma_key.0);
         // let mut poly = ClearOnDrop::new(&mut poly);
         poly.input(beta);
         poly.input(surb);
@@ -320,21 +279,14 @@ impl SphinxHop {
     /// of the that passing mask.  At most one mask should ever pass.
     /// If gamma verification fails for all masks, then returns an
     /// InvalidMac error.
-    pub fn verify_gamma(&self, beta: &[u8], surb: &[u8],
-      mut masks: &[GammaKey], gamma_given: &Gamma) -> SphinxResult<usize> {
-        if masks.len() == 0 { masks = &[Default::default()] }
-        let passed = usize::max_value();
-        for (i,mask) in masks.iter().enumerate() {
-            let gamma_found = self.create_gamma(&mask, beta, surb);
-            // TODO: let gamma_found = ClearOnDrop::new(&gamma_found); ???
-            passed = ::consistenttime::ct_select_usize(
-                ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0),
-                i,0
-            );
-        }
-        if passed == usize::max_value() {
-            Err( SphinxError::InvalidMac(self.error_packet_id) )
-        } else { Ok(passed) }
+    pub fn verify_gamma(&self, beta: &[u8], surb: &[u8], gamma_given: &Gamma) -> bool {
+        let gamma_found = self.create_gamma(&mask, beta, surb);
+        // TODO: let gamma_found = ClearOnDrop::new(&gamma_found);
+        ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0)
+    }
+
+    pub invalid_mac_error() -> SphinxResult<()> {
+        Err( SphinxError::InvalidMac(self.error_packet_id) )
     }
 
     /// Returns full key schedule for the lioness cipher for the body.

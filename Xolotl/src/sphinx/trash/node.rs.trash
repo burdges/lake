@@ -1,5 +1,17 @@
 
 
+
+
+
+        /// Sender identity claim.  We cannot authenticate this, but
+        /// it simplifies processing the body.
+        sender: SenderId,
+
+
+
+
+
+
 /*
 
 

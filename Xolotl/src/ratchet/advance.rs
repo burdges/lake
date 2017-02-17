@@ -434,6 +434,13 @@ impl AdvanceNode {
         }
         self.clicks_chain_only(s,TwigIdx::make(i,0),target)
     }
+
+    pub fn single_click(state: &Arc<State>, tid: &TwigId)
+      -> RatchetResult<MessageKey> {
+        let TwigId(bid, idx) = tid;
+        let mut advance = AdvanceNode::new(state,bid) ?;
+        advance.clicks(idx)
+    }
 }
 
 

@@ -156,7 +156,7 @@ pub struct HeaderRefs<'a> {
 impl<'a> HeaderRefs<'a> {
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
     /// calling `SphinxHop::verify_gamma` with the provided fields.
-    pub fn verify_gamma(&self, hop: SphinxHop) -> SphinxResult<()> {
+    pub fn verify_gamma(&self, hop: SphinxHop) -> bool {
         hop.verify_gamma(self.beta, self.surb, &Gamma(*self.gamma))
     }
 
