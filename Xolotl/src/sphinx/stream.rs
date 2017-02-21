@@ -229,12 +229,20 @@ impl fmt::Debug for SphinxHop {
 }
 
 impl SphinxHop {
-    // TODO: CAn we abstract the lengths checks?
+    // TODO: Can we abstract the lengths checks?
     // /// Raise errors if beta
     // fn check_lengths(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<()> {
+    //     if beta.len() != self.params.beta_length {
+    //         return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
+    //     }
+    //     if surb.len() != self.params.surb_length() {
+    //         return Err( SphinxError::InternalError("SURB has the incorrect length for MAC!") );
+    //     }
     // }
 
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
+    ///
+    /// Does not verify the lengths of Beta or the SURB.
     pub fn create_gamma(&self, beta: &[u8], surb: &[u8]) -> Gamma {
         // According to the current API gamma_out lies in a buffer supplied
         // by our caller, so no need for games to zero it here.
@@ -251,23 +259,10 @@ impl SphinxHop {
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet.
     ///
-    /// Requires both Beta and the SURB, but not the SURB log.  Also,
-    /// requires several key masks with which to attempt verification,
-    /// given as a slice `&[GammaKey]`. 
-    ///
-    /// If gamma verifies with any given mask, then returns the index
-    /// of the that passing mask.  At most one mask should ever pass.
-    /// If gamma verification fails for all masks, then returns an
-    /// InvalidMac error.
+    /// Returns an InvalidMac error if the check fails.  Does not
+    /// verify the lengths of Beta or the SURB.
     pub fn verify_gamma(&self, beta: &[u8], surb: &[u8], gamma_given: &Gamma)
       -> SphinxResult<()> {
-        if beta.len() != self.params.beta_length {
-            return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
-        }
-        if surb.len() != self.params.surb_length() {
-            return Err( SphinxError::InternalError("SURB has the incorrect length for MAC!") );
-        }
-
         let gamma_found = self.create_gamma(beta, surb);
         // TODO: let gamma_found = ClearOnDrop::new(&gamma_found);
         if ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0) {

@@ -77,12 +77,18 @@ impl SphinxParams {
         + self.surb_length()
     }
 
+    /// Create a `Box<[u8]>` with the required header length
+    /// and containing zeros.
     pub fn boxed_zeroed_header(&self) -> Box<[u8]> {
         let mut v = Vec::with_capacity(self.header_length());
         for _ in 0..self.header_length() { v.push(0); }
         v.into_boxed_slice()
     }
 
+    /// Borrow a mutable slice `&mut [u8]` as a `HeaderRefs` consisting.
+    /// of subspices for the various header components.  You may mutate
+    /// these freely so that after the borrow ends the original slice
+    /// contains the new header. 
     pub fn slice_header<'a>(&'static self, mut header: &'a mut [u8])
       -> SphinxResult<HeaderRefs<'a>>
     {
@@ -128,30 +134,50 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
 };
 
 
+/// A Sphinx header structured by individual components. 
 ///
+/// Create by applying `slice_header` to `&mut [u8]` slice of the
+/// correct length, like that created by `boxed_zeroed_header`.
+/// We check all lengths in `slice_header` so that methods and
+/// functions using `HeaderRefs` may assume all header lengths to
+/// be correct.
 ///
-/// We check lengths when creating `HeaderRefs` so that its methods
-/// and dependents can assume correct lengths.
+/// We mostly handle `HeaderRefs` via mutable borrows so that we may
+/// change referred to values without interrior mutability, but keep
+/// the references tehmselves non-public to forbid changing them. 
 pub struct HeaderRefs<'a> {
     /// Sphinx `'static` runtime paramaters 
     pub params: &'static SphinxParams,
 
-    pub alpha: &'a mut AlphaBytes,
-    pub gamma: &'a mut GammaBytes,
-    pub beta:  &'a mut [u8],
-    pub surb_log: &'a mut [u8],
-    pub surb:  &'a mut [u8],
+    alpha: &'a mut AlphaBytes,
+    gamma: &'a mut GammaBytes,
+    beta:  &'a mut [u8],
+    surb_log: &'a mut [u8],
+    surb:  &'a mut [u8],
 }
 
 impl<'a> HeaderRefs<'a> {
-    // TODO: Consider using owning_refs crate to provide
-    // pub fn new_sliced_header(&self) -> SphinxResult<OwningHandle<Box<[u8]>,HeaderRefs>> { }
-    // ref.  https://kimundi.github.io/owning-ref-rs/owning_ref/struct.OwningHandle.html
+    pub fn alpha(&'a self) -> &'a AlphaBytes { self.alpha }
+    pub fn gamma(&'a self) -> &'a GammaBytes { self.gamma }
+    pub fn beta(&'a self) -> &'a [u8] { self.beta }
+    pub fn surb_log(&'a self) -> &'a [u8] { self.surb_log }
+    pub fn surb(&'a self) -> &'a [u8]  { self.surb }
+
+    pub fn alpha_mut(&'a mut self) -> &'a mut AlphaBytes { self.alpha }
+    pub fn gamma_mut(&'a mut self) -> &'a mut GammaBytes { self.gamma }
+    pub fn beta_mut(&'a mut self) -> &'a mut [u8] { self.beta }
+    pub fn surb_log_mut(&'a mut self) -> &'a mut [u8] { self.surb_log }
+    pub fn surb_mut(&'a mut self) -> &'a mut [u8]  { self.surb }
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
     /// calling `SphinxHop::verify_gamma` with the provided fields.
     pub fn verify_gamma(&self, hop: SphinxHop) -> SphinxResult<()> {
         hop.verify_gamma(self.beta, self.surb, &Gamma(*self.gamma))
+    }
+
+    /// Compute gamma from Beta and the SURB.  Probably not useful.
+    pub fn create_gamma(&mut self, hop: SphinxHop) {
+        *self.gamma = hop.create_gamma(self.beta, self.surb).0;
     }
 
     pub fn prepend_to_surb_log(&mut self, prepend: &[u8]) {
@@ -166,6 +192,10 @@ impl<'a> HeaderRefs<'a> {
         surb_log[0..start].copy_from_slice(prepend);
     }
 }
+
+// TODO: Consider using owning_refs crate to provide
+// pub fn new_sliced_header(&self) -> SphinxResult<OwningHandle<Box<[u8]>,HeaderRefs>> { }
+// ref.  https://kimundi.github.io/owning-ref-rs/owning_ref/struct.OwningHandle.html
 
 /*
 use std::iter::{Iterator,IntoIterator};
