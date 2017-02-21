@@ -66,7 +66,7 @@ pub struct State {
 
 impl State {
     /// Identify a branch's parent branch.
-    pub fn parent_id(&self, family: BranchName) -> Result<BranchId,RatchetError> {
+    pub fn parent_id(&self, family: BranchName) -> RatchetResult<BranchId> {
         let parents = self.parents.read() ?; // PoisonError
         if let Some(parent_bid) = parents.get(&family) {
             Ok(*parent_bid)
@@ -77,7 +77,7 @@ impl State {
 }
 
 /// Create a locked branch identifier.
-pub fn lock_branch_id(state: &Arc<State>, bid: BranchId) -> Result<BranchIdGuard,RatchetError> {
+pub fn lock_branch_id(state: &Arc<State>, bid: BranchId) -> RatchetResult<BranchIdGuard> {
     let mut locked = state.locked.write() ?; // PoisonError
     // let mut locked = wtf.deref_mut(); 
     if locked.insert(bid) {
@@ -110,7 +110,7 @@ impl BranchIdGuard {
 
     /// Retrieve unspecified twig type.  Throw MissingTwig error if
     /// not found.  Avoids holding twigs read lock.
-    pub fn get_twig(&self, tid: &TwigId) -> Result<TwigState,RatchetError> {
+    pub fn get_twig(&self, tid: &TwigId) -> RatchetResult<TwigState> {
         let twigs = self.state().twigs.read() ?;  // PoisonError
         if let Some(tk) = twigs.get(tid) {
             Ok( TwigState::new(*tk) )
@@ -122,7 +122,7 @@ impl BranchIdGuard {
     /// Retrieve a specific twig type.  Throw error `MissingTwig` if
     /// not found or `WrongTwigType` error if type does not match.
     /// Avoids holding twigs read lock.
-    pub fn get_twigy<T: Twigy>(&self, tid: &TwigId) -> Result<T,RatchetError> {
+    pub fn get_twigy<T: Twigy>(&self, tid: &TwigId) -> RatchetResult<T> {
         let twigs = self.state().twigs.read() ?;  // PoisonError
         if let Some(x) = twigs.get(tid) {
             verify_twigy::<T>(tid,x)
@@ -137,7 +137,7 @@ impl BranchIdGuard {
 /// so no transaction necessary. Only `create_initial_branch` and
 /// `Transaction::confirm` should write to `State::{branchs,parents,twigs}`
 pub fn create_initial_branch(state: &Arc<State>, seed: &[u8])
-  -> Result<(BranchId,Branch,TwigId,TrainKey),RatchetError> {
+  -> RatchetResult<(BranchId,Branch,TwigId,TrainKey)> {
     let (bid, branch, tk): (BranchId, Branch, TrainKey) = Branch::new_kdf(seed);
     let tid = TwigId(bid,TRAIN_START);
 

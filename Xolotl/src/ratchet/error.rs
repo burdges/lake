@@ -27,6 +27,8 @@ pub enum RatchetError {
     CorruptBranch(BranchId, &'static str),
 }
 
+pub type RatchetResult<T> = Result<T,RatchetError>;
+
 impl fmt::Display for RatchetError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::RatchetError::*;

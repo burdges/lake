@@ -4,6 +4,8 @@
 //!
 //! ...
 
+use std::fmt;
+
 use rand::{Rng, Rand};
 
 use curve25519_dalek::field;
@@ -11,7 +13,6 @@ use curve25519_dalek::curve;
 use curve25519_dalek::scalar;
 
 use crypto::curve25519 as rc_curve25519;
-
 
 use super::SphinxSecret;
 use super::error::*;
@@ -31,6 +32,8 @@ use super::error::*;
 #[derive(Copy,Clone)]
 pub struct Scalar(scalar::Scalar);
 
+pub type ScalarBytes = [u8; 32];
+
 impl Scalar {
     /// Create a curve25519 scalar for Sphinx by reducing a specified
     /// 512 bit seed mod l.  The seed should be chose reasonably uniformly
@@ -45,14 +48,14 @@ impl Scalar {
     }
 
     /// Return the scalar's standard byte representation for saving to disk.
-    pub fn to_bytes(&self) -> [u8; 32] {
+    pub fn to_bytes(&self) -> ScalarBytes {
         let scalar::Scalar(s) = self.0;
         s
     }
 
     /// Construct a scalar loaded from its byte representation loaded from
     /// disk.  Do not create a blinding scalar with this functon.
-    pub fn from_bytes(s: &[u8; 32]) -> Scalar {
+    pub fn from_bytes(s: &ScalarBytes) -> Scalar {
         Scalar(scalar::Scalar(*s))
     }
 }
@@ -64,6 +67,21 @@ impl Rand for Scalar {
         Scalar::make(&s)
     }
 }
+
+impl fmt::Debug for Scalar {
+    #[cfg(not(test))]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Scalar(scrubbed)")
+    }
+
+    #[cfg(test)]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use rustc_serialize::hex::ToHex;
+        let scalar::Scalar(s) = self.0;
+        write!(f, "Scalar({:})", s.to_hex())
+    }
+}
+
 
 
 pub const ALPHA_LENGTH : usize = 32;
@@ -88,8 +106,8 @@ pub type AlphaBytes = [u8; ALPHA_LENGTH];
 pub struct Point(curve::ExtendedPoint);
 
 impl Point {
-    /// Create a packet or node public key from a private key scalar.
-    pub fn from_private(s: &Scalar) -> Point {
+    /// Create a packet or node public key from a secret key scalar.
+    pub fn from_secret(s: &Scalar) -> Point {
         Point( curve::ExtendedPoint::basepoint_mult(&s.0) )
     }
 
@@ -133,6 +151,20 @@ impl Point {
         )
     }
 }
+
+impl fmt::Debug for Point {
+    #[cfg(not(test))]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Point(scrubbed)")
+    }
+
+    #[cfg(test)]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use rustc_serialize::hex::ToHex;
+        write!(f, "Point({:})", self.compress().to_hex())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -208,7 +240,7 @@ mod tests {
             let x = rc_curve25519::ge_scalarmult_base(&a.0);
             let y = curve::ExtendedPoint::basepoint_mult(&a).compress().to_bytes();
             assert_eq!(x.to_bytes(),y);
-            let z = Point::from_private(&Scalar(a));
+            let z = Point::from_secret(&Scalar(a));
             assert_eq!(y,z.compress());
 
             let mut b = Scalar::rand(&mut r).0;

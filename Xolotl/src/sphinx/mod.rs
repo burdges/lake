@@ -10,6 +10,7 @@ mod header;
 mod body;
 mod replay;
 mod node;
+mod keys;
 mod error;
 
 pub use self::header::SphinxParams;

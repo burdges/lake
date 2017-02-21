@@ -2,6 +2,93 @@
 
 
 
+/// Sphinx node curve25519 public key.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NodePublicKey(pub [u8; 32]);
+
+/// Identifier for the current concenus 
+pub struct ConcensusId(pub [u8; 32]);
+
+/// XChaCha20 not-a-nonce for all packets with a given `NodePublicKey`
+/// in a given `ConcensusId`.  Nodes should cache this with their
+/// `NodePrivateKey` but clients may simply generate it when building
+/// packets.
+pub struct NodeToken(pub [u8; 24]);
+
+impl NodeToken {
+    pub fn generate(params: &SphinxParams, 
+                    concensus: &ConcensusId, 
+                    node: &NodePublicKey
+      ) -> NodeToken {
+        use crypto::digest::Digest;
+        use crypto::sha3::Sha3;
+
+        let mut nk = [0u8; 24];
+        let mut sha = Sha3::sha3_512();
+
+        sha.input(&concensus.0);
+        sha.input(&node.0);
+        sha.input_str(params.protocol_name);
+        sha.input(&concensus.0);
+        sha.input(&node.0);
+        sha.result(&mut nk);
+        sha.reset();
+        NodeToken(nk)
+    }
+}
+
+
+/*
+    /// Sphinx `'static` runtime paramaters 
+    params: &'static SphinxParams,
+*/
+
+pub trait NodeInfo {
+}
+
+pub struct NodePublic {
+    pub public_key: NodePublicKey,
+
+    pub token: NodeToken,
+
+    ed25519: Signature,
+}
+
+pub struct NodePrivate {
+    /// Sphinx `'static` runtime paramaters 
+    params: &'static SphinxParams,
+
+    token: NodeToken,
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         /// Sender identity claim.  We cannot authenticate this, but
         /// it simplifies processing the body.

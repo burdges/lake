@@ -11,14 +11,16 @@ use std::sync::RwLock;
 // use std::hash::{Hash, Hasher};
 use std::fmt;
 
+use super::header::Length;
 use super::error::*;
 use ::state::*;
 
+pub const REPLAY_CODE_LENGTH : Length = 16;
 
 /// Replay code used both for replay protection and when reporting errors.
 #[derive(Clone,Copy)] // Default,PartialEq,Eq,Hash
-pub struct ReplayCode(pub [u8; 16]);
-pub const REPLAY_CODE_UNKNOWN : ReplayCode = ReplayCode([0u8; 16]);
+pub struct ReplayCode(pub [u8; REPLAY_CODE_LENGTH]);
+pub const REPLAY_CODE_UNKNOWN : ReplayCode = ReplayCode([0u8; REPLAY_CODE_LENGTH]);
 
 /// Use hexidecimal when displaying `ReplayCode` in error messages.
 impl fmt::Debug for ReplayCode {

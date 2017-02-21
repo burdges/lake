@@ -7,7 +7,7 @@
 
 use super::curve::{AlphaBytes,ALPHA_LENGTH};
 use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH,SphinxHop};
-use super::node::NodeToken;
+// use super::node::NodeToken;
 use super::error::*;
 
 
@@ -117,20 +117,6 @@ impl SphinxParams {
             Err( SphinxError::BadBodyLength(body_length) )
         }
     }
-
-    pub fn prepend_to_surb_log(&self, surb_log: &mut [u8], prepend: &[u8]) {
-        if surb_log.len() != self.params.surb_log_length {
-            return Err( SphinxError::InternalError("SURB log has incorrect length!") );
-        }
-        let start = prepend.len();
-        if surb_log.len() > start {
-            for i in start..surb_log.len() {
-                        *surb_log[i] = surb_log[i-start];
-            }
-        }
-        let start = min(start,surb_log.len());
-        surb_log[0..start].copy_from_slice(prepend);
-    }
 }
 
 pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
@@ -142,6 +128,10 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
 };
 
 
+///
+///
+/// We check lengths when creating `HeaderRefs` so that its methods
+/// and dependents can assume correct lengths.
 pub struct HeaderRefs<'a> {
     /// Sphinx `'static` runtime paramaters 
     pub params: &'static SphinxParams,
@@ -154,15 +144,27 @@ pub struct HeaderRefs<'a> {
 }
 
 impl<'a> HeaderRefs<'a> {
-    /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
-    /// calling `SphinxHop::verify_gamma` with the provided fields.
-    pub fn verify_gamma(&self, hop: SphinxHop) -> bool {
-        hop.verify_gamma(self.beta, self.surb, &Gamma(*self.gamma))
-    }
-
     // TODO: Consider using owning_refs crate to provide
     // pub fn new_sliced_header(&self) -> SphinxResult<OwningHandle<Box<[u8]>,HeaderRefs>> { }
     // ref.  https://kimundi.github.io/owning-ref-rs/owning_ref/struct.OwningHandle.html
+
+    /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
+    /// calling `SphinxHop::verify_gamma` with the provided fields.
+    pub fn verify_gamma(&self, hop: SphinxHop) -> SphinxResult<()> {
+        hop.verify_gamma(self.beta, self.surb, &Gamma(*self.gamma))
+    }
+
+    pub fn prepend_to_surb_log(&mut self, prepend: &[u8]) {
+        let start = prepend.len();
+        let ref mut surb_log = self.surb_log;
+        if surb_log.len() > start {
+            for i in start .. surb_log.len() {
+                surb_log[i] = surb_log[i-start];
+            }
+        }
+        let start = ::std::cmp::min(start,surb_log.len());
+        surb_log[0..start].copy_from_slice(prepend);
+    }
 }
 
 /*

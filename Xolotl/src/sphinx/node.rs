@@ -11,60 +11,6 @@ pub use super::curve::{Scalar,Point};
 pub use super::header::SphinxParams;
 
 
-/// Sphinx node curve25519 public key.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NodePublicKey(pub [u8; 32]);
-
-/// Identifier for the current concenus 
-pub struct ConcensusId(pub [u8; 32]);
-
-/// XChaCha20 not-a-nonce for all packets with a given `NodePublicKey`
-/// in a given `ConcensusId`.  Nodes should cache this with their
-/// `NodePrivateKey` but clients may simply generate it when building
-/// packets.
-pub struct NodeToken(pub [u8; 24]);
-
-impl NodeToken {
-    pub fn generate(params: &SphinxParams, 
-                    concensus: &ConcensusId, 
-                    node: &NodePublicKey
-      ) -> NodeToken {
-        use crypto::digest::Digest;
-        use crypto::sha3::Sha3;
-
-        let mut nk = [0u8; 24];
-        let mut sha = Sha3::sha3_512();
-
-        sha.input(&concensus.0);
-        sha.input(&node.0);
-        sha.input_str(params.protocol_name);
-        sha.input(&concensus.0);
-        sha.input(&node.0);
-        sha.result(&mut nk);
-        sha.reset();
-        NodeToken(nk)
-    }
-}
-
-pub trait NodeInfo {
-}
-
-pub struct NodePublic {
-    /// Sphinx `'static` runtime paramaters 
-    params: &'static SphinxParams,
-
-    token: NodeToken,
-}
-
-pub struct NodeSecrets {
-    /// Sphinx `'static` runtime paramaters 
-    params: &'static SphinxParams,
-
-    token: NodeToken,
-
-    ,
-}
-
 
 /*
 
@@ -167,19 +113,10 @@ impl SphinxNode {
         // Initalize stream ciphers and check gamma cases.
         let mut key = self.params.sphinx_key(&ss, self.node_info.public_token());
         let mut hop = key.hop();
-        let okay = refs.verify_gamma(&hop);
 
-        let mykey = self.params.sphinx_kdf(&ss, self.node_info.secret_token());
-        let mut myhop = mykey.hop();
-        let mine = refs.verify_gamma(&myhop);
+        refs.verify_gamma(&hop) ?;  // InvalidMac
 
-        if !mine && !okay {
-            return hop.invalid_mac_error();  // InvalidMac
-        }
-        if mine { hop = myhop; }  // First timing leak
-
-        // Replay protection uses the replay code built with the secret token.
-        mykey.replay_check(&self.replayer) ?; // Replay
+        hop.replay_check(&self.replayer) ?; // Replay
 
         // Onion decrypt beta, extracting commands, and processing the ratchet.
         // TODO: Restrict to a single ratchet invokation?
@@ -200,9 +137,6 @@ impl SphinxNode {
             hop.set_beta_tail(refs.beta[length-eaten..length]);
 
             if r @ Ratchet {..} = command {
-                if mine {
-                    return Err( SphinxError::BadPacket("You ratcheted yourself?") );
-                }
                 if ratchets>0 {
                     return Err( SphinxError::BadPacket("Tried to two 2+ ratchet subhops.") );
                 }
@@ -214,6 +148,12 @@ impl SphinxNode {
                     return hop.invalid_mac_error();  // InvalidMac
                 }
             } else { break; }
+        }
+        if c @ ArivalSURB {..} = command {
+            for (i,j) in key.chacha_key.iter_mut().zip(node.secret_mask.iter()) { *i ^= *j; }
+            hop = key.hop();
+            // Should we return a different error here?
+            refs.verify_gamma(&hop) ?;  // InvalidMac
         }
 
         // Decrypt remander of header
@@ -259,10 +199,17 @@ impl SphinxNode {
                     packet_name: packet_name,
                 } )
             },
-            c @ Command::Arrival => {
-                if mine {
-                    self.surb_unwind(hop.packet_name(),refs.surb_log,body)
-                } else {  Ok( Action::Arrival { } )  }
+            c @ Command::ArrivalSURB => {
+                /*
+                for (i,j) in key.chacha_key.iter_mut().zip(node.secret_mask.iter()) { *i ^= *j; }
+                hop = key.hop();
+                // Should we return a different error here?
+                refs.verify_gamma(&hop) ?;  // InvalidMac
+                */
+                self.surb_unwind(hop.packet_name(),refs.surb_log,body)
+            },
+            c @ Command::ArrivalDirect => {
+                Ok( Action::Arrival { } )
             },
             Ratchet {..} => unreachable!(),
         }

@@ -32,6 +32,7 @@ extern crate clear_on_drop;
 type ClearedBox<T> = clear_on_drop::ClearOnDrop<Box<T>>;
 
 extern crate curve25519_dalek;
+extern crate ed25519_dalek;
 extern crate keystream;
 extern crate chacha;
 extern crate lioness;
