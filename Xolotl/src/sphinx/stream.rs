@@ -119,23 +119,19 @@ impl SphinxKey {
     /// replay code and gamma key.  We descided to use SHA3's SHAKE256
     /// mode so that we have more and different mixing.
     pub fn hop(&self) -> SphinxResult<SphinxHop> {
-        let mut hop = SphinxHop {
+        let mut chacha = ChaCha20::new_ietf(&self.chacha_key, &self.chacha_nonce);
+        let mut r = &mut [0u8; HOP_EATS];
+        chacha.xor_read(r).unwrap();  // No KeystreamError::EndReached here.
+        let (packet_name,replay_code,gamma_key) = array_refs![r,16,16,32];
+
+        Ok( SphinxHop {
             params: self.params,
             chunks: self.params.stream_chunks() ?,
-            replay_code: ReplayCode([0u8; REPLAY_CODE_LENGTH]),
-            packet_name: PacketName([0u8; PACKET_NAME_LENGTH]),
-            gamma_key: GammaKey([0u8; 32]),
-            stream: ChaCha20::new_ietf(&self.chacha_key, &self.chacha_nonce)
-        };
-
-        let mut r = &mut [0u8; HOP_EATS];
-        hop.stream.xor_read(r).unwrap();  // No KeystreamError::EndReached here.
-        let (packet_name,replay_code,gamma_key) = array_refs![r,16,16,32];
-        hop.packet_name = PacketName(*packet_name);
-        hop.replay_code = ReplayCode(*replay_code);
-        hop.gamma_key = GammaKey(*gamma_key);
-
-        Ok(hop)
+            packet_name: PacketName(*packet_name),
+            replay_code: ReplayCode(*replay_code),
+            gamma_key: GammaKey(*gamma_key),
+            stream: chacha,
+        } )
     }
 }
 
