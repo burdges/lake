@@ -133,6 +133,22 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
     body_lengths: &[0]
 };
 
+/*
+struct HideMut<'a,T>(&'a mut T) where T: ?Sized;
+
+impl<'a,T> HideMut<'a,T> where T: ?Sized {
+    pub fn new(m: &'a mut T) -> HideMut<'a,T> { HideMut(m) }
+}
+
+impl<'a,T: ?Sized> Deref for HideMut<'a,T> where T: ?Sized {
+    type Target = &'a T;
+    fn deref(&self) -> &T { self.0 }
+}
+
+impl<'a,T: ?Sized> DerefMut for HideMut<'a,T> where T: ?Sized {
+    fn deref_mut(&'a mut self) -> &'a mut T { self.0 }
+}
+*/
 
 /// A Sphinx header structured by individual components. 
 ///
@@ -149,14 +165,15 @@ pub struct HeaderRefs<'a> {
     /// Sphinx `'static` runtime paramaters 
     pub params: &'static SphinxParams,
 
-    alpha: &'a mut AlphaBytes,
-    gamma: &'a mut GammaBytes,
-    beta:  &'a mut [u8],
-    surb_log: &'a mut [u8],
-    surb:  &'a mut [u8],
+    pub alpha: &'a mut AlphaBytes,
+    pub gamma: &'a mut GammaBytes,
+    pub beta:  &'a mut [u8],
+    pub surb_log: &'a mut [u8],
+    pub surb:  &'a mut [u8],
 }
 
 impl<'a> HeaderRefs<'a> {
+/*
     pub fn alpha(&'a self) -> &'a AlphaBytes { self.alpha }
     pub fn gamma(&'a self) -> &'a GammaBytes { self.gamma }
     pub fn beta(&'a self) -> &'a [u8] { self.beta }
@@ -168,6 +185,7 @@ impl<'a> HeaderRefs<'a> {
     pub fn beta_mut(&'a mut self) -> &'a mut [u8] { self.beta }
     pub fn surb_log_mut(&'a mut self) -> &'a mut [u8] { self.surb_log }
     pub fn surb_mut(&'a mut self) -> &'a mut [u8]  { self.surb }
+*/
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
     /// calling `SphinxHop::verify_gamma` with the provided fields.
