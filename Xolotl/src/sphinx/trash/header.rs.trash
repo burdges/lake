@@ -1,4 +1,24 @@
 
+fn prepend_to_slice(target: &mut [u8], prepend: &[u8]) {
+    let start = prepend.len();
+    if target.len() > start {
+        let i = target.len();
+        let target = &mut target[..i];  // elide bounds checks; see Rust commit 6a7bc47
+        while i > start {
+            i -= 1;
+            target[i] = target[i-start];
+        }
+    }
+    let start = ::std::cmp::min(start,target.len());
+    target[0..start].copy_from_slice(prepend[0..start]);
+}
+
+
+
+
+
+
+
 /*
 impl<'a> HeaderRefs<'a> {
     pub fn iter(&self) -> SphinxResult<impl Iterator> {

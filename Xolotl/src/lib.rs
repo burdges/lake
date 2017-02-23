@@ -11,8 +11,10 @@
 
 // #![feature(conservative_impl_trait)]
 #![feature(core_intrinsics)] // Remove with ClearOnDrop
-#![feature(associated_consts)]
+
+#![feature(step_by)]
 #![feature(box_syntax)]
+#![feature(associated_consts)]
 
 // #![doc(html_root_url="...")]
 

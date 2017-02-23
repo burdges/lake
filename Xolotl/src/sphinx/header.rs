@@ -4,7 +4,7 @@
 //!
 //! ...
 
-use std::iter::{Iterator,IntoIterator};
+use std::iter::{Iterator,IntoIterator,ExactSizeIterator};
 
 pub use ratchet::TwigId;
 
@@ -173,23 +173,6 @@ pub enum Command {
 
 impl Command {
     pub fn to_bytes_iter(&self) -> impl Iterator+ExactSizeIterator {
-        use Command::*;
-        let iter = match self {
-            c @ CrossOver { } => [0x00; 1].iter()
-                .chain(c.alpha.as_slice())
-                .chain(c.gamma.0.as_slice()),
-            c @ Ratchet { } => [0x80; 1].iter()
-                .chain(c.twig.to_bytes())
-                .chain(c.gamma.0),
-            c @ Delivery { } => [0x40; 1].iter()
-                .chain(c.mailbox),
-            0x40 => c @ Transmit { } => [0x40; 1].iter()
-                .chain(c.route.0.as_slice())
-                .chain(c.gamma.0.as_slice()),
-            ArrivalSURB { } => [0x30; 1].iter(),
-            ArrivalDirect { } => [0x20; 1].iter(),
-            // _ => return Err( SphinxError::UnknownCommand(0x00) ),
-        }
     }
 }
 
@@ -212,6 +195,43 @@ impl<'a,T> DerefMut for HideMut<'a,T> where T: ?Sized {
     fn deref_mut(&mut self) -> &mut T { self.0 }
 }
 */
+
+fn preshift_slice(s: &mut [u8], shift: usize) {
+    if s.len() <= shift { return; }
+    let i = s.len();
+    let s = &mut s[..i];  // elide bounds checks; see Rust commit 6a7bc47
+    while i > shift {
+        i -= 1;
+        s[i] = s[i-shift];
+    }
+    // I dislike  for i in (target.len()-1 .. start-1).step_by(-1) { }
+}
+
+// We sadly cannot require that `I::IntoIter: ExactSizeIterator` here
+// because `Chain` does not satisfy that, due to fears the length
+// might overflow.  https://github.com/rust-lang/rust/issues/34433
+#[inline]
+fn prepend_to_slice<I>(target: &mut [u8], prepend: I) -> usize
+  where I: IntoIterator, I::IntoIter: TrustedLen
+{
+    let prepend = prepend.iter();
+    let (start,end) = prepend.size_hint();
+    debug_assert_eq!(Some(start), end);
+    // let start = prepend.len();
+    if target.len() > start {
+        let i = target.len();
+        let target = &mut target[..i];  // elide bounds checks; see Rust commit 6a7bc47
+        while i > start {
+            i -= 1;
+            target[i] = target[i-start];
+        }
+        // I dislike  for i in (target.len()-1 .. start-1).step_by(-1) { }
+    }
+    let start = ::std::cmp::min(start,target.len());
+    // target[0..start].copy_from_slice(prepend[0..start]);
+    for (i,j) in target[0..start].iter_mut.zip(prepend) { *i = *j; }
+    start
+}
 
 
 /// A Sphinx header structured by individual components. 
@@ -263,23 +283,36 @@ impl<'a> HeaderRefs<'a> {
     }
 
     pub fn prepend_to_surb_log(&mut self, prepend: &[u8]) {
-        let start = prepend.len();
-        let ref mut surb_log = self.surb_log;
-        if surb_log.len() > start {
-            for i in start .. surb_log.len() {
-                surb_log[i] = surb_log[i-start];
-            }
-        }
-        let start = ::std::cmp::min(start,surb_log.len());
-        surb_log[0..start].copy_from_slice(prepend);
+        prepend_to_slice(self.surb_log, prepend);
     }
 
-    pub fn insert_into_beta(&mut self, cmd: &Command) {
-        let insert = cmd.to_bytes_iter();
-        let inserting = insert.len();
-        debug_assert!(inserting <= self.params.max_beta_tail_length);
-        for i in inserting..self.beta.len() {  self.beta[i-eaten] = self.beta[i];  }
-        for (i,j) in insert.enumerate() { self.beta[i] = *j; }
+    pub fn insert_into_beta<I: Iterator+ExactSizeIterator>(&mut self, cmd: &Command) {
+        use Command::*;
+        let l = match self {
+            c @ CrossOver { } => prepend_to_slice(refs.beta,
+                [0x00; 1].iter()
+                .chain(c.alpha.as_slice())
+                .chain(c.gamma.0.as_slice()) 
+            ),
+            c @ Ratchet { } => prepend_to_slice(refs.beta,
+                [0x80; 1].iter()
+                .chain(c.twig.to_bytes())
+                .chain(c.gamma.0)
+            ),
+            c @ Delivery { } => prepend_to_slice(refs.beta,
+                [0x40; 1].iter()
+                .chain(c.mailbox)
+            ),
+            c @ Transmit { } => prepend_to_slice(refs.beta,
+                [0x40; 1].iter()
+                .chain(c.route.0)
+                .chain(c.gamma.0)
+            ),
+            ArrivalSURB { } => prepend_to_slice(refs.beta, [0x30; 1].iter() ),
+            ArrivalDirect { } => prepend_to_slice(refs.beta, [0x20; 1].iter() ),
+            // _ => return Err( SphinxError::UnknownCommand(0x00) ),
+        }
+        debug_assert!(l <= self.params.max_beta_tail_length);
     }
 
     /// Read a command from the beginning of beta.
@@ -324,7 +357,7 @@ impl<'a> HeaderRefs<'a> {
         }
         let length = self.beta.len();
         debug_assert!(length = self.params.beta_length);
-        // let beta = &mut refs.beta[..length]; // elide bounds checks; see Rust commit 6a7bc47
+        // let beta = &mut refs.beta[..length]; 
         for i in eaten..length {  self.beta[i-eaten] = self.beta[i];  }
         hop.set_beta_tail(self.beta[length-eaten..length]);
         Ok(command)
