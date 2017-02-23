@@ -1,4 +1,18 @@
 
+pub const APP_ID_LENGTH : Length = 16;
+pub type AppIdBytes = [u8; APP_ID_LENGTH];
+pub struct AppId(AppIdBytes)
+
+
+
+
+
+
+EpochId,
+SurbSeed,
+
+
+
 
 
 

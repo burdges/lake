@@ -12,7 +12,7 @@ use std::fmt;
 // use rustc_serialize::hex::ToHex;
 
 
-use super::header::Length;
+use super::Length;
 use super::replay::*;
 use ratchet::error::RatchetError;
 

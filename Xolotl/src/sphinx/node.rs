@@ -7,57 +7,17 @@
 
 // pub ed25519_dalek::ed25519;
 
-pub use super::curve::{Scalar,Point};
-pub use super::header::SphinxParams;
+
+use super::*; // Length
+use super::curve::{AlphaBytes,Scalar,Point};
+use super::stream::{Gamma,SphinxKey,SphinxHop};
+pub use super::header::{SphinxParams,HeaderRefs,Command};
+pub use super::keys::RoutingName;
+pub use super::mailbox::MailboxName;
 
 
 
-/*
 
-pub const APP_ID_LENGTH : Length = 16;
-pub type AppIdBytes = [u8; APP_ID_LENGTH];
-pub struct AppId(AppIdBytes)
-
-EpochId,
-SurbSeed,
-
-
-/// Commands packets give to mix network nodes.
-pub enum Command {
-    /// Crossover from header to SURB
-    CrossOver {
-        alpha: AlphaBytes,
-        gamma: GammaBytes,
-    },
-
-    /// Advance and integrate a ratchet state
-    Ratchet {
-        twig: TwigId,
-        gamma: GammaBytes,
-    },
-
-    /// Transmit packet to another mix network node
-    Transmit {
-        node_name: NodeName,
-        gamma: GammaBytes,
-    },
-
-    /// Deliver message to the specified mailbox, roughly equivelent
-    /// to transmition to a non-existant mix network node.
-    Delivery {
-        /// Mailbox name
-        mailbox_name: MailboxName,
-    },
-
-    /// Arrival of a SURB we created and archived.
-    ArrivalSURB { },
-
-    /// Arrival of a message for a local application.
-    ArrivalDirect { },
-}
-
-impl Command {
-}
 
 
 /// Action the node should take with a given packet.
@@ -73,7 +33,7 @@ enum Action {
     /// Forward this message to another hop.
     Transmit {
         /// Next hop
-        node_name: NodeName,
+        routing_name: RoutingName,
         /// Packet name for SURB unwinding
         packet_name: PacketName,
     },
@@ -88,15 +48,24 @@ enum Action {
 }
 
 
+/*
 
 
-struct SphinxNode {
-    params: &'static SphinxParams, 
-    node_token: NodeToken, 
+struct SphinxRouter {
+    params: &'static SphinxParams,
+    routing_secret: RoutingSecret,
     replayer: RwLock<Filter<Key=ReplayCode>>
 }
 
-impl SphinxNode {
+impl SphinxRouter {
+    fn routing_name(&self) -> RoutineName {
+        self.routing_secret.name
+    }
+}
+
+
+
+impl SphinxRouter {
     fn command(&self, &[u8]) -> SphinxError<(usize,Command)> {
     }
 
@@ -135,6 +104,8 @@ impl SphinxNode {
             // but no point so long as the loop executes at most twice.
             for i in eaten..length {  beta[i-eaten] = beta[i];  }
             hop.set_beta_tail(refs.beta[length-eaten..length]);
+
+            let command = refs.parse_n_shift_beta(&mut hop);
 
             if r @ Ratchet {..} = command {
                 if ratchets>0 {
@@ -186,7 +157,7 @@ impl SphinxNode {
                 *refs.gamma = c.gamma;
                 *refs.alpha = alpha.blind(& (hop.blinding() ?)).compress();
                 Ok( Action::Transmit {
-                    node_name: c.node_name,
+                    routing_name: c.routing_name,
                     packet_name: hop.packet_name() 
                 } )
             },

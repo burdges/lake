@@ -11,9 +11,14 @@ mod body;
 mod replay;
 mod node;
 mod keys;
+mod mailbox;
 mod error;
 
+/// Alias for indexes into a Sphinx header
+pub type Length = usize;
+
 pub use self::header::SphinxParams;
+
 
 /// Secret supplied by the Diffie-Hellman key exchange in Sphinx. 
 /// Also secret symmetric key supploied by Xolotl, which must be
@@ -25,5 +30,13 @@ pub struct SphinxSecret(pub [u8; 32]);  // StackSecret
 impl SphinxSecret {
     pub fn new(ss: &[u8; 32]) -> SphinxSecret  {  SphinxSecret(*ss)  }
 }
+
+
+pub const PACKET_NAME_LENGTH : Length = 16;
+pub type PacketNameBytes = [u8; PACKET_NAME_LENGTH];
+
+/// Packet name used for unrolling SURBs
+#[derive(Copy, Clone, Default)]  // Debug??
+pub struct PacketName(pub PacketNameBytes);
 
 

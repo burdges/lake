@@ -10,12 +10,10 @@ mod state;
 mod advance;
 pub mod error;
 
-/*
-pub use self::branch::{BranchId,BranchName};
-pub use self::twig::{TwigIdxT,TwigIdx};
+// pub use self::branch::{BranchId,BranchName};
+pub use self::twig::{TwigIdxT,TwigIdx,TwigId};
 pub use self::state::{State};
 pub use self::advance::{Transaction,Advance};
-*/
 
 pub use self::branch::ExtraKey;
 

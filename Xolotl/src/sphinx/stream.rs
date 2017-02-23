@@ -28,9 +28,9 @@ impl<'a> From<KeystreamError> for SphinxError {
     }
 }
 
-use super::SphinxSecret;
+use super::*;
 use super::curve::*;
-use super::header::{Length,SphinxParams};
+use super::header::{SphinxParams};
 use super::body::{BodyCipher,BODY_CIPHER_KEY_SIZE};
 
 use super::replay::*;
@@ -53,13 +53,6 @@ pub struct Gamma(pub GammaBytes);
 /// Sphinx poly1305 MAC key
 #[derive(Debug,Clone,Copy,Default)]
 struct GammaKey(pub [u8; 32]);
-
-pub const PACKET_NAME_LENGTH : Length = 16;
-pub type PacketNameBytes = [u8; PACKET_NAME_LENGTH];
-
-/// Packet name used for unrolling SURBs
-#[derive(Copy, Clone, Default)]  // Debug??
-pub struct PacketName(pub PacketNameBytes);
 
 
 /// Results of our KDF consisting of the nonce and key for our

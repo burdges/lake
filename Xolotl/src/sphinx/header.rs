@@ -4,15 +4,17 @@
 //!
 //! ...
 
+use std::iter::{Iterator,IntoIterator};
 
+pub use ratchet::TwigId;
+
+use super::*; // {Length,PacketName,PacketNameBytes,PACKET_NAME_LENGTH};
 use super::curve::{AlphaBytes,ALPHA_LENGTH};
-use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH,SphinxHop};
-// use super::node::NodeToken;
+use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH};
+use super::stream::{SphinxHop};
+pub use super::keys::{RoutingName,ROUTING_NAME_LENGTH};
+pub use super::mailbox::MailboxName;
 use super::error::*;
-
-
-/// Alias for indexes into a Sphinx header
-pub type Length = usize;
 
 /// Sphinx `'static` runtime paramaters 
 ///
@@ -133,22 +135,84 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
     body_lengths: &[0]
 };
 
+
+/// Commands to mix network nodes embedded in beta.
+#[derive(Debug, Clone, Copy)]
+pub enum Command {
+    /// Crossover from header to SURB
+    CrossOver {
+        alpha: AlphaBytes,
+        gamma: GammaBytes,
+    },
+
+    /// Advance and integrate a ratchet state
+    Ratchet {
+        twig: TwigId,
+        gamma: GammaBytes,
+    },
+
+    /// Transmit packet to another mix network node
+    Transmit {
+        route: RoutingName,
+        gamma: GammaBytes,
+    },
+
+    /// Deliver message to the specified mailbox, roughly equivelent
+    /// to transmition to a non-existant mix network node.
+    Delivery {
+        /// Mailbox name
+        mailbox_name: MailboxName,
+    },
+
+    /// Arrival of a SURB we created and archived.
+    ArrivalSURB { },
+
+    /// Arrival of a message for a local application.
+    ArrivalDirect { },
+}
+
+impl Command {
+    pub fn to_bytes_iter(&self) -> impl Iterator+ExactSizeIterator {
+        use Command::*;
+        let iter = match self {
+            c @ CrossOver { } => [0x00; 1].iter()
+                .chain(c.alpha.as_slice())
+                .chain(c.gamma.0.as_slice()),
+            c @ Ratchet { } => [0x80; 1].iter()
+                .chain(c.twig.to_bytes())
+                .chain(c.gamma.0),
+            c @ Delivery { } => [0x40; 1].iter()
+                .chain(c.mailbox),
+            0x40 => c @ Transmit { } => [0x40; 1].iter()
+                .chain(c.route.0.as_slice())
+                .chain(c.gamma.0.as_slice()),
+            ArrivalSURB { } => [0x30; 1].iter(),
+            ArrivalDirect { } => [0x20; 1].iter(),
+            // _ => return Err( SphinxError::UnknownCommand(0x00) ),
+        }
+    }
+}
+
+
 /*
-struct HideMut<'a,T>(&'a mut T) where T: ?Sized;
+use std::ops::{Deref,DerefMut};
+
+struct HideMut<'a,T>(&'a mut T) where T: ?Sized + 'a;
 
 impl<'a,T> HideMut<'a,T> where T: ?Sized {
     pub fn new(m: &'a mut T) -> HideMut<'a,T> { HideMut(m) }
 }
 
-impl<'a,T: ?Sized> Deref for HideMut<'a,T> where T: ?Sized {
-    type Target = &'a T;
+impl<'a,T> Deref for HideMut<'a,T> where T: ?Sized {
+    type Target = T;
     fn deref(&self) -> &T { self.0 }
 }
 
-impl<'a,T: ?Sized> DerefMut for HideMut<'a,T> where T: ?Sized {
-    fn deref_mut(&'a mut self) -> &'a mut T { self.0 }
+impl<'a,T> DerefMut for HideMut<'a,T> where T: ?Sized {
+    fn deref_mut(&mut self) -> &mut T { self.0 }
 }
 */
+
 
 /// A Sphinx header structured by individual components. 
 ///
@@ -209,6 +273,62 @@ impl<'a> HeaderRefs<'a> {
         let start = ::std::cmp::min(start,surb_log.len());
         surb_log[0..start].copy_from_slice(prepend);
     }
+
+    pub fn insert_into_beta(&mut self, cmd: &Command) {
+        let insert = cmd.to_bytes_iter();
+        let inserting = insert.len();
+        debug_assert!(inserting <= self.params.max_beta_tail_length);
+        for i in inserting..self.beta.len() {  self.beta[i-eaten] = self.beta[i];  }
+        for (i,j) in insert.enumerate() { self.beta[i] = *j; }
+    }
+
+    /// Read a command from the beginning of beta.
+    fn parse_beta(&self) -> SphinxResult<(Command,usize> {
+        use Command::*;
+        let mut beta: &[u8] = self.beta;
+        let beta_len = beta.len();
+        // We consider only the high four bits for now because
+        // we might tweak TwigId, MailboxName, and RoutingName
+        // to shave off one byte eventually.
+        let b0 = reserve_fixed(&mut beta,1)[0] & 0xF0;
+        let command = match b0 {
+            0x00 => CrossOver {
+                alpha: reserve_fixed(&mut beta,ALPHA_LENGTH),
+                gamma: Gamma(*reserve_fixed(&mut beta,GAMMA_LENGTH)),
+            },
+            0x80 => Ratchet {
+                twig: TwigId::from_bytes(reserve_fixed(&mut beta,TWIG_ID_LENGTH)),
+                gamma: Gamma(*reserve_fixed(&mut beta,GAMMA_LENGTH)),
+            },
+            // 0x90 through 0xF reserved
+            0x60 => Delivery {
+                mailbox: MailboxName(*reserve_fixed(&mut beta,MAILBOX_NAME_LENGTH)),
+            },
+            0x40 => Transmit {
+                route: RoutingName(*reserve_fixed(&mut beta,ROUTING_NAME_LENGTH)),
+                gamma: Gamma(*reserve_fixed(&mut beta,GAMMA_LENGTH)),
+            },
+            // 0x70, 0x50, and 0x0x10 reserved
+            0x30 => ArrivalSURB { },
+            0x20 => ArrivalDirect { },
+            c => return Err( SphinxError::UnknownCommand(c) ),
+        }
+        Ok((command, beta_len-beta.len()))
+    }
+
+    /// Read a command from the beginning of beta and .
+    pub fn parse_n_shift_beta(&self, hop: &mut SphinxHop) -> SphinxResult<Command> {
+        let (command, eaten) = self.parse_beta() ?;  // UnknownCommand
+        if eaten > self.params.max_beta_tail_length {
+            return Err( SphinxError::InternalError("Ate too much Beta!") );
+        }
+        let length = self.beta.len();
+        debug_assert!(length = self.params.beta_length);
+        // let beta = &mut refs.beta[..length]; // elide bounds checks; see Rust commit 6a7bc47
+        for i in eaten..length {  self.beta[i-eaten] = self.beta[i];  }
+        hop.set_beta_tail(self.beta[length-eaten..length]);
+        Ok(command)
+    }
 }
 
 // TODO: Consider using owning_refs crate to provide
@@ -216,7 +336,6 @@ impl<'a> HeaderRefs<'a> {
 // ref.  https://kimundi.github.io/owning-ref-rs/owning_ref/struct.OwningHandle.html
 
 /*
-use std::iter::{Iterator,IntoIterator};
 
 pub struct HeaderIter<'a> {
     offset: usize,
@@ -261,6 +380,5 @@ impl<'a> IntoIterator for HeaderRefs<'a> {
     }
 }
 */
-
 
 

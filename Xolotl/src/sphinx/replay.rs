@@ -11,7 +11,7 @@ use std::sync::RwLock;
 // use std::hash::{Hash, Hasher};
 use std::fmt;
 
-use super::header::Length;
+use super::Length;
 use super::error::*;
 use ::state::*;
 

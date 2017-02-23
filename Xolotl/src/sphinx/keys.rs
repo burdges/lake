@@ -28,7 +28,7 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use ed25519_dalek as ed25519;
 
-use super::header::Length;
+use super::Length;
 use super::curve;
 
 
@@ -100,9 +100,11 @@ impl ValidityPeriod {
 }
 
 
+pub const ROUTING_NAME_LENGTH : Length = 16;
+
 /// Identifies a particular node and its routing key.
 #[derive(Clone, Copy, Debug)]
-pub struct RoutingName(pub [u8; 16]);
+pub struct RoutingName(pub [u8; ROUTING_NAME_LENGTH]);
 
 /// Routing public key certificate
 #[derive(Clone, Debug)]  // Copy
