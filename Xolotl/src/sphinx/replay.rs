@@ -11,11 +11,10 @@ use std::sync::RwLock;
 // use std::hash::{Hash, Hasher};
 use std::fmt;
 
-use super::Length;
 use super::error::*;
 use ::state::*;
 
-pub const REPLAY_CODE_LENGTH : Length = 16;
+pub const REPLAY_CODE_LENGTH : usize = 16;
 
 /// Replay code used both for replay protection and when reporting errors.
 #[derive(Clone,Copy)] // Default,PartialEq,Eq,Hash

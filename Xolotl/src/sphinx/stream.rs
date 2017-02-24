@@ -41,7 +41,7 @@ use super::error::*;
 // /// Sphinx onion encrypted routing information
 // pub type BetaBytes = [u8];
 
-pub const GAMMA_LENGTH : Length = 16;
+pub const GAMMA_LENGTH : usize = 16;
 
 /// Unwrapped Sphinx poly1305 MAC 
 pub type GammaBytes = [u8; GAMMA_LENGTH];
@@ -129,19 +129,19 @@ impl SphinxKey {
 }
 
 /// Amount of key stream consumed by `hop()` itself
-const HOP_EATS : Length = 64;
+const HOP_EATS : usize = 64;
 
 /// Allocation of cipher ranges for the IETF ChaCha20 inside
 /// `SphinxHop` to various keys and stream cipher roles needed
 /// to process a header.
 struct Chunks {
-    beta: Range<Length>,
-    beta_tail: Range<Length>,
-    surb_log: Range<Length>,
-    surb: Range<Length>,
-    lioness_key: Range<Length>,
-    blinding: Range<Length>,
-    packet_name: Range<Length>,
+    beta: Range<usize>,
+    beta_tail: Range<usize>,
+    surb_log: Range<usize>,
+    surb: Range<usize>,
+    lioness_key: Range<usize>,
+    blinding: Range<usize>,
+    packet_name: Range<usize>,
 }
 
 impl SphinxParams {
@@ -149,7 +149,7 @@ impl SphinxParams {
     fn stream_chunks(&self) -> SphinxResult<Chunks> {
         let mut offset = HOP_EATS;  // 
         let chunks = {
-            let mut reserve = |l: Length, block: bool| -> Range<Length> {
+            let mut reserve = |l: usize, block: bool| -> Range<usize> {
                 if block { offset += 64 - offset % 64; }
                 let previous = offset;
                 offset += l;
@@ -158,9 +158,9 @@ impl SphinxParams {
                 r
             };
             Chunks {
-                beta:  reserve(self.beta_length,true),
-                beta_tail:  reserve(self.max_beta_tail_length,false),
-                surb_log:  reserve(self.surb_log_length,true),
+                beta:  reserve(self.beta_length as usize,true),
+                beta_tail:  reserve(self.max_beta_tail_length as usize,false),
+                surb_log:  reserve(self.surb_log_length as usize,true),
                 surb:  reserve(self.surb_length(),true),
                 lioness_key:  reserve(BODY_CIPHER_KEY_SIZE,true),
                 blinding:  reserve(64,true),
@@ -225,7 +225,7 @@ impl SphinxHop {
     // TODO: Can we abstract the lengths checks?
     // /// Raise errors if beta
     // fn check_lengths(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<()> {
-    //     if beta.len() != self.params.beta_length {
+    //     if beta.len() != self.params.beta_length as usize {
     //         return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
     //     }
     //     if surb.len() != self.params.surb_length() {
@@ -305,10 +305,11 @@ impl SphinxHop {
     }
 
     pub fn xor_beta(&mut self, beta: &mut [u8]) -> SphinxResult<()> {
-        if beta.len() < self.params.beta_length {
+        if beta.len() < self.params.beta_length as usize {
             return Err( SphinxError::InternalError("Beta too short to encrypt!") );
         }
-        if beta.len() > self.params.beta_length+self.params.max_beta_tail_length {
+        if beta.len() > self.params.beta_length as usize
+                        + self.params.max_beta_tail_length as usize {
             return Err( SphinxError::InternalError("Beta too long to encrypt!") );
         }
         self.stream.seek_to(self.chunks.beta.start as u64).unwrap();
@@ -317,7 +318,7 @@ impl SphinxHop {
     }
 
     pub fn set_beta_tail(&mut self, beta_tail: &mut [u8]) -> SphinxResult<()> {
-        if beta_tail.len() > self.params.max_beta_tail_length {
+        if beta_tail.len() > self.params.max_beta_tail_length as usize {
             return Err( SphinxError::InternalError("Beta's tail is too long!") );
         }
         for i in beta_tail.iter_mut() { *i = 0; }
@@ -327,9 +328,9 @@ impl SphinxHop {
     }
 
     pub fn xor_surb_log(&mut self, surb_log: &mut [u8]) -> SphinxResult<()> {
-        if surb_log.len() != self.params.surb_log_length {
-            return Err( SphinxError::InternalError("SURB log has incorrect length!") );
-        }
+        // if surb_log.len() != self.params.surb_log_length as usize {
+        //     return Err( SphinxError::InternalError("SURB log has incorrect length!") );
+        // }
         self.stream.seek_to(self.chunks.surb_log.start as u64).unwrap();
         self.stream.xor_read(surb_log).unwrap();
         Ok(())

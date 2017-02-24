@@ -43,6 +43,8 @@ impl PartialEq for ExtraKey {
 impl Eq for ExtraKey { }
 
 
+pub const BRANCH_NAME_LENGTH : usize = 16;
+
 /// Identifying name for a ratchet branch.
 ///
 /// At 128 bits, there is a 2^64ish quantum attack to fake a ratchet
@@ -50,7 +52,7 @@ impl Eq for ExtraKey { }
 /// do not posses, but this should prove useless due to the MAC.
 // type BranchName = [u8; 16];
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BranchName(pub [u8; 16]);
+pub struct BranchName(pub [u8; BRANCH_NAME_LENGTH]);
 // We derive all these traits partially for use in HashMap, but
 // afaik no reason for PartialOrd or Ord yet, no BinaryHeap.
 
@@ -60,6 +62,8 @@ impl fmt::Display for BranchName {
     }
 }
 
+
+pub const BRANCH_ID_LENGTH : usize = BRANCH_NAME_LENGTH + 2;
 
 // In storage, branches are identified by their parent branch's name,
 // called their family, along with the berry that spawned them.
@@ -72,6 +76,26 @@ pub struct BranchId {
 impl fmt::Display for BranchId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BranchId({},{})", self.family.0.to_hex(), self.berry.0)
+    }
+}
+
+impl BranchId {
+    pub fn from_bytes(bytes: &[u8; BRANCH_ID_LENGTH]) -> Self {
+        let (branch_name,twig_idx) = array_refs![bytes,BRANCH_NAME_LENGTH,2];
+        BranchId {
+            family: BranchName(*branch_name), 
+            berry: TwigIdx::from_bytes(*twig_idx),
+        }
+    }
+
+    pub fn to_bytes(&self) -> [u8; BRANCH_ID_LENGTH] {
+        let mut r = [0u8; BRANCH_ID_LENGTH];
+        {
+        let (family,twig_idx) = mut_array_refs![&mut r,BRANCH_NAME_LENGTH,2];
+        *family = self.family.0;
+        *twig_idx = self.berry.to_bytes();
+        }
+        r
     }
 }
 

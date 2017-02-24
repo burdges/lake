@@ -28,7 +28,6 @@ use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use ed25519_dalek as ed25519;
 
-use super::Length;
 use super::curve;
 
 
@@ -100,7 +99,7 @@ impl ValidityPeriod {
 }
 
 
-pub const ROUTING_NAME_LENGTH : Length = 16;
+pub const ROUTING_NAME_LENGTH : usize = 16;
 
 /// Identifies a particular node and its routing key.
 #[derive(Clone, Copy, Debug)]
@@ -117,7 +116,7 @@ pub struct RoutingPublic {
 
 pub type RoutingInfo = (RoutingName,RoutingPublic);
 
-pub const ROUTING_PUBLIC_LENGTH: Length = 32+16+32+64;
+pub const ROUTING_PUBLIC_LENGTH: usize = 32+16+32+64;
 
 impl RoutingPublic {
     pub fn valid(&self) -> ValidityResult { self.validity.valid() }

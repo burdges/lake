@@ -6,7 +6,6 @@
 
 use lioness::{LionessDefault,LionessError,RAW_KEY_SIZE};
 
-use super::Length;
 use super::header::{SphinxParams};
 use super::error::*;
 
@@ -14,7 +13,7 @@ use super::error::*;
 /// 
 /// We cannot place this inside BodyCipher because assocaited
 /// constants do not work in constant expressions yet.  :(
-pub const BODY_CIPHER_KEY_SIZE: Length = RAW_KEY_SIZE;
+pub const BODY_CIPHER_KEY_SIZE: usize = RAW_KEY_SIZE;
 
 pub struct BodyCipher {
     pub params: &'static SphinxParams,
@@ -22,9 +21,9 @@ pub struct BodyCipher {
 }
 
 impl BodyCipher {
-    pub const KEY_SIZE: Length = 4*64;
+    pub const KEY_SIZE: usize = 4*64;
 
-    pub fn check_body_length(&self,body_length: Length) -> SphinxResult<()> {
+    pub fn check_body_length(&self,body_length: usize) -> SphinxResult<()> {
         // Just for debugging convenience we check all lengths
         // instead of only the one we need.
         for i in self.params.body_lengths {

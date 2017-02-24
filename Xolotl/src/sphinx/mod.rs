@@ -14,9 +14,6 @@ mod keys;
 mod mailbox;
 mod error;
 
-/// Alias for indexes into a Sphinx header
-pub type Length = usize;
-
 pub use self::header::SphinxParams;
 
 
@@ -32,7 +29,7 @@ impl SphinxSecret {
 }
 
 
-pub const PACKET_NAME_LENGTH : Length = 16;
+pub const PACKET_NAME_LENGTH : usize = 16;
 pub type PacketNameBytes = [u8; PACKET_NAME_LENGTH];
 
 /// Packet name used for unrolling SURBs

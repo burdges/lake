@@ -29,7 +29,6 @@ const TWIGKEY_ZERO : TwigKey = [0u8; 32];
 #[derive(Debug, Default, Clone)]
 pub struct TrainKey(pub TwigKey); 
 
-
 impl_ZeroingDrop!(TrainKey,TWIGKEY_ZERO);
 
 /// Chain keys iterate linearly, yielding the next chain key and
@@ -247,6 +246,25 @@ pub struct TwigId(pub BranchId, pub TwigIdx);
 impl fmt::Display for TwigId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TwigId({},{})", self.0, (self.1).0)
+    }
+}
+
+pub const TWIG_ID_LENGTH : usize = BRANCH_ID_LENGTH + 2;
+
+impl TwigId {
+    pub fn from_bytes(bytes: &[u8; TWIG_ID_LENGTH]) -> Self {
+        let (branch_id,twig_idx) = array_refs![bytes,BRANCH_ID_LENGTH,2];
+        TwigId( BranchId::from_bytes(branch_id), TwigIdx::from_bytes(*twig_idx) )
+    }
+
+    pub fn to_bytes(&self) -> [u8; TWIG_ID_LENGTH] {
+        let mut r = [0u8; TWIG_ID_LENGTH];
+        {
+        let (branch_id,twig_idx) = mut_array_refs![&mut r,BRANCH_ID_LENGTH,2];
+        *branch_id = self.0.to_bytes();
+        *twig_idx = self.1.to_bytes();
+        }
+        r
     }
 }
 

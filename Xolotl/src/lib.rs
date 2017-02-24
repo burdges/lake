@@ -12,9 +12,10 @@
 // #![feature(conservative_impl_trait)]
 #![feature(core_intrinsics)] // Remove with ClearOnDrop
 
-#![feature(step_by)]
+// #![feature(step_by)]
 #![feature(box_syntax)]
 #![feature(associated_consts)]
+#![feature(trusted_len)]
 
 // #![doc(html_root_url="...")]
 
