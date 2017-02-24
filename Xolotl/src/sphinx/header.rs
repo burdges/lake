@@ -15,6 +15,7 @@ use super::stream::{SphinxHop};
 pub use super::keys::{RoutingName,ROUTING_NAME_LENGTH};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::error::*;
+use super::utils::*;
 
 
 /// We use `usize` for indexing, like all Rust programs, but we specify
@@ -49,48 +50,6 @@ pub struct SphinxParams {
 
     /// Approved message body lengths
     pub body_lengths: &'static [Length],
-}
-
-/// Returns an initial segment of a `mut &[T]` replacing the inner
-/// `&[T]` with the remainder.  In effect, this executes the command
-/// `(return,heap) = heap.split_at(len)` without annoying the borrow
-/// checker.  See http://stackoverflow.com/a/42162816/667457
-fn reserve<'heap, T>(heap: &mut &'heap [T], len: usize) -> &'heap [T] {
-    let tmp: &'heap [T] = ::std::mem::replace(&mut *heap, &[]);
-    let (reserved, tmp) = tmp.split_at(len);
-    *heap = tmp;
-    reserved
-}
-
-/// A version of `reserve` for fixed length arrays.
-macro_rules! reserve_fixed { ($heap:expr, $len:expr) => {
-    array_ref![reserve($heap,$len),0,$len]
-} }
-
-/// Returns an initial segment of a `mut &mut [T]` replacing the inner
-/// `&mut [T]` with the remainder.  In effect, this executes the command
-/// `(return,heap) = heap.split_at_mut(len)` without annoying the borrow
-/// checker.  See http://stackoverflow.com/a/42162816/667457
-fn reserve_mut<'heap, T>(heap: &mut &'heap mut [T], len: usize) -> &'heap mut [T] {
-    let tmp: &'heap mut [T] = ::std::mem::replace(&mut *heap, &mut []);
-    let (reserved, tmp) = tmp.split_at_mut(len);
-    *heap = tmp;
-    reserved
-}
-
-/// A version of `reserve_mut` for fixed length arrays.
-macro_rules! reserve_fixed_mut { ($heap:expr, $len:expr) => {
-    array_mut_ref![reserve_mut($heap,$len),0,$len]
-} }
-
-/// Reads a `PacketName` from the SURB log and trims the SURB log
-/// to removing it.  Used in SURB unwinding.
-///
-/// We avoid making this a method to `HeaderRefs` because it trims
-/// the SURB log by shortening the slice, violating the inveriant
-/// assumed by `HeaderRef`.
-pub fn read_n_trim_surb_log(surb_log: &mut &[u8]) -> PacketName {
-    PacketName(*reserve_fixed!(surb_log,PACKET_NAME_LENGTH))
 }
 
 impl SphinxParams {
@@ -158,6 +117,16 @@ impl SphinxParams {
             Err( SphinxError::BadBodyLength(body_length) )
         }
     }
+
+    /// Create a `Box<[u8]>` with the requested body length
+    /// from `SphinxParams::body_lengths` and containing zeros.
+    pub fn boxed_zeroed_body(&self, i: usize) -> Box<[u8]> {
+        let length = self.body_lengths[i];
+        let mut v = Vec::with_capacity(length);
+        for _ in 0..length { v.push(0); }
+        v.into_boxed_slice()
+    }
+
 }
 
 pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
@@ -204,6 +173,53 @@ pub enum Command {
     ArrivalDirect { },
 }
 
+impl Command {
+    /// Feed the closure a series of byte arrays that give our wire
+    /// representation. 
+    ///
+    /// We could return a `-> impl Iterator+TrustedLen` here using
+    /// `flat_map` except that Rust dislikes static literals unless
+    /// they are strings, so no `&'static [0x00u8; 1]`.
+    fn feed_bytes<F,R>(&self, f: F) -> R 
+      where F: FnOnce(&[&[u8]]) -> R {
+        use self::Command::*;
+        match *self {
+            CrossOver { alpha, gamma } =>
+                f(&[ &[0x00u8; 1], &alpha, &gamma.0 ]),
+            Ratchet { twig, gamma } => 
+                f(&[ &[0x80u8; 1], & twig.to_bytes(), &gamma.0 ]),
+            Delivery { mailbox } =>
+                f(&[ &[0x40u8; 1], &mailbox.0 ]),
+            Transmit { route, gamma } =>
+                f(&[ &[0x40u8; 1], &route.0, &gamma.0 ]),
+            ArrivalSURB { } => 
+                f(&[ &[0x30u8; 1] ]),
+            ArrivalDirect { } =>
+                f(&[ &[0x20u8; 1] ]),
+        }
+    }
+
+    /// Length of 
+    pub fn length_as_bytes(&self) -> usize {
+        self.feed_bytes( |x| { x.iter().map(|y| y.len()).sum() } )
+    }
+
+    /// 
+    pub fn prepend_bytes(&self, target: &mut [u8]) -> usize {
+        self.feed_bytes( |x| { super::utils::prepend_slice_of_slices(target, x) } )
+    }
+}
+
+/// Reads a `PacketName` from the SURB log and trims the SURB log
+/// to removing it.  Used in SURB unwinding.
+///
+/// We avoid making this a method to `HeaderRefs` because it trims
+/// the SURB log by shortening the slice, violating the inveriant
+/// assumed by `HeaderRef`.
+pub fn read_n_trim_surb_log(surb_log: &mut &[u8]) -> PacketName {
+    PacketName(*reserve_fixed!(surb_log,PACKET_NAME_LENGTH))
+}
+
 
 /*
 use std::ops::{Deref,DerefMut};
@@ -223,49 +239,6 @@ impl<'a,T> DerefMut for HideMut<'a,T> where T: ?Sized {
     fn deref_mut(&mut self) -> &mut T { self.0 }
 }
 */
-
-
-/// Shift a slice `s` rightward by `shift` elements.  Does not zero
-/// the initial segment created, but does return its bounds. 
-/// Destroys the trailing `shift` elements of `s`.
-fn pre_shift_right_slice<T: Copy>(s: &mut [T], shift: usize) -> ::std::ops::Range<usize> {
-    let len = s.len();
-    if len <= shift { return 0..len; }
-    let mut i = s.len();
-    let s = &mut s[..i];  // elide bounds checks; see Rust commit 6a7bc47
-    while i > shift {
-        i -= 1;
-        s[i] = s[i-shift];
-    }    // I dislike  for i in (target.len()-1 .. start-1).step_by(-1) { }
-    0 .. ::std::cmp::min(shift,len)
-}
-
-/// Prepends a slice to the slice `target`, shifting `target` rightward.
-/// Destroys the trailing `shift` elements of `target`.
-///
-/// We sadly cannot require that `I::IntoIter: ExactSizeIterator` here
-/// because `Chain` does not satisfy that, due to fears the length
-/// might overflow.  See https://github.com/rust-lang/rust/issues/34433
-/// Just requiring `TrustedLen` and asserting that `size_hint` gives
-/// equal uper and lower bounds should be equevelent.
-#[inline]
-fn prepend_to_slice<I>(target: &mut [I::Item], prepend: I) -> usize
-  where I: IntoIterator, I::IntoIter: TrustedLen, I::Item: Copy
-{
-    let mut prepend = prepend.into_iter();
-
-    // let start = prepend.len();
-    let (start,end) = prepend.size_hint();
-    assert_eq!(Some(start), end);
-
-    let r = pre_shift_right_slice(target,start);
-
-    let end = r.end;
-    // target[r].copy_from_slice(prepend[r]);
-    for (i,j) in target[r].iter_mut().zip(prepend) { *i = j; }
-    end
-}
-
 
 /// A Sphinx header structured by individual components. 
 ///
@@ -321,38 +294,45 @@ impl<'a> HeaderRefs<'a> {
 
     /// Prepend a `PacketName` to the SURB log.
     /// Used in SURB rerouting so that SURB unwinding works.
-    pub fn prepend_to_surb_log(&mut self, prepend: &PacketName) {
-        prepend_to_slice(self.surb_log, prepend.0.iter().map(|x| *x));
+    pub fn prepend_to_surb_log(&mut self, packet_name: &PacketName) {
+        super::utils::prepend_slice_of_slices(self.surb_log, &[&packet_name.0]);
+        // super::utils::prepend_iterator(self.surb_log, packet_name.0.iter().map(|x| *x));
     }
 
     /// Prepend a command to beta for creating beta.
-    pub fn prepend_to_beta(&mut self, cmd: &Command) {
+    pub fn prepend_to_beta(&mut self, cmd: &Command) -> usize {
+        cmd.prepend_bytes(self.beta)
+    }
+
+    /// Prepend a command to beta for creating beta.
+    pub fn prepend_to_beta_old(&mut self, cmd: &Command) -> usize {
         use self::Command::*;
         let l = match *cmd {
-            CrossOver { alpha, gamma } => prepend_to_slice(self.beta,
+            CrossOver { alpha, gamma } => prepend_iterator(self.beta,
                 [0x00u8; 1].iter()
                 .chain(&alpha)
                 .chain(&gamma.0).map(|x| *x)
             ),
-            Ratchet { twig, gamma } => prepend_to_slice(self.beta,
+            Ratchet { twig, gamma } => prepend_iterator(self.beta,
                 [0x80u8; 1].iter()
                 .chain(& twig.to_bytes())
                 .chain(&gamma.0).map(|x| *x)
             ),
-            Delivery { mailbox } => prepend_to_slice(self.beta,
+            Delivery { mailbox } => prepend_iterator(self.beta,
                 [0x40u8; 1].iter()
                 .chain(&mailbox.0).map(|x| *x)
             ),
-            Transmit { route, gamma } => prepend_to_slice(self.beta,
+            Transmit { route, gamma } => prepend_iterator(self.beta,
                 [0x40u8; 1].iter()
                 .chain(&route.0)
                 .chain(&gamma.0).map(|x| *x)
             ),
-            ArrivalSURB { } => prepend_to_slice(self.beta, [0x30u8; 1].iter().map(|x| *x) ),
-            ArrivalDirect { } => prepend_to_slice(self.beta, [0x20u8; 1].iter().map(|x| *x) ),
+            ArrivalSURB { } => prepend_iterator(self.beta, [0x30u8; 1].iter().map(|x| *x) ),
+            ArrivalDirect { } => prepend_iterator(self.beta, [0x20u8; 1].iter().map(|x| *x) ),
             // _ => return Err( SphinxError::UnknownCommand(0x00) ),
         };
         debug_assert!(l <= self.params.max_beta_tail_length as usize);
+        l
     }
 
     /// Read a command from the beginning of beta.

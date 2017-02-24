@@ -1,4 +1,95 @@
 
+
+
+
+
+
+
+
+    pub fn prepend_bytes(&self, target: &mut [u8]) -> usize {
+        self.feed_wire_bytes( |x| { 
+            let start = x.iter().map(|y| y.len()).sum();
+            let mut r = pre_shift_right_slice(target,start);
+
+            let mut target = target[r];
+            for y in x.iter() {
+                reserve_mut(&mut target,y.len()).copy_from_slice(y);
+            }
+            r.end
+        } )
+    }
+
+
+
+
+    pub fn prepend_to_beta(&mut self, cmd: &Command) -> usize {
+        use self::Command::*;
+        let l = match *cmd {
+            CrossOver { alpha, gamma } => prepend_to_slice(self.beta,
+                [0x00u8; 1].iter()
+                .chain(&alpha)
+                .chain(&gamma.0).map(|x| *x)
+            ),
+            Ratchet { twig, gamma } => prepend_to_slice(self.beta,
+                [0x80u8; 1].iter()
+                .chain(& twig.to_bytes())
+                .chain(&gamma.0).map(|x| *x)
+            ),
+            Delivery { mailbox } => prepend_to_slice(self.beta,
+                [0x40u8; 1].iter()
+                .chain(&mailbox.0).map(|x| *x)
+            ),
+            Transmit { route, gamma } => prepend_to_slice(self.beta,
+                [0x40u8; 1].iter()
+                .chain(&route.0)
+                .chain(&gamma.0).map(|x| *x)
+            ),
+            ArrivalSURB { } => prepend_to_slice(self.beta, [0x30u8; 1].iter().map(|x| *x) ),
+            ArrivalDirect { } => prepend_to_slice(self.beta, [0x20u8; 1].iter().map(|x| *x) ),
+            // _ => return Err( SphinxError::UnknownCommand(0x00) ),
+        };
+        debug_assert!(l <= self.params.max_beta_tail_length as usize);
+        l
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 fn prepend_to_slice(target: &mut [u8], prepend: &[u8]) {
     let start = prepend.len();
     if target.len() > start {

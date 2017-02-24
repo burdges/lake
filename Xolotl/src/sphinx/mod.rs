@@ -6,13 +6,18 @@
 
 mod curve;
 mod stream;
-mod header;
 mod body;
 mod replay;
 mod node;
 mod keys;
 mod mailbox;
 mod error;
+
+#[macro_use]
+mod utils;
+
+mod header;
+
 
 pub use self::header::SphinxParams;
 
