@@ -304,37 +304,6 @@ impl<'a> HeaderRefs<'a> {
         cmd.prepend_bytes(self.beta)
     }
 
-    /// Prepend a command to beta for creating beta.
-    pub fn prepend_to_beta_old(&mut self, cmd: &Command) -> usize {
-        use self::Command::*;
-        let l = match *cmd {
-            CrossOver { alpha, gamma } => prepend_iterator(self.beta,
-                [0x00u8; 1].iter()
-                .chain(&alpha)
-                .chain(&gamma.0).map(|x| *x)
-            ),
-            Ratchet { twig, gamma } => prepend_iterator(self.beta,
-                [0x80u8; 1].iter()
-                .chain(& twig.to_bytes())
-                .chain(&gamma.0).map(|x| *x)
-            ),
-            Delivery { mailbox } => prepend_iterator(self.beta,
-                [0x40u8; 1].iter()
-                .chain(&mailbox.0).map(|x| *x)
-            ),
-            Transmit { route, gamma } => prepend_iterator(self.beta,
-                [0x40u8; 1].iter()
-                .chain(&route.0)
-                .chain(&gamma.0).map(|x| *x)
-            ),
-            ArrivalSURB { } => prepend_iterator(self.beta, [0x30u8; 1].iter().map(|x| *x) ),
-            ArrivalDirect { } => prepend_iterator(self.beta, [0x20u8; 1].iter().map(|x| *x) ),
-            // _ => return Err( SphinxError::UnknownCommand(0x00) ),
-        };
-        debug_assert!(l <= self.params.max_beta_tail_length as usize);
-        l
-    }
-
     /// Read a command from the beginning of beta.
     fn parse_beta(&self) -> SphinxResult<(Command,usize)> {
         use self::Command::*;
