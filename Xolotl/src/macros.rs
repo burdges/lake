@@ -22,6 +22,7 @@ impl<T> Drop for Secret<T> where T: Copy {
 }
 
 
+/*
 /// Zeroing drop impl for secret key material.
 ///
 /// Rust does not zero non-`Drop` types when it drops them.  
@@ -46,7 +47,7 @@ macro_rules! impl_ZeroingDrop {
         }
     }
 }
-
+*/
 
 #[cfg(test)]
 mod tests {
@@ -76,19 +77,21 @@ mod tests {
             unsafe { assert_eq!((*p).0,[0u8; 32]); }
         }
     }
+
+/*
     #[test]
     fn zeroing_drops() {
         // zeroing_drop_test!(super::DropSecret<[u8; 32]>);
         zeroing_drop_test!(super::Secret<[u8; 32]>);
         // zeroing_drop_test!(SphinxSecret);
         zeroing_drop_test!(ExtraKey);
-/*
-        zeroing_drop_test!(self::ratchet::twig::TrainKey);
-        zeroing_drop_test!(self::ratchet::twig::ChainKey);
-        zeroing_drop_test!(self::ratchet::twig::LinkKey);
-        zeroing_drop_test!(self::ratchet::twig::BerryKey);
-*/
+        // zeroing_drop_test!(self::ratchet::twig::TrainKey);
+        // zeroing_drop_test!(self::ratchet::twig::ChainKey);
+        // zeroing_drop_test!(self::ratchet::twig::LinkKey);
+        // zeroing_drop_test!(self::ratchet::twig::BerryKey);
     }
+*/
+
 }
 
 

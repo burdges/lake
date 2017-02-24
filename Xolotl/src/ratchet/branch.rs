@@ -30,8 +30,6 @@ use super::twig::*;
 #[derive(Debug, Default, Clone)] // Hash
 pub struct ExtraKey(pub [u8; 32]);
 
-impl_ZeroingDrop!(ExtraKey, [0u8; 32]);
-
 
 /// Use constant time equality for `ExtraKey`.  Arguably, one should not
 /// provide `==` and force users to do it manually, but this seems safer.
