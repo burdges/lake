@@ -86,8 +86,9 @@ impl SphinxParams {
     pub fn slice_header<'a>(&'static self, mut header: &'a mut [u8])
       -> SphinxResult<HeaderRefs<'a>>
     {
-        if header.len() < self.header_length() {
-            return Err( SphinxError::InternalError("Header is too short!") );
+        let orig_len = header.len();
+        if orig_len < self.header_length() {
+            return Err( SphinxError::BadLength("Header",orig_len,"is too short.") );
         }
         let hr = HeaderRefs {
             params: self,
@@ -98,7 +99,7 @@ impl SphinxParams {
             surb: reserve_mut(&mut header,self.surb_length()),
         };
         if header.len() > 0 {
-            return Err( SphinxError::InternalError("Header is too long!") );
+            return Err( SphinxError::BadLength("Header",orig_len,"is too long.") );
         }
         Ok(hr)
     }
@@ -109,12 +110,12 @@ impl SphinxParams {
             if body_length == 0 {
                 Ok(())  // All body lengths are zero if no body lengths were specified
             } else {
-                Err( SphinxError::InternalError("Nonempty body with no body lengths specified.") )
+                Err( SphinxError::BadLength("Body",body_length,"with no body lengths specified.") )
             }
         } else if self.body_lengths.contains(&body_length) {
             Ok(())
         } else {
-            Err( SphinxError::BadBodyLength(body_length) )
+            Err( SphinxError::BadLength("Body",body_length,"is unapproved.") )
         }
     }
 
@@ -208,6 +209,40 @@ impl Command {
     pub fn prepend_bytes(&self, target: &mut [u8]) -> usize {
         self.feed_bytes( |x| { super::utils::prepend_slice_of_slices(target, x) } )
     }
+
+    /// Read a command from the beginning of beta.
+    fn parse(mut beta: &[u8]) -> SphinxResult<(Command,usize)> {
+        use self::Command::*;
+        let beta_len = beta.len();
+        // We consider only the high four bits for now because
+        // we might tweak TwigId, MailboxName, and RoutingName
+        // to shave off one byte eventually.
+        let b0 = reserve_fixed!(&mut beta,1)[0] & 0xF0;
+        let command = match b0 {
+            0x00 => CrossOver {
+                alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
+                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
+            },
+            0x80 => Ratchet {
+                twig: TwigId::from_bytes(reserve_fixed!(&mut beta,TWIG_ID_LENGTH)),
+                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
+            },
+            // 0x90 through 0xF reserved
+            0x60 => Delivery {
+                mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
+            },
+            0x40 => Transmit {
+                route: RoutingName(*reserve_fixed!(&mut beta,ROUTING_NAME_LENGTH)),
+                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
+            },
+            // 0x70, 0x50, and 0x0x10 reserved
+            0x30 => ArrivalSURB { },
+            0x20 => ArrivalDirect { },
+            c => return Err( SphinxError::UnknownCommand(c) ),
+        };
+        Ok((command, beta_len-beta.len()))
+    }
+
 }
 
 /// Reads a `PacketName` from the SURB log and trims the SURB log
@@ -304,43 +339,12 @@ impl<'a> HeaderRefs<'a> {
         cmd.prepend_bytes(self.beta)
     }
 
-    /// Read a command from the beginning of beta.
-    fn parse_beta(&self) -> SphinxResult<(Command,usize)> {
-        use self::Command::*;
-        let mut beta: &[u8] = self.beta;  // Do not change the referant of self.beta!
-        let beta_len = beta.len();
-        // We consider only the high four bits for now because
-        // we might tweak TwigId, MailboxName, and RoutingName
-        // to shave off one byte eventually.
-        let b0 = reserve_fixed!(&mut beta,1)[0] & 0xF0;
-        let command = match b0 {
-            0x00 => CrossOver {
-                alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
-                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
-            },
-            0x80 => Ratchet {
-                twig: TwigId::from_bytes(reserve_fixed!(&mut beta,TWIG_ID_LENGTH)),
-                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
-            },
-            // 0x90 through 0xF reserved
-            0x60 => Delivery {
-                mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
-            },
-            0x40 => Transmit {
-                route: RoutingName(*reserve_fixed!(&mut beta,ROUTING_NAME_LENGTH)),
-                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
-            },
-            // 0x70, 0x50, and 0x0x10 reserved
-            0x30 => ArrivalSURB { },
-            0x20 => ArrivalDirect { },
-            c => return Err( SphinxError::UnknownCommand(c) ),
-        };
-        Ok((command, beta_len-beta.len()))
-    }
-
-    /// Read a command from the beginning of beta and .
+    /// Read a command from an initial segment of beta, shift beta
+    /// forward by its length, and pad the tail of beta.
+    ///
+    /// TODO: Consider decrypting beta here too.
     pub fn parse_n_shift_beta(&mut self, hop: &mut SphinxHop) -> SphinxResult<Command> {
-        let (command, eaten) = self.parse_beta() ?;  // UnknownCommand
+        let (command, eaten) = Command::parse(self.beta) ?;  // UnknownCommand
         if eaten > self.params.max_beta_tail_length as usize {
             return Err( SphinxError::InternalError("Ate too much Beta!") );
         }
