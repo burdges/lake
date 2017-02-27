@@ -79,7 +79,6 @@ impl State {
 /// Create a locked branch identifier.
 pub fn lock_branch_id(state: &Arc<State>, bid: BranchId) -> RatchetResult<BranchIdGuard> {
     let mut locked = state.locked.write() ?; // PoisonError
-    // let mut locked = wtf.deref_mut(); 
     if locked.insert(bid) {
         Ok( BranchIdGuard( state.clone(), bid ) )
     } else {
