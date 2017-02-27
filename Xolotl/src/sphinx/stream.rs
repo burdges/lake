@@ -222,21 +222,20 @@ impl fmt::Debug for SphinxHop {
 }
 
 impl SphinxHop {
-    // TODO: Can we abstract the lengths checks?
-    // /// Raise errors if beta
-    // fn check_lengths(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<()> {
-    //     if beta.len() != self.params.beta_length as usize {
-    //         return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
-    //     }
-    //     if surb.len() != self.params.surb_length() {
-    //         return Err( SphinxError::InternalError("SURB has the incorrect length for MAC!") );
-    //     }
-    // }
+    // TODO: Can we abstract the lengths checks?  Operate on a pair
+    // `(HeaderRefs,SphinxHop)` perhaps?
 
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
     ///
     /// Does not verify the lengths of Beta or the SURB.
-    pub fn create_gamma(&self, beta: &[u8], surb: &[u8]) -> Gamma {
+    pub fn create_gamma(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<Gamma> {
+         if beta.len() != self.params.beta_length as usize {
+             return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
+         }
+         if surb.len() != self.params.surb_length() {
+             return Err( SphinxError::InternalError("SURB has the incorrect length for MAC!") );
+         }
+
         // According to the current API gamma_out lies in a buffer supplied
         // by our caller, so no need for games to zero it here.
         let mut gamma_out: Gamma = Default::default();
@@ -247,7 +246,7 @@ impl SphinxHop {
         poly.input(surb);
         poly.raw_result(&mut gamma_out.0);
         poly.reset();
-        gamma_out
+        Ok(gamma_out)
     }
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet.
@@ -256,7 +255,7 @@ impl SphinxHop {
     /// verify the lengths of Beta or the SURB.
     pub fn verify_gamma(&self, beta: &[u8], surb: &[u8], gamma_given: &Gamma)
       -> SphinxResult<()> {
-        let gamma_found = self.create_gamma(beta, surb);
+        let gamma_found = self.create_gamma(beta, surb) ?;  // InternalError
         // TODO: let gamma_found = ClearOnDrop::new(&gamma_found);
         if ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0) {
             Err( SphinxError::InvalidMac(self.replay_code.error_packet_id()) )
