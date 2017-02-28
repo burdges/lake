@@ -22,22 +22,22 @@
 \def\ck{\textrm{ck}}
 \def\DH{\textrm{DH}}
 \def\mk{\textrm{mk}}
-\def\ECDH{\textrm{ECDH}}
+\def\Sphinx{\textrm{Sphinx}}
 
 \[\begin{tikzcd}[ampersand replacement=\&, column sep=small]
 \cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[rr] \ar[d] \& \& \cdot \ar[r] \ar[d] \& \cdot \ar[d] \&  \& \& \\
  \& \ck \ar[d] \& \ck \ar[d] \& \& \ck \ar[d] \& \ck \ar[d] \&  \& \& \\
- \& \ECDH \ar[d] \& \ECDH \ar[d] \& \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
+ \& \Sphinx \ar[d] \& \Sphinx \ar[d] \& \& \Sphinx \ar[d] \& \Sphinx\ar[d] \&  \& \& \\
  \& \mk \& \mk \ar[dddr, in=90, out=270] \& \& \mk \& \mk \&  \& \& \\
 \\
 \\
  \& \& \ck \ar[r] \& \ck \ar[r] \ar[d] \& \ck \ar[r] \ar[d] \& \ck \ar[r] \ar[d] \& \ck \ar[d] \&  \& \& \\
- \& \& \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
+ \& \& \& \Sphinx \ar[d] \& \Sphinx \ar[d] \& \Sphinx \ar[d] \& \Sphinx\ar[d] \&  \& \& \\
  \& \& \& \mk \ar[dddl, in=90, out=270] \& \mk \& \mk \ar[dddlll, dotted, in=50, out=270] \& \mk \ar[dddllll, dotted, in=30, out=270] \&  \& \& \\
 \\
 \\
  \& \& \ck \ar[r] \& \ck \ar[r] \ar[d] \& \ck \ar[r] \ar[d] \& \ck \ar[r] \ar[d] \& \ck \ar[d] \&  \& \& \\
- \& \& \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
+ \& \& \& \Sphinx \ar[d] \& \Sphinx \ar[d] \& \Sphinx \ar[d] \& \Sphinx\ar[d] \&  \& \& \\
  \& \& \& \mk \& \mk \& \mk \& \mk \&  \& \& \\
 \end{tikzcd}\]
 
@@ -53,10 +53,10 @@
 
 
 \[\begin{tikzcd}[ampersand replacement=\&, column sep=small]
- \cdot \ar[r] \& \& \ECDH \& \& \\ 
-% \cdot \ar[d] \ar[l] \& \& \ECDH \\ \\
-% \cdot \ar[d] \ar[l] \& \& \ECDH \\ \\
-% \cdot \ar[l] \& \ECDH \\ 
+ \cdot \ar[r] \& \& \Sphinx \& \& \\ 
+% \cdot \ar[d] \ar[l] \& \& \Sphinx \\ \\
+% \cdot \ar[d] \ar[l] \& \& \Sphinx \\ \\
+% \cdot \ar[l] \& \Sphinx \\ 
 \end{tikzcd}\]
 
 
@@ -64,11 +64,11 @@
 
 \[\begin{tikzcd}[ampersand replacement=\&, column sep=small]
 \MK \& \CK \& \RK \& \CK \& \MK \\
- \& \& \ECDH(A_0,B_0) \ar[dd] \& \& \\
+ \& \& \Sphinx(A_0,B_0) \ar[dd] \& \& \\
  \& \& \& \& \\
- \& \& \ECDH(A_1,B_0) \ar[lddd] \ar[dd] \& \& \\ 
+ \& \& \Sphinx(A_1,B_0) \ar[lddd] \ar[dd] \& \& \\ 
  \& \& \& \& \\
- \& \& \ECDH(A_1,B_1) \ar[rddd] \ar[dddddddd] \& \& \\
+ \& \& \Sphinx(A_1,B_1) \ar[rddd] \ar[dddddddd] \& \& \\
  \& \CK(A_1,B_0) \ar[d] \& \& \& \\
 \MK_0 \& \cdot \ar[dd] \ar[l] \& \& \& \\
  \& \& \& \CK(A_1,B_1) \ar[dd] \& \\
@@ -76,11 +76,11 @@
  \& \& \& \cdot \ar[dd] \ar[r] \& \MK_0 \\
 \MK_2 \& \cdot \ar[l] \& \& \& \\
  \& \& \& \cdot \ar[r] \& \MK_1 \\
- \& \& \ECDH(A_2,B_1) \ar[lddd] \ar[dddd] \& \& \\ 
+ \& \& \Sphinx(A_2,B_1) \ar[lddd] \ar[dddd] \& \& \\ 
  \& \& \& \& \\
  \& \& \& \& \\
  \& \CK(A_2,B_1) \ar[dd] \& \& \& \\
- \& \& \ECDH(A_2,B_2) \ar[rddd] \arrow[ddddddd,dashrightarrow] \& \& \\ 
+ \& \& \Sphinx(A_2,B_2) \ar[rddd] \arrow[ddddddd,dashrightarrow] \& \& \\ 
 \MK_0 \& \cdot \ar[l] \& \& \& \\
  \& \& \& \& \\
  \& \& \& \CK(A_2,B_2) \ar[dd] \& \\
