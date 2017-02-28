@@ -4,7 +4,7 @@
 //!
 //! ...
 
-use std::iter::{Iterator,IntoIterator,TrustedLen};  // ExactSizeIterator
+use std::iter::{Iterator,IntoIterator};  // TrustedLen, ExactSizeIterator
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
@@ -88,7 +88,7 @@ impl SphinxParams {
     {
         let orig_len = header.len();
         if orig_len < self.header_length() {
-            return Err( SphinxError::BadLength("Header",orig_len,"is too short.") );
+            return Err( SphinxError::BadLength("Header is too short",orig_len) );
         }
         let hr = HeaderRefs {
             params: self,
@@ -99,7 +99,7 @@ impl SphinxParams {
             surb: reserve_mut(&mut header,self.surb_length()),
         };
         if header.len() > 0 {
-            return Err( SphinxError::BadLength("Header",orig_len,"is too long.") );
+            return Err( SphinxError::BadLength("Header is too long",orig_len) );
         }
         Ok(hr)
     }
@@ -110,12 +110,12 @@ impl SphinxParams {
             if body_length == 0 {
                 Ok(())  // All body lengths are zero if no body lengths were specified
             } else {
-                Err( SphinxError::BadLength("Body",body_length,"with no body lengths specified.") )
+                Err( SphinxError::BadLength("Nonempty body with no body lengths specified", body_length) )
             }
         } else if self.body_lengths.contains(&body_length) {
             Ok(())
         } else {
-            Err( SphinxError::BadLength("Body",body_length,"is unapproved.") )
+            Err( SphinxError::BadLength("Unapproaved body length",body_length) )
         }
     }
 
@@ -323,8 +323,8 @@ impl<'a> HeaderRefs<'a> {
     }
 
     /// Compute gamma from Beta and the SURB.  Probably not useful.
-    pub fn create_gamma(&mut self, hop: SphinxHop) {
-        *self.gamma = hop.create_gamma(self.beta, self.surb).0;
+    pub fn create_gamma(&self, hop: SphinxHop) -> SphinxResult<Gamma> {
+        hop.create_gamma(self.beta, self.surb) // .map(|x| { x.0 })
     }
 
     /// Prepend a `PacketName` to the SURB log.
@@ -339,20 +339,22 @@ impl<'a> HeaderRefs<'a> {
         cmd.prepend_bytes(self.beta)
     }
 
-    /// Read a command from an initial segment of beta, shift beta
-    /// forward by its length, and pad the tail of beta.
-    ///
-    /// TODO: Consider decrypting beta here too.
-    pub fn parse_n_shift_beta(&mut self, hop: &mut SphinxHop) -> SphinxResult<Command> {
+    /// Decrypt beta, read a command from an initial segment of beta,
+    /// shift beta forward by the command's length, and pad the tail
+    /// of beta.
+    pub fn peal_beta(&mut self, hop: &mut SphinxHop) -> SphinxResult<Command> {
+        hop.xor_beta(self.beta, false) ?;  // InternalError
+
         let (command, eaten) = Command::parse(self.beta) ?;  // UnknownCommand
         if eaten > self.params.max_beta_tail_length as usize {
             return Err( SphinxError::InternalError("Ate too much Beta!") );
         }
+
         let length = self.beta.len();
         debug_assert_eq!(length, self.params.beta_length as usize);
-        // let beta = &mut refs.beta[..length]; 
+        // let beta = &mut refs.beta[..length];
         for i in eaten..length { self.beta[i-eaten] = self.beta[i];  }
-        hop.set_beta_tail(&mut self.beta[length-eaten..length]);
+        hop.set_beta_tail(&mut self.beta[length-eaten..length]) ?;
         Ok(command)
     }
 }

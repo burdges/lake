@@ -38,7 +38,7 @@ pub const PACKET_NAME_LENGTH : usize = 16;
 pub type PacketNameBytes = [u8; PACKET_NAME_LENGTH];
 
 /// Packet name used for unrolling SURBs
-#[derive(Copy, Clone, Default)]  // Debug??
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 pub struct PacketName(pub PacketNameBytes);
 
 

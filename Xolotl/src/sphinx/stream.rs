@@ -303,12 +303,13 @@ impl SphinxHop {
         &self.packet_name
     }
 
-    pub fn xor_beta(&mut self, beta: &mut [u8]) -> SphinxResult<()> {
-        if beta.len() < self.params.beta_length as usize {
+    pub fn xor_beta(&mut self, beta: &mut [u8], allow_tail: bool) -> SphinxResult<()> {
+        let mut len = self.params.beta_length as usize;
+        if beta.len() < len {
             return Err( SphinxError::InternalError("Beta too short to encrypt!") );
         }
-        if beta.len() > self.params.beta_length as usize
-                        + self.params.max_beta_tail_length as usize {
+        if allow_tail { len += self.params.max_beta_tail_length as usize }
+        if beta.len() > len {
             return Err( SphinxError::InternalError("Beta too long to encrypt!") );
         }
         self.stream.seek_to(self.chunks.beta.start as u64).unwrap();

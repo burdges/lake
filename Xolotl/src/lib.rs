@@ -13,9 +13,10 @@
 #![feature(core_intrinsics)] // Remove with ClearOnDrop
 
 // #![feature(step_by)]
-#![feature(box_syntax)]
-#![feature(associated_consts)]
 #![feature(trusted_len)]
+#![feature(box_syntax)]
+#![feature(field_init_shorthand)]
+#![feature(associated_consts)]
 
 // #![doc(html_root_url="...")]
 

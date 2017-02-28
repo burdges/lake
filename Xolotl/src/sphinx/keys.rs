@@ -102,7 +102,7 @@ impl ValidityPeriod {
 pub const ROUTING_NAME_LENGTH : usize = 16;
 
 /// Identifies a particular node and its routing key.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RoutingName(pub [u8; ROUTING_NAME_LENGTH]);
 
 /// Routing public key certificate
