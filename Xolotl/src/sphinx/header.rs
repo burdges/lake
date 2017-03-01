@@ -185,8 +185,15 @@ impl Command {
       where F: FnOnce(&[&[u8]]) -> R {
         use self::Command::*;
         match *self {
-            CrossOver { alpha, gamma } =>
-                f(&[ &[0x00u8; 1], &alpha, &gamma.0 ]),
+            CrossOver { alpha, gamma } => {
+                assert!(alpha[31] & 0x80 == 0);
+                // Prefix reduced encoding for curve elements in
+                // compressed Montgomery U representation.
+                // alpha.reverse();
+                // f(&[ &alpha, &gamma.0 ])
+                // Wasteful as crossover happens only once per header.
+                f(&[ &[0x00u8; 1], &alpha, &gamma.0 ])
+            },
             Ratchet { twig, gamma } => 
                 f(&[ &[0x80u8; 1], & twig.to_bytes(), &gamma.0 ]),
             Delivery { mailbox } =>
@@ -214,10 +221,22 @@ impl Command {
     fn parse(mut beta: &[u8]) -> SphinxResult<(Command,usize)> {
         use self::Command::*;
         let beta_len = beta.len();
+
+        // Prefix reduced encoding for curve elements in
+        // compressed Montgomery U representation.
+        // if beta[0] & 0x80 == 0 {
+        //     let command = CrossOver {
+        //         alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
+        //         gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
+        //     };
+        //     command.alpha.reverse();
+        // }
+        // Wasteful as crossover happens only once per header.
+
         // We consider only the high four bits for now because
         // we might tweak TwigId, MailboxName, and RoutingName
         // to shave off one byte eventually.
-        let b0 = reserve_fixed!(&mut beta,1)[0] & 0xF0;
+        let b0 = reserve_fixed!(&mut beta,1)[0] & 0xE0;
         let command = match b0 {
             0x00 => CrossOver {
                 alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
@@ -228,15 +247,15 @@ impl Command {
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
             // 0x90 through 0xF reserved
-            0x60 => Delivery {
+            0xA0 => Delivery {
                 mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
             },
-            0x40 => Transmit {
+            0xC0 => Transmit {
                 route: RoutingName(*reserve_fixed!(&mut beta,ROUTING_NAME_LENGTH)),
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
             // 0x70, 0x50, and 0x0x10 reserved
-            0x30 => ArrivalSURB { },
+            0xE0 => ArrivalSURB { },
             0x20 => ArrivalDirect { },
             c => return Err( SphinxError::UnknownCommand(c) ),
         };
