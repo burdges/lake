@@ -4,6 +4,7 @@
 //!
 //! ...
 
+use std::borrow::{Borrow,BorrowMut};
 
 // pub ed25519_dalek::ed25519;
 
@@ -12,7 +13,7 @@ use super::curve::{AlphaBytes,Scalar,Point};
 use super::stream::{Gamma,SphinxKey,SphinxHop};
 use super::header::{SphinxParams,HeaderRefs,Command};
 use super::keys::RoutingName;
-use super::mailbox::MailboxName;
+use super::mailbox::*;
 use super::utils::*;
 use super::error::*;
 use super::*;
@@ -66,13 +67,14 @@ impl SphinxRouter {
     /// Invokes ratchet and cross over functionality itself, but
     /// must return an `Action` for functionality that requires
     /// ownership of the header and/or body.
-    fn do_crypto(&self, refs: HeaderRefs, body: &mut [u8]) -> SphinxResult<()> {
+    fn do_crypto(&self, refs: HeaderRefs, body: &mut [u8])
+      -> SphinxResult<(PacketName,Action)> {
         // Compute shared secret from the Diffie-Helman key exchange.
         let alpha = refs.alpha.decompress() ?;  // BadAlpha
         let ss = alpha.key_exchange(self.private);
 
         // Initalize the stream cipher
-        let mut key = self.params.sphinx_key(&ss, self.routing_secret.name);
+        let mut key = self.params.sphinx_kdf(&ss, self.routing_secret.name);
         let mut hop = key.hop();
 
         // Abort if our MAC gamma fails to verify
@@ -82,14 +84,13 @@ impl SphinxRouter {
         hop.replay_check(&self.replayer) ?; // Replay
 
         // Onion decrypt beta to extract first command.
-        let mut command = refs.peal_beta(&mut hop);  
+        let mut command = refs.peal_beta(&mut hop) ?;  // UnknownCommand, InternalError
 
         // Process `Command::Ratchet` before decrypting the surb log or body.
-        if Command::Ratchet { twig, gamma } = command {
+        if let Command::Ratchet { twig, gamma } = command {
             let TwigId(branch_id, twig_idx) = *twig;
-            let advance = AdvanceNode::(state, &twig, &branch_id) ?;  // RatchetError ??
+            let advance = AdvanceNode::new(state, &branch_id) ?;  // RatchetError ??
             key.chacha_key = advance.clicks(&ss, twig_idx) ?;  // RatchetError ??
-            // Reinitalize 
             hop = key.hop();
             *refs.gamma = gamma;
             if ! refs.verify_gamma(&hop) {
@@ -97,31 +98,33 @@ impl SphinxRouter {
                 return hop.invalid_mac_error();  // InvalidMac
             }
             advance.confirm() ?;  // RatchetError ??
-            command = refs.peal_beta(&mut hop);  // InternalError
-            if Ratchet { .. } = command {
+            command = refs.peal_beta(&mut hop) ?;  // UnknownCommand, InternalError
+            if let Ratchet { .. } = command {
                 return Err( SphinxError::BadPacket("Tried two ratchet subhops.") );
             }
         }
 
         // No need to constant time here.  Should just pass the bool really.
         let already_crossed_over = ::consistenttime::ct_u8_eq( 0u8, 
-            ref.surb_log.iter().fold(0u8, |x,y| { x |= *y }) 
+            refs.surb_log.iter().fold(0u8, |x,y| { x |= *y }) 
         );
 
         // Short circut decrypting the body, SURB and SURB log if
         // we're unwinding an arriving SURB anyways.
         // TODO: Should we better authenticate that SURB were created by us?
-        if Command::ArrivalSURB { } = command {
+        if let Command::ArrivalSURB { } = command {
             // hop.xor_surb(refs.surb);
             // hop.xor_surb_log(refs.surb_log);
-            // hop.lionness_cipher().decrypt(body) ?;  // InternalError 
-            return self.unwind_surbs(hop.packet_name(), refs.surb_log, body, true);
+            // hop.body_cipher().decrypt(body) ?;  // InternalError 
+            return ( *hop.packet_name(),
+                self.unwind_surbs(hop.packet_name(), refs.surb_log, body, true)
+            );
         }
 
         // Decrypt body
-        hop.lionness_cipher().decrypt(body) ?;  // InternalError 
+        hop.body_cipher().decrypt(body) ?;  // InternalError 
 
-        Ok(( hop.packet_name(), match command {
+        Ok(( *hop.packet_name(), match command {
             Command::ArrivalSURB { } => unreachable!(),
             Command::Ratchet {..} => unreachable!(),
 
@@ -133,8 +136,8 @@ impl SphinxRouter {
                 }
                 // Put SURB in control of packet.
                 *refs.alpha = alpha;
-                *refs.gamma = gamma;
-                *refs.beta.copy_from_slice(refs.surb);
+                *refs.gamma = gamma.0;
+                refs.beta.copy_from_slice(refs.surb);
                 // We must zero the SURB feld so that our SURB's gammas
                 // cover values known by its creator.  We might improve
                 // SURB unwinding by zeroing the SURB log field too. 
@@ -143,7 +146,7 @@ impl SphinxRouter {
                 for i in refs.surb.iter_mut() { *i = 0; }
                 for i in refs.surb_log.iter_mut() { *i = 0; }
                 // Process the local SURB hop.
-                self.do_crypto(refs,body)
+                return self.do_crypto(refs,body);
             },
 
             // We mutate all `refs.*` in place, along with body, so
@@ -163,8 +166,8 @@ impl SphinxRouter {
                 hop.xor_surb(refs.surb);
                 hop.xor_surb_log(refs.surb_log);
                 // Prepare packet for next hop as usual in Sphinx.
-                *refs.gamma = gamma;
-                *refs.alpha = alpha.blind(& (hop.blinding() ?)).compress();
+                *refs.gamma = gamma.0;
+                *refs.alpha = alpha.blind(& hop.blinding()).compress();
                 Action::Transmit { route }
             },
 
@@ -186,23 +189,26 @@ impl SphinxRouter {
         assert!(self.params.max_beta_tail_length < self.params.beta_length);
         // assert lengths ...
 
-        self.params.check_body_length(body) ?; // BadLength
+        self.params.check_body_length(body.len()) ?; // BadLength
         let (packet, action) = {
             let refs = self.params.slice_header(header.borrow_mut()) ?;  // BadLength
-            self.do_crypto(kdf,refs,body.borrow_mut()) ? 
+            self.do_crypto(refs,body.borrow_mut()) ? 
         };
         match action {
             Action::Transmit { route } =>
                 self.outgoing.enqueue(&route, packet, OutgoingPacket { route, header, body } ),
             Action::Deliver { mailbox, surb_log } =>
                 self.mailboxes.enqueue(&mailbox, packet, MailboxPacket { surb_log, body } ),
-            Action::Arrival { surbs } =>
-                self.arrivals.push( ArivingPacket { surbs, body } ),
+            Action::Arrival { surbs } => {
+                let arivals = self.arrivals.write().unwrap(); // PoisonError ???
+                arrivals.push( ArivingPacket { surbs, body } );
+                Ok(())
+            },
         }
     }
 
     /// Unwind a chain of SURBs
-    fn unwind_surbs(&self, mut packet_name: PacketName, mut surb_log: &mut [u8], body: &mut [u8]) -> SphinxResult<()> 
+    fn unwind_surbs(&self, mut packet_name: PacketName, mut surb_log: &mut [u8], body: &mut [u8]) -> SphinxResult<Action> 
     {
         let mut starting = true;
         let cap = surb_log.len() / PACKET_NAME_LENGTH + 1;
@@ -210,8 +216,8 @@ impl SphinxRouter {
         // TODO: Should we authentcate SURBs better?
 /*
         loop {
-            let surb_hop = { 
-                let surb_archive = self.surb_archive.write() ?;  // PoisonError
+            let ss = { 
+                let surb_archive = self.surb_archive.write().unwrap();  // PoisonError ???
                 if let Some(sh) = surb_archive.remove(packet_name) { *sh } else {
                     // If any SURBs existed 
                     if ! starting { break; }
@@ -219,10 +225,10 @@ impl SphinxRouter {
                 }
             };
             if ! starting {
-                let key = self.params.sphinx_key(&ss, self.routing_secret.name);
+                let key = self.params.sphinx_kdf(&ss, self.routing_secret.name);
                 let mut hop = key.hop();
                 hop.xor_surb_log(surb_log) ?;  // InternalError
-                hop.lionness_cipher().encrypt(body) ?;  // InternalError
+                hop.body_cipher().encrypt(body) ?;  // InternalError
             } else {
                 purposes.push(packet_name);
                 starting = false; 
@@ -240,7 +246,7 @@ impl SphinxRouter {
         ;
 */
 
-        return Action::Arrival { surbs: purposes } 
+        return Ok( Action::Arrival { surbs: purposes } )
     }
 
 }

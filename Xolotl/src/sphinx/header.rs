@@ -105,7 +105,7 @@ impl SphinxParams {
     }
 
     /// Returns an error if the body length is not approved by the paramaters.
-    pub fn check_body_length(&self, body_length: Length) -> SphinxResult<()> {
+    pub fn check_body_length(&self, body_length: usize) -> SphinxResult<()> {
         if self.body_lengths.len() == 0 {
             if body_length == 0 {
                 Ok(())  // All body lengths are zero if no body lengths were specified
@@ -185,25 +185,18 @@ impl Command {
       where F: FnOnce(&[&[u8]]) -> R {
         use self::Command::*;
         match *self {
-            CrossOver { alpha, gamma } => {
-                assert!(alpha[31] & 0x80 == 0);
-                // Prefix reduced encoding for curve elements in
-                // compressed Montgomery U representation.
-                // alpha.reverse();
-                // f(&[ &alpha, &gamma.0 ])
-                // Wasteful as crossover happens only once per header.
-                f(&[ &[0x00u8; 1], &alpha, &gamma.0 ])
-            },
             Ratchet { twig, gamma } => 
-                f(&[ &[0x80u8; 1], & twig.to_bytes(), &gamma.0 ]),
-            Delivery { mailbox } =>
-                f(&[ &[0x40u8; 1], &mailbox.0 ]),
+                f(&[ &[0x00u8; 1], & twig.to_bytes(), &gamma.0 ]),
             Transmit { route, gamma } =>
-                f(&[ &[0x40u8; 1], &route.0, &gamma.0 ]),
+                f(&[ &[0x80u8; 1], &route.0, &gamma.0 ]),
+            Delivery { mailbox } =>
+                f(&[ &[0x60u8; 1], &mailbox.0 ]),
+            CrossOver { alpha, gamma } =>
+                f(&[ &[0x40u8; 1], &alpha, &gamma.0 ]),
             ArrivalSURB { } => 
-                f(&[ &[0x30u8; 1] ]),
+                f(&[ &[0x50u8; 1] ]),
             ArrivalDirect { } =>
-                f(&[ &[0x20u8; 1] ]),
+                f(&[ &[0x70u8; 1] ]),
         }
     }
 
@@ -221,42 +214,32 @@ impl Command {
     fn parse(mut beta: &[u8]) -> SphinxResult<(Command,usize)> {
         use self::Command::*;
         let beta_len = beta.len();
-
-        // Prefix reduced encoding for curve elements in
-        // compressed Montgomery U representation.
-        // if beta[0] & 0x80 == 0 {
-        //     let command = CrossOver {
-        //         alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
-        //         gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
-        //     };
-        //     command.alpha.reverse();
-        // }
-        // Wasteful as crossover happens only once per header.
-
         // We consider only the high four bits for now because
         // we might tweak TwigId, MailboxName, and RoutingName
         // to shave off one byte eventually.
-        let b0 = reserve_fixed!(&mut beta,1)[0] & 0xE0;
+        let b0 = reserve_fixed!(&mut beta,1)[0] & 0xF0;
         let command = match b0 {
-            0x00 => CrossOver {
-                alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
-                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
-            },
-            0x80 => Ratchet {
+            // Ratchet if the two high bits are clear.
+            0x00..0x30 => Ratchet {
                 twig: TwigId::from_bytes(reserve_fixed!(&mut beta,TWIG_ID_LENGTH)),
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
-            // 0x90 through 0xF reserved
-            0xA0 => Delivery {
-                mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
-            },
-            0xC0 => Transmit {
+            // Transmit if the high bit is set.
+            0x80..0xF0  => Transmit {
                 route: RoutingName(*reserve_fixed!(&mut beta,ROUTING_NAME_LENGTH)),
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
-            // 0x70, 0x50, and 0x0x10 reserved
-            0xE0 => ArrivalSURB { },
-            0x20 => ArrivalDirect { },
+            // Delivery, CrossOver, or Arival if 0x08 is clear while 0x04 is set.
+            0x60 => Delivery {
+                mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
+            },
+            0x40 => CrossOver {
+                alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
+                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
+            },
+            // Arivals are encoded with the low bit set.
+            0x50 => ArrivalSURB { },
+            0x70 => ArrivalDirect { },
             c => return Err( SphinxError::UnknownCommand(c) ),
         };
         Ok((command, beta_len-beta.len()))
@@ -337,12 +320,12 @@ impl<'a> HeaderRefs<'a> {
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
     /// calling `SphinxHop::verify_gamma` with the provided fields.
-    pub fn verify_gamma(&self, hop: SphinxHop) -> SphinxResult<()> {
+    pub fn verify_gamma(&self, hop: &SphinxHop) -> SphinxResult<()> {
         hop.verify_gamma(self.beta, self.surb, &Gamma(*self.gamma))
     }
 
     /// Compute gamma from Beta and the SURB.  Probably not useful.
-    pub fn create_gamma(&self, hop: SphinxHop) -> SphinxResult<Gamma> {
+    pub fn create_gamma(&self, hop: &SphinxHop) -> SphinxResult<Gamma> {
         hop.create_gamma(self.beta, self.surb) // .map(|x| { x.0 })
     }
 
@@ -373,7 +356,7 @@ impl<'a> HeaderRefs<'a> {
         debug_assert_eq!(length, self.params.beta_length as usize);
         // let beta = &mut refs.beta[..length];
         for i in eaten..length { self.beta[i-eaten] = self.beta[i];  }
-        hop.set_beta_tail(&mut self.beta[length-eaten..length]) ?;
+        hop.set_beta_tail(&mut self.beta[length-eaten..length]) ?;  // InternalError
         Ok(command)
     }
 }

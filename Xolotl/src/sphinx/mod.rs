@@ -10,6 +10,7 @@ mod body;
 mod replay;
 mod node;
 mod keys;
+mod surbs;
 mod mailbox;
 mod error;
 

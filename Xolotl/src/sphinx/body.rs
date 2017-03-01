@@ -1,6 +1,6 @@
 // Copyright 2016 Jeffrey Burdges.
 
-//! Sphinx header symmetric cryptographic routines
+//! Sphinx body symmetric cryptographic routines
 //!
 //! ...
 
@@ -23,7 +23,7 @@ pub struct BodyCipher {
 impl BodyCipher {
     pub const KEY_SIZE: usize = 4*64;
 
-    pub fn check_body_length(&self,body_length: usize) -> SphinxResult<()> {
+    pub fn check_body_length(&self, body_length: usize) -> SphinxResult<()> {
         // Just for debugging convenience we check all lengths
         // instead of only the one we need.
         for i in self.params.body_lengths {

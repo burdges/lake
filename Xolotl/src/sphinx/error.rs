@@ -46,8 +46,8 @@ impl fmt::Debug for ErrorPacketId {
 #[derive(Debug, Clone)]
 pub enum SphinxError {
     InternalError(&'static str),
-    BadLength(&'static str, usize, &'static str),
-    // PoisonError(&'static str, &'static str),
+    BadLength(&'static str, usize),
+    PoisonError(&'static str, &'static str),
     UnknownCommand(u8),
     Replay(ErrorPacketId), 
     InvalidMac(ErrorPacketId),
@@ -65,7 +65,7 @@ impl fmt::Display for SphinxError {
             InternalError(s)
                 => write!(f, "Internal error: {}", s),
             BadLength(c,l)
-                => write!(f, "{} ({})", c, l),
+                => write!(f, "Internal length error: {} ({})", c, l),
             PoisonError(l,t)
                 => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
             UnknownCommand(c)
@@ -89,7 +89,7 @@ impl Error for SphinxError {
         use self::SphinxError::*;
         match *self {
             InternalError(_) => None,
-            BadLength(_,_,_) => None,
+            BadLength(_,_) => None,
             PoisonError(_,_) => None, // Maybe here
             UnknownCommand(_) => None,
             Replay(_) => None, 

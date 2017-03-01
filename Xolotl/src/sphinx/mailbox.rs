@@ -45,23 +45,26 @@ impl<K,PM> PacketMapMap<K,PM>
     // TODO: Remove the `IntoIterator<Item=(PacketName,PM::Packet)>`
     // as these are only called on singletons. 
 
-    pub fn new_queue<I>(&self, new_packets: I) -> PM
-      where I: IntoIterator<Item=(PacketName,PM::Packet)>
+    pub fn new_queue<'a,I>(&self, new_packets: I) -> PM
+      where I: IntoIterator<Item=&'a (PacketName,PM::Packet)>,
+            PM::Packet: 'a
     {
         let pm = PM::new_unfamiliar(self.0);
+        {
         let packets = pm.packets().write().unwrap();  // Owned here
-        for (k,v) in new_packets { packets.insert(k,v); }
+        for ref (k,v) in new_packets { packets.insert(k,v); }
+        }
         pm
     }
 
     fn enqueue_familiar(&self, k: &K, packet_name: PacketName, packet: PM::Packet)
       -> SphinxResult<Option<PM>>
     {
-        let queues = self.1.read().unwrap();  // PoisonError
+        let queues = self.1.read().unwrap();  // PoisonError  ???
         let queue = if let Some(q) = queues.get(k) { q } else {
-            return Some( self.new_queue(&[ (packet_name,packet) ]) );
+            return Ok(Some( self.new_queue(&[ (packet_name,packet) ]) ));
         };
-        let packets = queue.packets().write().unwrap();  // PoisonError
+        let packets = queue.packets().write().unwrap();  // PoisonError ???
         if let Some(old) = packets.insert(packet_name,packet) {
             // TODO Improve this error somehow?  Either replay protection failed,
             // or else the hash itself function is broken, or else ??
@@ -73,17 +76,8 @@ impl<K,PM> PacketMapMap<K,PM>
       -> SphinxResult<()> 
     {
         if let Some(pm) = self.enqueue_familiar(k,packet_name,packet) ? {
-            let queues = self.1.write() ?; // PoisonError
+            let queues = self.1.write().unwrap(); // PoisonError ???
             queues.insert(*k, pm );  // Ignore return because get(k) just failed
-        }
-        Ok(())
-    }
-
-    pub fn enqueue<I>(&self, k: &K, packet_name: PacketName, packet: PM::Packet)
-      -> SphinxResult<()> {
-        if let Some(pm) = self.enqueue_familiar(k, new_packets) ? {
-            let queues = self.1.write() ?; // PoisonError
-            queues.insert(*k, pm );  // get(k) just failed
         }
         Ok(())
     }
@@ -123,7 +117,7 @@ impl PacketMapy for Mailbox {
     type Packet = MailboxPacket;
     fn packets(&self) -> &PacketMap<MailboxPacket> { &self.packets }
     fn new_unfamiliar(hs: HasherState) -> Mailbox {
-        Ok( Mailbox { packets : RwLock::new(HashMap::with_hasher(hs)) } )
+        Mailbox { packets : RwLock::new(HashMap::with_hasher(hs)) }
     }
 }
 
@@ -146,7 +140,7 @@ impl PacketMapy for Outgoing {
     type Packet = OutgoingPacket;
     fn packets(&self) -> &PacketMap<OutgoingPacket> { &self.packets }
     fn new_unfamiliar(hs: HasherState) -> Outgoing {
-        Ok( Outgoing { packets: RwLock::new(HashMap::with_hasher(hs)) } )
+        Outgoing { packets: RwLock::new(HashMap::with_hasher(hs)) }
     }
 }
 

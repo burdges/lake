@@ -9,7 +9,6 @@
 // TODO Remove this !!!
 #![allow(dead_code)]
 
-// #![feature(conservative_impl_trait)]
 #![feature(core_intrinsics)] // Remove with ClearOnDrop
 
 // #![feature(step_by)]
@@ -17,11 +16,11 @@
 #![feature(box_syntax)]
 #![feature(field_init_shorthand)]
 #![feature(associated_consts)]
+#![feature(exclusive_range_pattern)]
+// #![feature(conservative_impl_trait)]
 
 // #![doc(html_root_url="...")]
 
-// Sphinx could be built on only core, but Xolotl needs allocation.
-// extern crate core;  
 
 #[macro_use]
 extern crate arrayref;
