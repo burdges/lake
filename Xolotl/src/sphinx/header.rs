@@ -162,7 +162,7 @@ pub enum Command {
 
     /// Deliver message to the specified mailbox, roughly equivelent
     /// to transmition to a non-existant mix network node.
-    Delivery {
+    Deliver {
         /// Mailbox name
         mailbox: MailboxName,
     },
@@ -189,7 +189,7 @@ impl Command {
                 f(&[ &[0x00u8; 1], & twig.to_bytes(), &gamma.0 ]),
             Transmit { route, gamma } =>
                 f(&[ &[0x80u8; 1], &route.0, &gamma.0 ]),
-            Delivery { mailbox } =>
+            Deliver { mailbox } =>
                 f(&[ &[0x60u8; 1], &mailbox.0 ]),
             CrossOver { alpha, gamma } =>
                 f(&[ &[0x40u8; 1], &alpha, &gamma.0 ]),
@@ -229,8 +229,8 @@ impl Command {
                 route: RoutingName(*reserve_fixed!(&mut beta,ROUTING_NAME_LENGTH)),
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
-            // Delivery, CrossOver, or Arival if 0x08 is clear while 0x04 is set.
-            0x60 => Delivery {
+            // Deliver, CrossOver, or Arival if 0x08 is clear while 0x04 is set.
+            0x60 => Deliver {
                 mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
             },
             0x40 => CrossOver {
@@ -240,7 +240,7 @@ impl Command {
             // Arivals are encoded with the low bit set.
             0x50 => ArrivalSURB { },
             0x70 => ArrivalDirect { },
-            c => return Err( SphinxError::UnknownCommand(c) ),
+            c => { return Err( SphinxError::BadPacket("Unknown command",c as u64)); },
         };
         Ok((command, beta_len-beta.len()))
     }
@@ -347,7 +347,7 @@ impl<'a> HeaderRefs<'a> {
     pub fn peal_beta(&mut self, hop: &mut SphinxHop) -> SphinxResult<Command> {
         hop.xor_beta(self.beta, false) ?;  // InternalError
 
-        let (command, eaten) = Command::parse(self.beta) ?;  // UnknownCommand
+        let (command, eaten) = Command::parse(self.beta) ?;  // BadPacket: Unknown Command
         if eaten > self.params.max_beta_tail_length as usize {
             return Err( SphinxError::InternalError("Ate too much Beta!") );
         }

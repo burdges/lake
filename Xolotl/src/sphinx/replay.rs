@@ -85,8 +85,5 @@ impl<'l,R> ReplayChecker for &'l RwLock<R> where for <'r> &'r mut R: ReplayCheck
 
 // pub type trait ReplayFilter = Filter<Key = ReplayCode>;
 
-pub struct State {
+pub type ReplayFilterStore = RwLock<Filter<Key=ReplayCode>>;
 
-}
-
-//         let mut replay = state.replay.write() ?; // PoisonError

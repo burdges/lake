@@ -166,7 +166,7 @@ impl Drop for Advance {
 
 impl Advance {
     /// Begin a transaction to advance the ratchet on the branch `bid`.
-    pub fn new(state: &Arc<State>, bid: BranchId) -> RatchetResult<Advance> {
+    pub fn new(state: &Arc<State>, bid: &BranchId) -> RatchetResult<Advance> {
 
         // We found passing in branch_id required an unecessary call to clone
         let branch_id = lock_branch_id(state,bid) ?;
@@ -290,18 +290,18 @@ impl Advance {
         Ok(linkkey)
     }
 
-    fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, s: SphinxSecret)
+    fn done_known_link(&mut self, idx: TwigIdx, linkkey: &LinkKey, ss: &SphinxSecret)
       -> RatchetResult<MessageKey> {
-        let (messagekey,berrykey) = self.branch_id.id().kdf_berry(linkkey,s);
+        let (messagekey,berrykey) = self.branch_id.id().kdf_berry(linkkey,ss);
         self.insert_twig(idx, berrykey);
         Ok(messagekey)
     }
 
-    fn done_fetched_link(&mut self, idx: TwigIdx, s: SphinxSecret)
+    fn done_fetched_link(&mut self, idx: TwigIdx, ss: &SphinxSecret)
       -> RatchetResult<MessageKey> {
         let linkkey: LinkKey = self.get_twigy::<LinkKey>(idx) ?; 
           // PoisonError, MissingTwig, WrongTwigType
-        self.done_known_link(idx,&linkkey,s)
+        self.done_known_link(idx,&linkkey,ss)
     }
 }
 
@@ -325,17 +325,17 @@ impl Transaction for AdvanceUser {
 }
 
 impl AdvanceUser {
-    pub fn new(state: &Arc<State>, bid: BranchId)
+    pub fn new(state: &Arc<State>, bid: &BranchId)
       -> RatchetResult<AdvanceUser> {
         Ok( AdvanceUser(Advance::new(state,bid) ?) )
     }
 
-    pub fn click(&mut self, s: SphinxSecret) 
+    pub fn click(&mut self, ss: &SphinxSecret) 
       -> RatchetResult<MessageKey> {
         let cidx = self.0.branch.chain;
         let linkkey = self.0.do_chain_step(cidx) ?;
           // .. PoisonError, MissingTwig, WrongTwigType .. ??
-        self.0.done_known_link(cidx,&linkkey,s)
+        self.0.done_known_link(cidx,&linkkey,ss)
     }
 }
 
@@ -359,20 +359,20 @@ impl Transaction for AdvanceNode {
 }
 
 impl AdvanceNode {
-    pub fn new(state: &Arc<State>, bid: BranchId)
+    pub fn new(state: &Arc<State>, bid: &BranchId)
       -> RatchetResult<AdvanceNode> {
         Ok( AdvanceNode(Advance::new(state,bid) ?) )
     }
 
     /// 
-    fn clicks_chain_only(&mut self, s: SphinxSecret, cidx: TwigIdx,tidx: TwigIdx)
+    fn clicks_chain_only(&mut self, ss: &SphinxSecret, cidx: TwigIdx,tidx: TwigIdx)
       -> RatchetResult<MessageKey> {
         debug_assert!(tidx.split().0 == cidx.split().0);
         let mut linkkey = LinkKey(Default::default());
         // Assign a range to try to show that linkkey gets initialized.
         let r = cidx.0 .. tidx.0+1;
         if r.len()==0 /* or r.is_empty() or cidx > tidx */ {
-            return self.0.done_fetched_link(tidx,s);
+            return self.0.done_fetched_link(tidx,ss);
         }
         self.0.inserts.reserve(r.len() + 1);
         for ii in r {
@@ -383,18 +383,18 @@ impl AdvanceNode {
             // structure to avert one extra write here.
         }
         // we effectively have cidx==tidx+1 now.
-        self.0.done_known_link(tidx,&linkkey,s)
+        self.0.done_known_link(tidx,&linkkey,ss)
     }
 
     ///
-    fn clicks(&mut self, s: SphinxSecret, target: TwigIdx )
+    pub fn clicks(&mut self, ss: &SphinxSecret, target: TwigIdx )
       -> RatchetResult<MessageKey> {
         let (ti,_) = target.split();
         let cidx = self.0.branch.chain;
         let (ci,_) = cidx.split();
 
         if ti == ci {
-            return self.clicks_chain_only(s,cidx,target);
+            return self.clicks_chain_only(ss,cidx,target);
         }
 
         let mut i = ti;
@@ -430,13 +430,13 @@ impl AdvanceNode {
             self.0.do_chain_step( TwigIdx::make(i,0) ) ?;
             j -= 1;
         }
-        self.clicks_chain_only(s,TwigIdx::make(i,0),target)
+        self.clicks_chain_only(ss,TwigIdx::make(i,0),target)
     }
 
-    pub fn single_click(state: &Arc<State>, ss: SphinxSecret, tid: &TwigId)
+    pub fn single_click(state: &Arc<State>, ss: &SphinxSecret, tid: &TwigId)
       -> RatchetResult<(AdvanceNode,MessageKey)> {
         let TwigId(bid, idx) = *tid;
-        let mut advance = AdvanceNode::new(state,bid) ?;
+        let mut advance = AdvanceNode::new(state,&bid) ?;
         let message = advance.clicks(ss,idx) ?;
         Ok((advance,message))
     }

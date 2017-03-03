@@ -77,12 +77,12 @@ impl State {
 }
 
 /// Create a locked branch identifier.
-pub fn lock_branch_id(state: &Arc<State>, bid: BranchId) -> RatchetResult<BranchIdGuard> {
+pub fn lock_branch_id(state: &Arc<State>, bid: &BranchId) -> RatchetResult<BranchIdGuard> {
     let mut locked = state.locked.write() ?; // PoisonError
-    if locked.insert(bid) {
-        Ok( BranchIdGuard( state.clone(), bid ) )
+    if locked.insert(*bid) {
+        Ok( BranchIdGuard( state.clone(), *bid ) )
     } else {
-        Err(RatchetError::BranchAlreadyLocked(bid))
+        Err(RatchetError::BranchAlreadyLocked(*bid))
     }
 }
 
@@ -140,7 +140,7 @@ pub fn create_initial_branch(state: &Arc<State>, seed: &[u8])
     let (bid, branch, tk): (BranchId, Branch, TrainKey) = Branch::new_kdf(seed);
     let tid = TwigId(bid,TRAIN_START);
 
-    let branch_id = lock_branch_id(state,bid) ?;  // PoisonError, BranchAlreadyLocked
+    let branch_id = lock_branch_id(state,&bid) ?;  // PoisonError, BranchAlreadyLocked
 
     // FIXME How do we ensure these write locks do not persist beyond
     //   their lines?  logging?

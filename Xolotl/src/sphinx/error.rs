@@ -48,11 +48,11 @@ pub enum SphinxError {
     InternalError(&'static str),
     BadLength(&'static str, usize),
     PoisonError(&'static str, &'static str),
-    UnknownCommand(u8),
+    RatchetError(RatchetError),
     Replay(ErrorPacketId), 
     InvalidMac(ErrorPacketId),
     BadAlpha([u8; 32]),
-    BadPacket(&'static str),
+    BadPacket(&'static str,u64),
 }
 
 pub type SphinxResult<T> = Result<T,SphinxError>;
@@ -68,14 +68,16 @@ impl fmt::Display for SphinxError {
                 => write!(f, "Internal length error: {} ({})", c, l),
             PoisonError(l,t)
                 => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
-            UnknownCommand(c)
-                => write!(f, "Unknown packet command {:x}.", c),
+            RatchetError(ref e)
+                => write!(f, "{}.", e),
             Replay(id)
                 => write!(f, "Replay attack detected on {:?}.", id),
             InvalidMac(id)
                 => write!(f, "Invalid MAC with {:?}.", id),
             BadAlpha(alpha)
                 => write!(f, "Invalid Alpha {}.", alpha.to_hex()),
+            BadPacket(s,v)
+                => write!(f, "Bad packet : {} ({})", s, v),
         }
     }
 }
@@ -91,13 +93,22 @@ impl Error for SphinxError {
             InternalError(_) => None,
             BadLength(_,_) => None,
             PoisonError(_,_) => None, // Maybe here
-            UnknownCommand(_) => None,
-            Replay(_) => None, 
+            RatchetError(ref e) => e.cause(),
+            Replay(_) => None,
             InvalidMac(_) => None,
             BadAlpha(_) => None,
+            BadPacket(_,_) => None,
         }
     }
 }
+
+
+impl<'a> From<RatchetError> for SphinxError {
+    fn from(e: RatchetError) -> SphinxError {
+        SphinxError::RatchetError(e)
+    }  // what about XolotlError ??
+}
+
 
 
 

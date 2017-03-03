@@ -8,11 +8,13 @@ use std::borrow::{Borrow,BorrowMut};
 
 // pub ed25519_dalek::ed25519;
 
+pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
 
 use super::curve::{AlphaBytes,Scalar,Point};
 use super::stream::{Gamma,SphinxKey,SphinxHop};
 use super::header::{SphinxParams,HeaderRefs,Command};
 use super::keys::RoutingName;
+use super::replay::*;
 use super::mailbox::*;
 use super::utils::*;
 use super::error::*;
@@ -54,11 +56,14 @@ struct SphinxRouter {
     // routing_public: RoutingPublic,
     routing_secret: RoutingSecret,
 
-    replayer: RwLock<Filter<Key=ReplayCode>>,
+    replayer: ReplayFilterStore,
 
     outgoing: OutgoingStore,
     mailboxes: MailboxStore,
     arrivals: ArrivingStore,
+
+    // surbs: SURBStore
+    // 
 }
 
 
@@ -70,12 +75,12 @@ impl SphinxRouter {
     fn do_crypto(&self, refs: HeaderRefs, body: &mut [u8])
       -> SphinxResult<(PacketName,Action)> {
         // Compute shared secret from the Diffie-Helman key exchange.
-        let alpha = refs.alpha.decompress() ?;  // BadAlpha
-        let ss = alpha.key_exchange(self.private);
+        let alpha = Point::decompress(refs.alpha) ?;  // BadAlpha
+        let ss = alpha.key_exchange(self.routing_secret.secret);
 
         // Initalize the stream cipher
         let mut key = self.params.sphinx_kdf(&ss, self.routing_secret.name);
-        let mut hop = key.hop();
+        let mut hop = key.hop() ?;  // InternalError: ChaCha stream exceeded
 
         // Abort if our MAC gamma fails to verify
         refs.verify_gamma(&hop) ?;  // InvalidMac
@@ -84,29 +89,29 @@ impl SphinxRouter {
         hop.replay_check(&self.replayer) ?; // Replay
 
         // Onion decrypt beta to extract first command.
-        let mut command = refs.peal_beta(&mut hop) ?;  // UnknownCommand, InternalError
+        let mut command = refs.peal_beta(&mut hop) ?;  // InternalError, BadPacket: Unknown Command
 
         // Process `Command::Ratchet` before decrypting the surb log or body.
         if let Command::Ratchet { twig, gamma } = command {
-            let TwigId(branch_id, twig_idx) = *twig;
-            let advance = AdvanceNode::new(state, &branch_id) ?;  // RatchetError ??
-            key.chacha_key = advance.clicks(&ss, twig_idx) ?;  // RatchetError ??
-            hop = key.hop();
-            *refs.gamma = gamma;
-            if ! refs.verify_gamma(&hop) {
-                advance.abandon() ?;  // RatchetError ??
-                return hop.invalid_mac_error();  // InvalidMac
+            let TwigId(branch_id, twig_idx) = twig;
+            let advance = AdvanceNode::new(state, &branch_id) ?;  // RatchetError
+            key.chacha_key = (advance.clicks(&ss, twig_idx) ?).0;  // RatchetError
+            hop = key.hop() ?;  // InternalError: ChaCha stream exceeded
+            *refs.gamma = gamma.0;
+            if let Err(e) = refs.verify_gamma(&hop) {
+                advance.abandon().unwrap();  // RatchetError ??
+                return Err(e);  // InvalidMac
             }
-            advance.confirm() ?;  // RatchetError ??
-            command = refs.peal_beta(&mut hop) ?;  // UnknownCommand, InternalError
-            if let Ratchet { .. } = command {
-                return Err( SphinxError::BadPacket("Tried two ratchet subhops.") );
+            advance.confirm() ?;  // RatchetError
+            command = refs.peal_beta(&mut hop) ?;  // InternalError, BadPacket: Unknown Command
+            if let Command::Ratchet { .. } = command {
+                return Err( SphinxError::BadPacket("Tried two ratchet subhops.",0) );
             }
         }
 
         // No need to constant time here.  Should just pass the bool really.
         let already_crossed_over = ::consistenttime::ct_u8_eq( 0u8, 
-            refs.surb_log.iter().fold(0u8, |x,y| { x |= *y }) 
+            refs.surb_log.iter().fold(0u8, |x,y| { x | *y })
         );
 
         // Short circut decrypting the body, SURB and SURB log if
@@ -116,9 +121,7 @@ impl SphinxRouter {
             // hop.xor_surb(refs.surb);
             // hop.xor_surb_log(refs.surb_log);
             // hop.body_cipher().decrypt(body) ?;  // InternalError 
-            return ( *hop.packet_name(),
-                self.unwind_surbs(hop.packet_name(), refs.surb_log, body, true)
-            );
+            return self.unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body);
         }
 
         // Decrypt body
@@ -132,7 +135,7 @@ impl SphinxRouter {
             // into postion and recursing. 
             Command::CrossOver { alpha, gamma } => {
                 if already_crossed_over {
-                    return Err( SphinxError::BadPacket("Tried two crossover subhops.") );
+                    return Err( SphinxError::BadPacket("Tried two crossover subhops.",0) );
                 }
                 // Put SURB in control of packet.
                 *refs.alpha = alpha;
@@ -175,7 +178,7 @@ impl SphinxRouter {
             // via SURB.  At that time, we embed the packet name with
             // roughly `refs.prepend_to_surb_log(& hop.packet_name());`
             Command::Deliver { mailbox } =>
-                Action::Delivery { mailbox, surb_log: refs.surb_log.to_vec().into_boxed_slice() }
+                Action::Deliver { mailbox, surb_log: refs.surb_log.to_vec().into_boxed_slice() },
 
             Command::ArrivalDirect { } =>
                 Action::Arrival { surbs: vec![] },
@@ -205,48 +208,6 @@ impl SphinxRouter {
                 Ok(())
             },
         }
-    }
-
-    /// Unwind a chain of SURBs
-    fn unwind_surbs(&self, mut packet_name: PacketName, mut surb_log: &mut [u8], body: &mut [u8]) -> SphinxResult<Action> 
-    {
-        let mut starting = true;
-        let cap = surb_log.len() / PACKET_NAME_LENGTH + 1;
-        let mut purposes = Vec::<PacketName>::with_capacity(cap);
-        // TODO: Should we authentcate SURBs better?
-/*
-        loop {
-            let ss = { 
-                let surb_archive = self.surb_archive.write().unwrap();  // PoisonError ???
-                if let Some(sh) = surb_archive.remove(packet_name) { *sh } else {
-                    // If any SURBs existed 
-                    if ! starting { break; }
-                    return SphinxError::BadSURBPacketName;
-                }
-            };
-            if ! starting {
-                let key = self.params.sphinx_kdf(&ss, self.routing_secret.name);
-                let mut hop = key.hop();
-                hop.xor_surb_log(surb_log) ?;  // InternalError
-                hop.body_cipher().encrypt(body) ?;  // InternalError
-            } else {
-                purposes.push(packet_name);
-                starting = false; 
-            }
-
-            packet_name = if surb_hop.preceeding != PacketName::default() {
-                surb_hop.preceeding
-            } else if surb_log.len() >= PACKET_NAME_LENGTH {
-                PacketName(*reserve_fixed!(surb_log, PACKET_NAME_LENGTH))
-            } else { break; };
-            if packet_name == PacketName::default() { break; }
-        }
-
-        let surb_archive = self.surb_archive.write() ?;  // PoisonError
-        ;
-*/
-
-        return Ok( Action::Arrival { surbs: purposes } )
     }
 
 }

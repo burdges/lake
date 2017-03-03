@@ -31,7 +31,7 @@ impl Hasher for SecureHasher {
 
 
 /// Initial state for our secure hashers
-#[derive(Debug)] // Clone, Copy
+#[derive(Debug,Clone,Copy)]
 pub struct HasherState(u64,u64);
 
 impl HasherState {

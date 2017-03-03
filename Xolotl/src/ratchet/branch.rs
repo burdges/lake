@@ -204,7 +204,7 @@ impl Branch {
 
 impl BranchId {
     /// Sphinx berry KDF
-    pub fn kdf_berry(&self, linkkey: &LinkKey, s: SphinxSecret)
+    pub fn kdf_berry(&self, linkkey: &LinkKey, ss: &SphinxSecret)
             -> (MessageKey, BerryKey) {
         linkkey.debug_assert_twigy();
 
@@ -218,10 +218,10 @@ impl BranchId {
         sha.input_str( TIGER[4] );
         sha.input(&linkkey.0);
         sha.input_str( TIGER[5] );
-        sha.input(&s.0);
+        sha.input(&ss.0);
         sha.input_str( TIGER[6] );
         sha.input(&linkkey.0);
-        sha.input(&s.0);
+        sha.input(&ss.0);
         sha.input_str( TIGER[7] );
         sha.result(r.as_mut());
         sha.reset();

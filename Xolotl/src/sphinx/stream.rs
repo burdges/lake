@@ -111,7 +111,7 @@ impl SphinxKey {
     /// instance, which includes some mixing, and using chacha for the
     /// replay code and gamma key.  We descided to use SHA3's SHAKE256
     /// mode so that we have more and different mixing.
-    pub fn hop(&self) -> SphinxHop {
+    pub fn hop(&self) -> SphinxResult<SphinxHop> {
         let mut chacha = ChaCha20::new_ietf(&self.chacha_key, &self.chacha_nonce);
         let mut r = &mut [0u8; HOP_EATS];
         chacha.xor_read(r).unwrap();  // No KeystreamError::EndReached here.

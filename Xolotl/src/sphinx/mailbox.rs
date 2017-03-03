@@ -14,6 +14,7 @@ use super::*;
 
 use ::state::HasherState;
 
+
 pub struct ArivingPacket {
     surbs: Vec<PacketName>,
     body: Box<[u8]>
@@ -46,13 +47,13 @@ impl<K,PM> PacketMapMap<K,PM>
     // as these are only called on singletons. 
 
     pub fn new_queue<'a,I>(&self, new_packets: I) -> PM
-      where I: IntoIterator<Item=&'a (PacketName,PM::Packet)>,
+      where I: IntoIterator<Item=(PacketName,PM::Packet)>,
             PM::Packet: 'a
     {
         let pm = PM::new_unfamiliar(self.0);
         {
-        let packets = pm.packets().write().unwrap();  // Owned here
-        for ref (k,v) in new_packets { packets.insert(k,v); }
+        let mut packets = pm.packets().write().unwrap();  // Owned here
+        for (k,v) in new_packets { packets.insert(k,v); }
         }
         pm
     }
@@ -62,9 +63,10 @@ impl<K,PM> PacketMapMap<K,PM>
     {
         let queues = self.1.read().unwrap();  // PoisonError  ???
         let queue = if let Some(q) = queues.get(k) { q } else {
-            return Ok(Some( self.new_queue(&[ (packet_name,packet) ]) ));
+            let i = ::std::iter::once((packet_name,packet));
+            return Ok(Some( self.new_queue(i) ));
         };
-        let packets = queue.packets().write().unwrap();  // PoisonError ???
+        let mut packets = queue.packets().write().unwrap();  // PoisonError ???
         if let Some(old) = packets.insert(packet_name,packet) {
             // TODO Improve this error somehow?  Either replay protection failed,
             // or else the hash itself function is broken, or else ??
@@ -72,12 +74,12 @@ impl<K,PM> PacketMapMap<K,PM>
         } else { Ok(None) }
     }
 
-    pub fn enqueue<I>(&self, k: &K, packet_name: PacketName, packet: PM::Packet)
+    pub fn enqueue<I>(&self, k: K, packet_name: PacketName, packet: PM::Packet)
       -> SphinxResult<()> 
     {
-        if let Some(pm) = self.enqueue_familiar(k,packet_name,packet) ? {
-            let queues = self.1.write().unwrap(); // PoisonError ???
-            queues.insert(*k, pm );  // Ignore return because get(k) just failed
+        if let Some(pm) = self.enqueue_familiar(&k,packet_name,packet) ? {
+            let mut queues = self.1.write().unwrap(); // PoisonError ???
+            queues.insert(k, pm );  // Ignore return because get(k) just failed
         }
         Ok(())
     }
