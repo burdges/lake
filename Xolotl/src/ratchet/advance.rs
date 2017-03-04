@@ -154,7 +154,7 @@ impl Transaction for Advance {
 impl Drop for Advance {
     fn drop(&mut self) {
         let err = match self.abandon() { 
-            Err(e) => e.clone(),  // Only place RatchetError gets cloned?
+            Err(e) => e,
             Ok(()) => return,
         };
 
