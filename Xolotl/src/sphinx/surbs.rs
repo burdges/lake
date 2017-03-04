@@ -13,7 +13,7 @@ pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
 use super::curve;
 use super::keys::RoutingName;
-use super::stream::{SphinxKey,SohinxHop};
+use super::stream::{SphinxKey,SphinxHop};
 use super::node::Action;
 use super::error::*;
 use super::utils::*;
@@ -43,7 +43,7 @@ struct DeliverySURB {
 // pub type RwMap<K,V> = RwLock<HashMap<K,V,HasherState>>;
 use super::mailbox::RwMap;
 
-struct SURBStore {
+pub struct SURBStore {
     /// Sphinx `'static` runtime paramaters 
     params: &'static SphinxParams,
 
@@ -63,7 +63,7 @@ impl SURBStore {
     {
         let guard_packet_name = {
             let arrivals = self.arrivals.write().unwrap();  // PoisonError ??
-            if let Some(gpn) = arrivals.remove(arival_packet_name) { gpn } else {
+            if let Some(gpn) = arrivals.remove(arival_packet_name) { gpn.delivery_name } else {
                 return Err( SphinxError::BadPacketName(*arival_packet_name) );
             }
         };

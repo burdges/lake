@@ -17,7 +17,9 @@ use ::state::*;
 pub const REPLAY_CODE_LENGTH : usize = 16;
 
 /// Replay code used both for replay protection and when reporting errors.
-#[derive(Clone,Copy)] // Default,PartialEq,Eq,Hash
+///
+/// TODO: Take more care with deriving traits here.  Constant time Eq perhaps?
+#[derive(Clone,Copy,Default,PartialEq,Eq,Hash)]
 pub struct ReplayCode(pub [u8; REPLAY_CODE_LENGTH]);
 pub const REPLAY_CODE_UNKNOWN : ReplayCode = ReplayCode([0u8; REPLAY_CODE_LENGTH]);
 
@@ -85,5 +87,5 @@ impl<'l,R> ReplayChecker for &'l RwLock<R> where for <'r> &'r mut R: ReplayCheck
 
 // pub type trait ReplayFilter = Filter<Key = ReplayCode>;
 
-pub type ReplayFilterStore = RwLock<Filter<Key=ReplayCode>>;
+pub type ReplayFilterStore = RwLock<HashSetFilter<ReplayCode>>;
 

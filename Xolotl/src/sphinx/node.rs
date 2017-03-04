@@ -13,9 +13,10 @@ pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
 use super::curve::{AlphaBytes,Scalar,Point};
 use super::stream::{Gamma,SphinxKey,SphinxHop};
 use super::header::{SphinxParams,HeaderRefs,Command};
-use super::keys::RoutingName;
+use super::keys::{RoutingName,RoutingSecret}; // RoutingPublic
 use super::replay::*;
 use super::mailbox::*;
+use super::surbs::SURBStore;
 use super::utils::*;
 use super::error::*;
 use super::*;
@@ -23,7 +24,7 @@ use super::*;
 
 /// Action the node should take with a given packet.
 /// We pair PacketName
-enum Action {
+pub enum Action {
     /// Deliver message to a local mailbox
     Deliver {
         /// Mailbox name
@@ -62,13 +63,11 @@ struct SphinxRouter {
     mailboxes: MailboxStore,
     arrivals: ArrivingStore,
 
-    // surbs: SURBStore
-    // 
+    surbs: SURBStore,
 }
 
 
 impl SphinxRouter {
-    /// Process an incoming Sphinx packet cut into references.
     /// Invokes ratchet and cross over functionality itself, but
     /// must return an `Action` for functionality that requires
     /// ownership of the header and/or body.
@@ -76,10 +75,10 @@ impl SphinxRouter {
       -> SphinxResult<(PacketName,Action)> {
         // Compute shared secret from the Diffie-Helman key exchange.
         let alpha = Point::decompress(refs.alpha) ?;  // BadAlpha
-        let ss = alpha.key_exchange(self.routing_secret.secret);
+        let ss = alpha.key_exchange(&self.routing_secret.secret);
 
         // Initalize the stream cipher
-        let mut key = self.params.sphinx_kdf(&ss, self.routing_secret.name);
+        let mut key = self.params.sphinx_kdf(&ss, &self.routing_secret.name);
         let mut hop = key.hop() ?;  // InternalError: ChaCha stream exceeded
 
         // Abort if our MAC gamma fails to verify
@@ -121,7 +120,7 @@ impl SphinxRouter {
             // hop.xor_surb(refs.surb);
             // hop.xor_surb_log(refs.surb_log);
             // hop.body_cipher().decrypt(body) ?;  // InternalError 
-            return self.unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body);
+            return self.surbs.unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body);
         }
 
         // Decrypt body
@@ -199,11 +198,11 @@ impl SphinxRouter {
         };
         match action {
             Action::Transmit { route } =>
-                self.outgoing.enqueue(&route, packet, OutgoingPacket { route, header, body } ),
+                self.outgoing.enqueue(route, packet, OutgoingPacket { route, header, body } ),
             Action::Deliver { mailbox, surb_log } =>
-                self.mailboxes.enqueue(&mailbox, packet, MailboxPacket { surb_log, body } ),
+                self.mailboxes.enqueue(mailbox, packet, MailboxPacket { surb_log, body } ),
             Action::Arrival { surbs } => {
-                let arivals = self.arrivals.write().unwrap(); // PoisonError ???
+                let arrivals = self.arrivals.write().unwrap(); // PoisonError ???
                 arrivals.push( ArivingPacket { surbs, body } );
                 Ok(())
             },
