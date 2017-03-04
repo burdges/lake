@@ -328,9 +328,9 @@ impl SphinxHop {
     }
 
     pub fn xor_surb_log(&mut self, surb_log: &mut [u8]) -> SphinxResult<()> {
-        // if surb_log.len() != self.params.surb_log_length as usize {
-        //     return Err( SphinxError::InternalError("SURB log has incorrect length!") );
-        // }
+        if surb_log.len() > self.params.surb_log_length as usize {
+            return Err( SphinxError::InternalError("SURB log too long!") );
+        }
         self.stream.seek_to(self.chunks.surb_log.start as u64).unwrap();
         self.stream.xor_read(surb_log).unwrap();
         Ok(())

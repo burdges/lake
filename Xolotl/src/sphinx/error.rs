@@ -12,7 +12,7 @@ use std::fmt;
 // use rustc_serialize::hex::ToHex;
 
 
-// use super::*;
+use super::PacketName;
 use super::replay::*;
 use ratchet::error::RatchetError;
 
@@ -53,6 +53,7 @@ pub enum SphinxError {
     InvalidMac(ErrorPacketId),
     BadAlpha([u8; 32]),
     BadPacket(&'static str,u64),
+    BadPacketName(PacketName),
 }
 
 pub type SphinxResult<T> = Result<T,SphinxError>;
@@ -78,6 +79,8 @@ impl fmt::Display for SphinxError {
                 => write!(f, "Invalid Alpha {}.", alpha.to_hex()),
             BadPacket(s,v)
                 => write!(f, "Bad packet : {} ({})", s, v),
+            BadPacketName(pn)
+                => write!(f, "Bad packet name {}.", pn.0.to_hex()),
         }
     }
 }
@@ -98,6 +101,7 @@ impl Error for SphinxError {
             InvalidMac(_) => None,
             BadAlpha(_) => None,
             BadPacket(_,_) => None,
+            BadPacketName(_) => None,
         }
     }
 }

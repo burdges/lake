@@ -8,9 +8,8 @@ mod curve;
 mod stream;
 mod body;
 mod replay;
-// mod node;
+mod node;
 mod keys;
-// mod surbs;
 mod mailbox;
 mod error;
 
@@ -18,6 +17,7 @@ mod error;
 mod utils;
 
 mod header;
+mod surbs;
 
 
 pub use self::header::SphinxParams;

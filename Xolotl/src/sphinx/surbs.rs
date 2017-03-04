@@ -7,44 +7,67 @@
 use std::collections::HashMap;
 use std::hash::Hash; // Hasher
 use std::sync::{RwLock}; // Arc, RwLockReadGuard, RwLockWriteGuard
+use std::iter::Iterator;
 
-// use super::header::{};
+pub use ratchet::{TwigId,TWIG_ID_LENGTH};
+
 use super::curve;
 use super::keys::RoutingName;
+use super::stream::{SphinxKey,SohinxHop};
+use super::node::Action;
 use super::error::*;
+use super::utils::*;
 use super::*;
 
 use ::state::{HasherState,Filter};
+
+pub struct SURBHop {
+    /// IETF ChaCha20 12 byte nonce 
+    pub chacha_nonce: [u8; 12],
+
+    /// IETF ChaCha20 32 byte key 
+    pub chacha_key: [u8; 32],
+
+    pub berry_twig: Option<TwigId>,
+}
+
 
 struct ArrivalSURB  {
     delivery_name: PacketName,
 }
 
 struct DeliverySURB {
-    surb_log_xor: &[u8];
+    hops: Vec<SURBHop>,
+}
+
+// pub type RwMap<K,V> = RwLock<HashMap<K,V,HasherState>>;
+use super::mailbox::RwMap;
+
+struct SURBStore {
+    /// Sphinx `'static` runtime paramaters 
+    params: &'static SphinxParams,
+
+    arrivals: RwMap<PacketName,ArrivalSURB>,
+    deliverys: RwMap<PacketName,DeliverySURB>,
 }
 
 
-
-
+impl SURBStore {
     /// Unwind a chain of SURBs from an arival packet name.
     /// 
     /// There is no reason to authenticate arrival SURBs because nobody
     /// but us should ever learn their packet name.
-    fn unwind_surbs_on_arivial(&self, arival_packet_name: &PacketName,
-        mut surb_log: &mut [u8], body: &mut [u8]
+    pub fn unwind_surbs_on_arivial(&self, arival_packet_name: &PacketName,
+        surb_log: &mut [u8], body: &mut [u8]
       ) -> SphinxResult<(PacketName,Action)> 
     {
         let guard_packet_name = {
-unimplemented!();
-/*
             let arrivals = self.arrivals.write().unwrap();  // PoisonError ??
             if let Some(gpn) = arrivals.remove(arival_packet_name) { gpn } else {
-                return Err( BadPacketName(*arival_packet_name) );
+                return Err( SphinxError::BadPacketName(*arival_packet_name) );
             }
-*/
         };
-        let action = self.unwind_delivery_surbs(guard_packet_name, refs.surb_log, body) ?;
+        let action = self.unwind_delivery_surbs(guard_packet_name, surb_log, body) ?;
         Ok((*arival_packet_name,action))
     }
 
@@ -55,45 +78,36 @@ unimplemented!();
     /// any given packet name.  We should discuss if this decission
     /// creates and strange packet volume attacks or if it conflicts
     /// poorly trusted mix nodes generating SURBs for users.
-    fn unwind_delivery_surbs(&self, mut packet_name: PacketName, mut surb_log: &mut [u8], body: &mut [u8]) -> SphinxResult<Action> 
+    pub fn unwind_delivery_surbs(&self, mut packet_name: PacketName, mut surb_log: &mut [u8], body: &mut [u8]) -> SphinxResult<Action> 
     {
         let cap = surb_log.len() / PACKET_NAME_LENGTH + 1;
         let mut purposes = Vec::<PacketName>::with_capacity(cap);
 
-/*
         loop {
-            let ss = { 
-                let surb_archive = self.surb_archive.write().unwrap();  // PoisonError ???
-                if let Some(sh) = surb_archive.remove(packet_name) { *sh } else {
-                    // If any SURBs existed 
-                    if ! starting { break; }
-                    return SphinxError::BadSURBPacketName;
-                }
+            let delivery_surb = {
+                let deliverys = self.deliverys.write().unwrap(); // PoisonError ???
+                if let Some(s) = deliverys.remove(&packet_name) { s } else { break; }
             };
-            if ! starting {
-                let key = self.params.sphinx_kdf(&ss, self.routing_secret.name);
-                let mut hop = key.hop() ?;  // InternalError: ChaCha stream exceeded
+            purposes.push(packet_name);
+            for surb in delivery_surb.hops.iter().rev() {
+                if let Some(berry_twig) = surb.berry_twig {
+                    unimplemented!(); 
+                }
+                let hop = SphinxKey {
+                    params: self.params,
+                    chacha_nonce: surb.chacha_nonce,
+                    chacha_key: surb.chacha_key,
+                }.hop() ?;  // InternalError: ChaCha stream exceeded
                 hop.xor_surb_log(surb_log) ?;  // InternalError
                 hop.body_cipher().encrypt(body) ?;  // InternalError
-            } else {
-                purposes.push(packet_name);
-                starting = false; 
             }
-
-            packet_name = if surb_hop.preceeding != PacketName::default() {
-                surb_hop.preceeding
-            } else if surb_log.len() >= PACKET_NAME_LENGTH {
-                PacketName(*reserve_fixed!(surb_log, PACKET_NAME_LENGTH))
+            packet_name = if surb_log.len() >= PACKET_NAME_LENGTH {
+                PacketName(*reserve_fixed_mut!(&mut surb_log, PACKET_NAME_LENGTH))
             } else { break; };
             if packet_name == PacketName::default() { break; }
         }
 
-        let surb_archive = self.surb_archive.write() ?;  // PoisonError
-        ;
-*/
-
         return Ok( Action::Arrival { surbs: purposes } )
     }
-
-
+}
 
