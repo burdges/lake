@@ -37,6 +37,7 @@ struct ArrivalSURB  {
 }
 
 struct DeliverySURB {
+    // protocol: Protocol,
     hops: Vec<SURBHop>,
 }
 
@@ -62,11 +63,12 @@ impl SURBStore {
       ) -> SphinxResult<(PacketName,Action)> 
     {
         let guard_packet_name = {
-            let arrivals = self.arrivals.write().unwrap();  // PoisonError ??
+            let mut arrivals = self.arrivals.write().unwrap();  // PoisonError ??
             if let Some(gpn) = arrivals.remove(arival_packet_name) { gpn.delivery_name } else {
                 return Err( SphinxError::BadPacketName(*arival_packet_name) );
             }
         };
+        // Check that protocol agrees with how we were called
         let action = self.unwind_delivery_surbs(guard_packet_name, surb_log, body) ?;
         Ok((*arival_packet_name,action))
     }
@@ -85,7 +87,7 @@ impl SURBStore {
 
         loop {
             let delivery_surb = {
-                let deliverys = self.deliverys.write().unwrap(); // PoisonError ???
+                let mut deliverys = self.deliverys.write().unwrap(); // PoisonError ???
                 if let Some(s) = deliverys.remove(&packet_name) { s } else { break; }
             };
             purposes.push(packet_name);
@@ -93,7 +95,8 @@ impl SURBStore {
                 if let Some(berry_twig) = surb.berry_twig {
                     unimplemented!(); 
                 }
-                let hop = SphinxKey {
+                // Use protocol specified in delivery_surb
+                let mut hop = SphinxKey {
                     params: self.params,
                     chacha_nonce: surb.chacha_nonce,
                     chacha_key: surb.chacha_key,

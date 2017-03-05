@@ -5,10 +5,12 @@
 //! ...
 
 use std::borrow::{Borrow,BorrowMut};
+use std::sync::{Arc,RwLock};
 
 // pub ed25519_dalek::ed25519;
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
+pub use ratchet::State as RatchetState;
 
 use super::curve::{AlphaBytes,Scalar,Point};
 use super::stream::{Gamma,SphinxKey,SphinxHop};
@@ -63,7 +65,8 @@ struct SphinxRouter {
     mailboxes: MailboxStore,
     arrivals: ArrivingStore,
 
-    surbs: SURBStore,
+    surbs: Arc<SURBStore>,
+    ratchet: Arc<RatchetState>,
 }
 
 
@@ -71,7 +74,7 @@ impl SphinxRouter {
     /// Invokes ratchet and cross over functionality itself, but
     /// must return an `Action` for functionality that requires
     /// ownership of the header and/or body.
-    fn do_crypto(&self, refs: HeaderRefs, body: &mut [u8])
+    fn do_crypto(&self, mut refs: HeaderRefs, body: &mut [u8])
       -> SphinxResult<(PacketName,Action)> {
         // Compute shared secret from the Diffie-Helman key exchange.
         let alpha = Point::decompress(refs.alpha) ?;  // BadAlpha
@@ -93,7 +96,7 @@ impl SphinxRouter {
         // Process `Command::Ratchet` before decrypting the surb log or body.
         if let Command::Ratchet { twig, gamma } = command {
             let TwigId(branch_id, twig_idx) = twig;
-            let advance = AdvanceNode::new(state, &branch_id) ?;  // RatchetError
+            let mut advance = AdvanceNode::new(&self.ratchet, &branch_id) ?;  // RatchetError
             key.chacha_key = (advance.clicks(&ss, twig_idx) ?).0;  // RatchetError
             hop = key.hop() ?;  // InternalError: ChaCha stream exceeded
             *refs.gamma = gamma.0;
@@ -185,7 +188,7 @@ impl SphinxRouter {
     }
 
     /// Process an incoming Sphinx packet.
-    pub fn process(&self, header: Box<[u8]>, body: Box<[u8]>)
+    pub fn process(&self, mut header: Box<[u8]>, mut body: Box<[u8]>)
       -> SphinxResult<()>
     {
         assert!(self.params.max_beta_tail_length < self.params.beta_length);
@@ -202,7 +205,7 @@ impl SphinxRouter {
             Action::Deliver { mailbox, surb_log } =>
                 self.mailboxes.enqueue(mailbox, packet, MailboxPacket { surb_log, body } ),
             Action::Arrival { surbs } => {
-                let arrivals = self.arrivals.write().unwrap(); // PoisonError ???
+                let mut arrivals = self.arrivals.write().unwrap(); // PoisonError ???
                 arrivals.push( ArivingPacket { surbs, body } );
                 Ok(())
             },

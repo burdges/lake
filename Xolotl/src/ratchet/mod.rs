@@ -12,8 +12,10 @@ pub mod error;
 
 // pub use self::branch::{BranchName,BRANCH_NAME_LENGTH,BranchId,BRANCH_ID_LENGTH};
 pub use self::twig::{TwigIdxT,TwigIdx,TwigId,TWIG_ID_LENGTH};
-pub use self::state::{State};
 pub use self::advance::{Transaction,Advance,AdvanceNode}; // AdvanceUser
+
+pub use self::state::State;
+pub type RatchetState = State;
 
 pub use self::branch::ExtraKey;
 
@@ -26,7 +28,6 @@ use ::sphinx::SphinxSecret;
 /// exchange in Sphinx.  We reuse the SphinxSecret type as this gets
 /// used in exactly the same palce on the Sphinx side.
 pub type MessageKey = SphinxSecret;
-
 
 
 #[cfg(test)]

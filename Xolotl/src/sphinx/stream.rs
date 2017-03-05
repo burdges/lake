@@ -60,7 +60,7 @@ struct GammaKey(pub [u8; 32]);
 /// in the Sphinx header.
 pub struct SphinxKey {
     /// Sphinx `'static` runtime paramaters 
-    params: &'static SphinxParams,
+    pub params: &'static SphinxParams,
 
     /// IETF ChaCha20 12 byte nonce 
     pub chacha_nonce: [u8; 12],

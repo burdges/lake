@@ -16,8 +16,8 @@ use ::state::HasherState;
 
 
 pub struct ArivingPacket {
-    surbs: Vec<PacketName>,
-    body: Box<[u8]>
+    pub surbs: Vec<PacketName>,
+    pub body: Box<[u8]>
 }
 
 pub type ArrivingStore = RwLock<Vec<ArivingPacket>>;
@@ -74,7 +74,7 @@ impl<K,PM> PacketMapMap<K,PM>
         } else { Ok(None) }
     }
 
-    pub fn enqueue<I>(&self, k: K, packet_name: PacketName, packet: PM::Packet)
+    pub fn enqueue(&self, k: K, packet_name: PacketName, packet: PM::Packet)
       -> SphinxResult<()> 
     {
         if let Some(pm) = self.enqueue_familiar(&k,packet_name,packet) ? {
@@ -96,8 +96,8 @@ pub type MailboxNameBytes = [u8; MAILBOX_NAME_LENGTH];
 pub struct MailboxName(pub MailboxNameBytes);
 
 pub struct MailboxPacket {
-    surb_log: Box<[u8]>,
-    body: Box<[u8]>
+    pub surb_log: Box<[u8]>,
+    pub body: Box<[u8]>
 }
 
 /// TODO: We must replace this structure by a trait that abstracts
@@ -127,9 +127,9 @@ pub type MailboxStore = PacketMapMap<MailboxName,Mailbox>;
 
 
 pub struct OutgoingPacket {
-    route: RoutingName,
-    header: Box<[u8]>,
-    body: Box<[u8]>
+    pub route: RoutingName,
+    pub header: Box<[u8]>,
+    pub body: Box<[u8]>
 }
 
 /// TODO: We must replace this structure by a trait that abstracts
