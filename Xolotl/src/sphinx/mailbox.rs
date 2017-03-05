@@ -9,6 +9,7 @@ use std::sync::{RwLock}; // Arc, RwLockReadGuard, RwLockWriteGuard
 
 use super::curve;
 use super::keys::RoutingName;
+use super::surbs;
 use super::error::*;
 use super::*;
 
@@ -16,7 +17,7 @@ use ::state::HasherState;
 
 
 pub struct ArivingPacket {
-    pub surbs: Vec<PacketName>,
+    pub metadata: Vec<surbs::Metadata>,
     pub body: Box<[u8]>
 }
 

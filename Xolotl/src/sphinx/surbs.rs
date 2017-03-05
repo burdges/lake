@@ -21,6 +21,13 @@ use super::*;
 
 use ::state::{HasherState,Filter};
 
+
+pub const MAX_SURB_METADATA : usize = 8;
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Metadata(pub u64);
+
+
 pub struct SURBHop {
     /// IETF ChaCha20 12 byte nonce 
     pub chacha_nonce: [u8; 12],
@@ -36,8 +43,12 @@ struct ArrivalSURB  {
     delivery_name: PacketName,
 }
 
+// TODO: Make protocol name reference params
+pub struct ProtocolName;
+
 struct DeliverySURB {
-    // TODO: protocol: Protocol,
+    protocol: ProtocolName,
+    meta: Metadata,
     hops: Vec<SURBHop>,
 }
 
@@ -54,6 +65,10 @@ pub struct SURBStore {
 
 
 impl SURBStore {
+    // pub new() -> SURBStore {
+    //     ;
+    // }
+
     /// Unwind a chain of SURBs from an arival packet name.
     /// 
     /// There is no reason to authenticate arrival SURBs because nobody
@@ -83,19 +98,19 @@ impl SURBStore {
     pub fn unwind_delivery_surbs(&self, mut packet_name: PacketName, mut surb_log: &mut [u8], body: &mut [u8]) -> SphinxResult<Action> 
     {
         let cap = surb_log.len() / PACKET_NAME_LENGTH + 1;
-        let mut purposes = Vec::<PacketName>::with_capacity(cap);
+        let mut metadata = Vec::<Metadata>::with_capacity(cap);
 
         loop {
-            let delivery_surb = {
+            let DeliverySURB { protocol, meta, hops } = {
                 let mut deliverys = self.deliverys.write().unwrap(); // PoisonError ???
                 if let Some(s) = deliverys.remove(&packet_name) { s } else { break; }
             };
-            purposes.push(packet_name);
-            for surb in delivery_surb.hops.iter().rev() {
+            metadata.push(meta);
+            for surb in hops.iter().rev() {
                 if let Some(berry_twig) = surb.berry_twig {
                     unimplemented!(); 
                 }
-                // TODO: Use protocol specified in delivery_surb
+                // TODO: Use protocol specified in the delivery surb
                 let mut hop = SphinxKey {
                     params: self.params,
                     chacha_nonce: surb.chacha_nonce,
@@ -110,7 +125,7 @@ impl SURBStore {
             if packet_name == PacketName::default() { break; }
         }
 
-        return Ok( Action::Arrival { surbs: purposes } )
+        return Ok( Action::Arrival { metadata } )
     }
 }
 

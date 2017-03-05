@@ -18,7 +18,7 @@ use super::layout::{SphinxParams,HeaderRefs,Command};
 use super::keys::{RoutingName,RoutingSecret}; // RoutingPublic
 use super::replay::*;
 use super::mailbox::*;
-use super::surbs::SURBStore;
+use super::surbs; // SURBStore, Metadata
 use super::slice::*;
 use super::error::*;
 use super::*;
@@ -48,7 +48,7 @@ pub enum Action {
     /// trusting them to identify themselves as a hint and doing the
     /// authentication later.  Yet, these cases seem tricky to exploit.
     Arrival {
-        surbs: Vec<PacketName>,
+        metadata: Vec<surbs::Metadata>,
     },
 }
 
@@ -65,7 +65,7 @@ struct SphinxRouter {
     mailboxes: MailboxStore,
     arrivals: ArrivingStore,
 
-    surbs: Arc<SURBStore>,
+    surbs: Arc<surbs::SURBStore>,
     ratchet: Arc<RatchetState>,
 }
 
@@ -183,7 +183,7 @@ impl SphinxRouter {
                 Action::Deliver { mailbox, surb_log: refs.surb_log.to_vec().into_boxed_slice() },
 
             Command::ArrivalDirect { } =>
-                Action::Arrival { surbs: vec![] },
+                Action::Arrival { metadata: vec![] },
         } ))
     }
 
@@ -204,9 +204,9 @@ impl SphinxRouter {
                 self.outgoing.enqueue(route, packet, OutgoingPacket { route, header, body } ),
             Action::Deliver { mailbox, surb_log } =>
                 self.mailboxes.enqueue(mailbox, packet, MailboxPacket { surb_log, body } ),
-            Action::Arrival { surbs } => {
+            Action::Arrival { metadata } => {
                 let mut arrivals = self.arrivals.write().unwrap(); // PoisonError ???
-                arrivals.push( ArivingPacket { surbs, body } );
+                arrivals.push( ArivingPacket { metadata, body } );
                 Ok(())
             },
         }
