@@ -30,7 +30,7 @@ impl<'a> From<KeystreamError> for SphinxError {
 
 use super::*;
 use super::curve::*;
-use super::header::{SphinxParams};
+use super::layout::{SphinxParams};
 use super::body::{BodyCipher,BODY_CIPHER_KEY_SIZE};
 
 use super::replay::*;
@@ -205,7 +205,7 @@ pub struct SphinxHop {
 // not dereference `self.params`.
 impl ::clear_on_drop::clear::InitializableFromZeroed for SphinxHop {
     unsafe fn initialize(hop: *mut SphinxHop) {
-        (&mut *hop).params = super::header::INVALID_SPHINX_PARAMS;
+        (&mut *hop).params = super::layout::INVALID_SPHINX_PARAMS;
     }
 }
 
@@ -223,7 +223,7 @@ impl fmt::Debug for SphinxHop {
 
 impl SphinxHop {
     // TODO: Can we abstract the lengths checks?  Operate on a pair
-    // `(HeaderRefs,SphinxHop)` perhaps?
+    // `(LayoutRefs,SphinxHop)` perhaps?
 
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
     ///

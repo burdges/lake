@@ -14,7 +14,7 @@ pub use ratchet::State as RatchetState;
 
 use super::curve::{AlphaBytes,Scalar,Point};
 use super::stream::{Gamma,SphinxKey,SphinxHop};
-use super::header::{SphinxParams,HeaderRefs,Command};
+use super::layout::{SphinxParams,HeaderRefs,Command};
 use super::keys::{RoutingName,RoutingSecret}; // RoutingPublic
 use super::replay::*;
 use super::mailbox::*;

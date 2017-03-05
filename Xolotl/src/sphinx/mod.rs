@@ -16,11 +16,11 @@ mod error;
 #[macro_use]
 mod utils;
 
-mod header;
+mod layout;
 mod surbs;
 
 
-pub use self::header::SphinxParams;
+pub use self::layout::SphinxParams;
 
 
 /// Secret supplied by the Diffie-Hellman key exchange in Sphinx. 

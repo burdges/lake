@@ -6,7 +6,7 @@
 
 use lioness::{LionessDefault,LionessError,RAW_KEY_SIZE};
 
-use super::header::{SphinxParams};
+use super::layout::{SphinxParams};
 use super::error::*;
 
 /// Portion of header key stream to reserve for the Lioness key
