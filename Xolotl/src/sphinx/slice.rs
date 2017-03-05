@@ -1,6 +1,6 @@
 // Copyright 2016 Jeffrey Burdges.
 
-//! Some utilities for the Sphinx header layout routines
+//! Some slice utilities for the Sphinx header layout routines
 //!
 //! ...
 

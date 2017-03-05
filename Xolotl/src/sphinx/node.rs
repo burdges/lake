@@ -19,7 +19,7 @@ use super::keys::{RoutingName,RoutingSecret}; // RoutingPublic
 use super::replay::*;
 use super::mailbox::*;
 use super::surbs::SURBStore;
-use super::utils::*;
+use super::slice::*;
 use super::error::*;
 use super::*;
 

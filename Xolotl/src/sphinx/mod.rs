@@ -14,7 +14,7 @@ mod mailbox;
 mod error;
 
 #[macro_use]
-mod utils;
+mod slice;
 
 mod layout;
 mod surbs;

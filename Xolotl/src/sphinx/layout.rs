@@ -15,7 +15,7 @@ use super::stream::{SphinxHop};
 pub use super::keys::{RoutingName,ROUTING_NAME_LENGTH};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::error::*;
-use super::utils::*;
+use super::slice::*;
 
 
 /// We use `usize` for indexing, like all Rust programs, but we specify
@@ -207,7 +207,7 @@ impl Command {
 
     /// 
     pub fn prepend_bytes(&self, target: &mut [u8]) -> usize {
-        self.feed_bytes( |x| { super::utils::prepend_slice_of_slices(target, x) } )
+        self.feed_bytes( |x| { prepend_slice_of_slices(target, x) } )
     }
 
     /// Read a command from the beginning of beta.
@@ -332,8 +332,8 @@ impl<'a> HeaderRefs<'a> {
     /// Prepend a `PacketName` to the SURB log.
     /// Used in SURB rerouting so that SURB unwinding works.
     pub fn prepend_to_surb_log(&mut self, packet_name: &PacketName) {
-        super::utils::prepend_slice_of_slices(self.surb_log, &[&packet_name.0]);
-        // super::utils::prepend_iterator(self.surb_log, packet_name.0.iter().map(|x| *x));
+        prepend_slice_of_slices(self.surb_log, &[&packet_name.0]);
+        // prepend_iterator(self.surb_log, packet_name.0.iter().map(|x| *x));
     }
 
     /// Prepend a command to beta for creating beta.

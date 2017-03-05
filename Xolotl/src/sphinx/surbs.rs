@@ -16,7 +16,7 @@ use super::keys::RoutingName;
 use super::stream::{SphinxKey,SphinxHop};
 use super::node::Action;
 use super::error::*;
-use super::utils::*;
+use super::slice::*;
 use super::*;
 
 use ::state::{HasherState,Filter};
