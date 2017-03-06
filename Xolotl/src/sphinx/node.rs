@@ -31,7 +31,7 @@ pub enum Action {
     Deliver {
         /// Mailbox name
         mailbox: MailboxName,
-        ///
+        /// SURB unwinding log
         surb_log: Box<[u8]>,
     },
 
