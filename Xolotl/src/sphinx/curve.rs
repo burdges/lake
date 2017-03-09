@@ -111,14 +111,35 @@ impl Point {
         Point( curve::ExtendedPoint::basepoint_mult(&s.0) )
     }
 
-    /// Compress a point into bytes for transmission as a public key.
+    /// Compress a point into bytes for either transmission as a
+    /// public key or local storage.
+    ///
     /// Do not use this for key exchange.
     pub fn compress(&self) -> AlphaBytes {
         self.0.compress().to_bytes()
     }
 
+    /// Decompress a point supplied in compressed Edwards Y cordinate
+    /// form from local storage.  We do not multiply by the cofactor
+    /// here, so never use this on untrusted key material.
+    pub fn decompress_trusted(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
+        curve::CompressedEdwardsY(*alpha_bytes).decompress()
+            .map(|p| Point(p))
+            .ok_or( SphinxError::BadAlpha(*alpha_bytes) )
+    }
+
+    /// Decompress a point supplied in compressed Edwards Y cordinate
+    /// form from a Sphinx packet's Alpha.  We do multiply by the 
+    /// cofactor here.
+    pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
+        curve::CompressedEdwardsY(*alpha_bytes).decompress()
+            .map(|p| Point(p.mult_by_cofactor()))
+            .ok_or( SphinxError::BadAlpha(*alpha_bytes) )
+    }
+
     /// Decompress a point supplied in compressed Edwards Y cordinate form
     /// either from local storage or from a Sphinx packet's Alpha.
+    /// We multiply by the cofactor here 
     pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
         curve::CompressedEdwardsY(*alpha_bytes).decompress()
             .map(|p| Point(p.mult_by_cofactor()))
