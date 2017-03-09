@@ -121,7 +121,8 @@ impl Point {
     /// either from local storage or from a Sphinx packet's Alpha.
     pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
         curve::CompressedEdwardsY(*alpha_bytes).decompress()
-            .map(|p| Point(p)).ok_or( SphinxError::BadAlpha(*alpha_bytes) )
+            .map(|p| Point(p.mult_by_cofactor()))
+            .ok_or( SphinxError::BadAlpha(*alpha_bytes) )
     }
 
     /// Sphinx protocol multiplication of a packet public key `Point` by
@@ -145,8 +146,7 @@ impl Point {
     /// require that the scalar multiplicaiton operation has constant time.
     pub fn key_exchange(&self, private_key: &Scalar) -> SphinxSecret {
         SphinxSecret(
-            self.0.mult_by_cofactor()
-                .scalar_mult(&private_key.0)
+            self.0.scalar_mult(&private_key.0)
                 .compress().to_bytes()
         )
     }
@@ -252,7 +252,7 @@ mod tests {
             let v = z.blind(&Scalar(b));
             assert_eq!(u.to_bytes(), v.compress());
 
-            let w = v.0.mult_by_cofactor().compress().to_bytes();
+            let w = v.0.compress().to_bytes();
             assert_eq!(w, z.key_exchange(&Scalar(b)).0);
 
             scalar_mul_by_cofactor(&mut b.0);
