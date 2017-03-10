@@ -120,27 +120,13 @@ impl Point {
     }
 
     /// Decompress a point supplied in compressed Edwards Y cordinate
-    /// form from local storage.  We do not multiply by the cofactor
-    /// here, so never use this on untrusted key material.
-    pub fn decompress_trusted(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
-        curve::CompressedEdwardsY(*alpha_bytes).decompress()
-            .map(|p| Point(p))
-            .ok_or( SphinxError::BadAlpha(*alpha_bytes) )
-    }
-
-    /// Decompress a point supplied in compressed Edwards Y cordinate
-    /// form from a Sphinx packet's Alpha.  We do multiply by the 
-    /// cofactor here.
+    /// form from a Sphinx packet's Alpha or a routing public key. 
+    /// As the point is untrusted, we must multiply by the cofactor to
+    /// protect against small subgroup attacks.  We never expect to
+    /// decompress our own key in deployment, but tests might fail if
+    /// one does so in testing. 
     pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
-        curve::CompressedEdwardsY(*alpha_bytes).decompress()
-            .map(|p| Point(p.mult_by_cofactor()))
-            .ok_or( SphinxError::BadAlpha(*alpha_bytes) )
-    }
-
-    /// Decompress a point supplied in compressed Edwards Y cordinate form
-    /// either from local storage or from a Sphinx packet's Alpha.
-    /// We multiply by the cofactor here 
-    pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
+        // let f = if trusted { |p| Point(p) } else { |p| Point(p.mult_by_cofactor()) };
         curve::CompressedEdwardsY(*alpha_bytes).decompress()
             .map(|p| Point(p.mult_by_cofactor()))
             .ok_or( SphinxError::BadAlpha(*alpha_bytes) )
