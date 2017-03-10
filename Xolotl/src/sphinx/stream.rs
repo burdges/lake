@@ -29,12 +29,9 @@ impl<'a> From<KeystreamError> for SphinxError {
 }
 
 use super::*;
-use super::curve::*;
 use super::layout::{SphinxParams};
 use super::body::{BodyCipher,BODY_CIPHER_KEY_SIZE};
-
 use super::replay::*;
-use super::keys::RoutingName;
 use super::error::*;
 
 
@@ -71,7 +68,7 @@ pub struct SphinxKey {
 
 impl SphinxParams {
     /// Derive the key material for our IETF Chacha20 stream cipher.
-    pub fn sphinx_kdf(&'static self, ss: &SphinxSecret, rn: &RoutingName) -> SphinxKey {
+    pub fn sphinx_kdf(&'static self, ss: &SphinxSecret, rn: &keys::RoutingName) -> SphinxKey {
         use crypto::digest::Digest;
         use crypto::sha3::Sha3;
 
@@ -290,11 +287,11 @@ impl SphinxHop {
     }
 
     /// Returns the curve25519 scalar for blinding alpha in Sphinx.
-    pub fn blinding(&mut self) -> Scalar {
+    pub fn blinding(&mut self) -> curve::Scalar {
         let mut b = &mut [0u8; 64];
         self.stream.seek_to(self.chunks.blinding.start as u64).unwrap();
         self.stream.xor_read(b).unwrap();
-        Scalar::make(b)
+        curve::Scalar::make(b)
     }
 
     /// Returns our name for the packet for insertion into the SURB log

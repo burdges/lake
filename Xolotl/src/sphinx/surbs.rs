@@ -11,8 +11,6 @@ use std::iter::Iterator;
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
-use super::curve;
-use super::keys::RoutingName;
 use super::stream::{SphinxKey,SphinxHop};
 use super::node::Action;
 use super::error::*;

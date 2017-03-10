@@ -8,7 +8,7 @@ use std::iter::{Iterator,IntoIterator};  // TrustedLen, ExactSizeIterator
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
-use super::*; // {PacketName,PacketNameBytes,PACKET_NAME_LENGTH};
+use super::*; // {PacketName,PACKET_NAME_LENGTH};
 use super::curve::{AlphaBytes,ALPHA_LENGTH};
 use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH};
 use super::stream::{SphinxHop};

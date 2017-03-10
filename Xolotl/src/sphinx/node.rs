@@ -12,13 +12,9 @@ use std::sync::{Arc,RwLock};
 pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
 pub use ratchet::State as RatchetState;
 
-use super::curve::{AlphaBytes,Scalar,Point};
-use super::stream::{Gamma,SphinxKey,SphinxHop};
+// use super::stream::{SphinxKey,SphinxHop};
 use super::layout::{SphinxParams,HeaderRefs,Command};
-use super::keys::{RoutingName,RoutingSecret}; // RoutingPublic
-use super::replay::*;
 use super::mailbox::*;
-use super::surbs; // SURBStore, Metadata
 use super::slice::*;
 use super::error::*;
 use super::*;
@@ -38,7 +34,7 @@ pub enum Action {
     /// Forward this message to another hop.
     Transmit {
         /// Next hop
-        route: RoutingName,
+        route: keys::RoutingName,
     },
 
     /// Arrival of a message for some local application.
@@ -56,10 +52,10 @@ pub enum Action {
 struct SphinxRouter {
     params: &'static SphinxParams,
 
-    // routing_public: RoutingPublic,
-    routing_secret: RoutingSecret,
+    // routing_public: keys::RoutingPublic,
+    routing_secret: keys::RoutingSecret,
 
-    replayer: ReplayFilterStore,
+    replayer: replay::ReplayFilterStore,
 
     outgoing: OutgoingStore,
     mailboxes: MailboxStore,
@@ -77,7 +73,7 @@ impl SphinxRouter {
     fn do_crypto(&self, mut refs: HeaderRefs, body: &mut [u8])
       -> SphinxResult<(PacketName,Action)> {
         // Compute shared secret from the Diffie-Helman key exchange.
-        let alpha = Point::decompress(refs.alpha) ?;  // BadAlpha
+        let alpha = curve::Point::decompress(refs.alpha) ?;  // BadAlpha
         let ss = alpha.key_exchange(&self.routing_secret.secret);
 
         // Initalize the stream cipher

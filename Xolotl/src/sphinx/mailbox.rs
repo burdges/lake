@@ -7,9 +7,6 @@ use std::collections::HashMap;
 use std::hash::Hash; // Hasher
 use std::sync::{RwLock}; // Arc, RwLockReadGuard, RwLockWriteGuard
 
-use super::curve;
-use super::keys::RoutingName;
-use super::surbs;
 use super::error::*;
 use super::*;
 
@@ -128,7 +125,7 @@ pub type MailboxStore = PacketMapMap<MailboxName,Mailbox>;
 
 
 pub struct OutgoingPacket {
-    pub route: RoutingName,
+    pub route: keys::RoutingName,
     pub header: Box<[u8]>,
     pub body: Box<[u8]>
 }
@@ -148,7 +145,7 @@ impl PacketMapy for Outgoing {
 }
 
 // TODO Replace RoutingName with longer term key's name here.
-pub type OutgoingStore = PacketMapMap<RoutingName,Outgoing>;
+pub type OutgoingStore = PacketMapMap<keys::RoutingName,Outgoing>;
 
 
 
