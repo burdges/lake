@@ -1,6 +1,8 @@
 
 
-\documentclass[twoside,letterpaper]{sig-alternate}
+\documentclass[twoside,letterpaper]{llncs}
+% \documentclass[twoside,letterpaper]{sig-alternate}
+
 \usepackage[margin=1in]{geometry}
 \usepackage[utf8]{inputenc}
 \usepackage{url}
@@ -25,7 +27,7 @@
 
 
 \title{Xolotl ratchet}
-\subtitle{A selectively stateful mixnet format for post-quantum anonymity}
+\subtitle{A selectively stateful mixnet format for forward secure and post-quantum anonymity}
 \author{Jeffrey Burdges}
 \date{\today}
 
@@ -36,40 +38,121 @@
 
 % L\'aszl\'o Baba's quasi-polynomial time algorithm for graph isomorphism\cite{Babai-GI}
 
+\begin{abstract}
 We describe a new double ratchet construction Xolotl,
  inspired by the Axolotl ratchet \cite{Axolotl},
 that integrates with the Sphinx mix network packet format \cite{Sphinx}.
 We argue this opens the door to compact mix network formats with
-truly hybrid anonymity, meaning they rest upon the stronger of
- the security assumptions required by
+stronger forward secrecy and truly hybrid anonymity, meaning they
+rest upon the stronger of the security assumptions required by
  the different public key primitives employed.
+\end{abstract}
 
 
-\section{Problem}
+\section{Motivation}
 
-There are a number of cryprographic primitives for public key
-exchagne that appear extremely secure, both in theory and practice.
+Anonymity systems based on ``onion routing'' \cite{??OR??}
+like Tor or I2P are known to be vulnerable to correlation attacks by
+a passive adversary who can observe both endpoints of a circuit, such
+as a national ISP.   Any attempt to defeat correlation attacks must
+take latency into consideration. 
 
-\cite{}
+There are several recent proposals like \cite{Alpenhorn??} and
+\cite{Dissent??} that avoid introducing much latency by instead
+introducing vast amounts of unnecessary traffic, which impacts their
+scalability, and limits their anonymity set size.  We consider such
+approaches problematic because schemes that do not scale well would
+make privacy expensive, and might favor powerful players seeking to
+avoid accountability over efforts to liberate people from power. ???
 
-downgrade attacks, poor or backdoored random number generators,
-side channels 
-etc.
+We favor the opposite trade off in which we impose higher latency but
+avoid introducing excessive cover traffic. In effect, we propose to
+sacrifice use cases that require low latency like voice, while
+offering an inexpensive privacy tool that defeats correlation attacks.
+for high latency applications, including text messaging applications.
 
+In doing so, there is a cryptographic inconvenience that high latency
+schemes like mix networks lack forward secrecy.  We give low latency
+anonymity tools like Tor forward secrecy by employing an ephemeral
+key exchange on both servers and clients, but high latency schemes
+require the client to encrypt to a long term keys of the servers.
+
+There is a superficial similarity between forward secrecy and
+post-quantum cryptography:  As post-quantum public key primitives
+remain young, post-quantum protocols should be analyzed in a hybrid
+setting where even ephemeral keys might be compromised.  
+In other words, either the classical elliptic curve key exchange or
+the post-quantum key exchange might be compromised, but not both. 
+In this setting, there are technical obstacles to deploying a
+post-quantum key exchange in a mix network.  
+
+In this article, we propose a stateful "ratchet" based solution,
+ inspired by Trevor Perrin's Axolotl ratchet \cite{Axolotl},
+that integrates with the Sphinx mix net packet format \cite{Sphinx}.
+Our ratchet provides limited post-quantum protections and forward
+secrecy in exchange for a small sacrifice of some correlating
+information, far less than using a circuit based system like Tor.
+
+
+\section{Problems} % explanation
 
 \subsection{Forward security}
 
+We have observed that high latency anonymity schemes depends upon
+node using non-ephemeral key material, thus opening them to key
+compromise attacks that do not
 
-As a rule, practical breaks 
+There are however several ways one might harden mix networks against node
+keys being compromise. 
 
-Yet, numerous cryptographic protocols 
+As a rule, mix networks must prevent replay attacks, normally using
+a database of some form.  As this database must not grow indefinitely,
+mix nodes must rotate their keys periodically.  These keys should be
+destroyed when no longer used to provide a measure of forward security.
 
+In principle, we could rotate keys quickly so that the compromise
+window for each key stays short.  In general, mix networks must
+support single-use reply blocks (SURBs) so that anonymous users can
+receive messages.  These SURBs are built to a specific set of node
+keys, so they cannot outlive the key rotation schedule.  This creates
+a tension between forward security and usability.
 
+We could rotate node keys slow enough for our usability goals, but add
+a faster rotating identity-based epoch key issued by a collective of
+trusted nodes, and deform the SURB's key material to account for this
+rotating identity-based epoch key.  This buys use forward security
+assuming at least some trusted node does not get compromised, but
+sounds difficult to deploy in practice. 
 
+We could use punctured encryption \cite{punctured_encryption} for our
+mix nodes key, so that mix nodes who correctly puncture their key
+after decrypting a message cannot decrypt the same message again. 
+As a rule, punctured encryption schemes require $O(n)$ time for
+decryption where $n$ is the number of punctures so far.  There are
+techniques for epoch based puncturing that make $n$ far less than
+the number of packets.  In a mix network, these would require
+deforming the SURB as well. 
 
+Any scheme for deforming SURBs requires a delicate proof of security
+because several mix network packet formats based on malleable key
+material were broken in \cite{GD-breaking_universal_reencryption}.  
+Also, these ideas all require slower pairing based cryptography that
+increase our mix nodes vulnerability to denial of service attacks. 
 
-In practice, 
+George Danezis' fs-mixes \cite{fs-mix} provide an approach that
+avoids imposing constraints on the public key exchange.  In fs-mixed,
+a mix node derives a $(k,v)$ from from each key exchange and records
+$(k,v)$  in a key-value store.  We already do something similar for 
+replay protection, but this new key-value store outlives our public
+key rotation schedule.  A subsequent packet sent in another public
+key epoch may ask that $v$ be hashed into the key exchange after
+revealing $k$.  
 
+These fs-mixes could be viewed as a form of "ratchet" not wholly
+unlike off-the-record (OtR) messaging ratchet \cite{??OtR??}.  
+We shall extend fs-mixes to provide stronger protection and be more
+reliable.  Intuitively this parallels how Trevor Perrin's Axolotl 
+ratchet extends OtR with a hash iteration ratchet. 
 
 \subsection{Post-quantum}
 
