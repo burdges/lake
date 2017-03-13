@@ -49,7 +49,7 @@ rest upon the stronger of the security assumptions required by
 \end{abstract}
 
 
-\section{Motivation}
+% \section{Motivation}
 
 Anonymity systems based on ``onion routing'' \cite{??OR??}
 like Tor or I2P are known to be vulnerable to correlation attacks by
@@ -86,12 +86,12 @@ the post-quantum key exchange might be compromised, but not both.
 In this setting, there are technical obstacles to deploying a
 post-quantum key exchange in a mix network.  
 
-In this article, we propose a stateful "ratchet" based solution,
- inspired by Trevor Perrin's Axolotl ratchet \cite{Axolotl},
-that integrates with the Sphinx mix net packet format \cite{Sphinx}.
-Our ratchet provides limited post-quantum protections and forward
-secrecy in exchange for a small sacrifice of some correlating
-information, far less than using a circuit based system like Tor.
+In this article, we propose Xolotl, a stateful "ratchet" based
+solution, inspired by Trevor Perrin's Axolotl ratchet \cite{Axolotl},
+that extends the Sphinx mix net packet format \cite{Sphinx}.
+Xolotl provides limited post-quantum protections and forward secrecy
+in exchange for a small sacrifice of some correlating information,
+but far less than using a circuit based system like Tor.
 
 
 \section{Problems} % explanation
@@ -142,14 +142,15 @@ increase our mix nodes vulnerability to denial of service attacks.
 George Danezis' fs-mixes \cite{fs-mix} provide an approach that
 avoids imposing constraints on the public key exchange.  In fs-mixed,
 a mix node derives a $(k,v)$ from from each key exchange and records
-$(k,v)$  in a key-value store.  We already do something similar for 
-replay protection, but this new key-value store outlives our public
+$(k,v)$  in a name-value store.  We already do something similar for 
+replay protection, but this new name-value store outlives our public
 key rotation schedule.  A subsequent packet sent in another public
 key epoch may ask that $v$ be hashed into the key exchange after
-revealing $k$.  
+revealing its name $k$.  
 
 These fs-mixes could be viewed as a form of "ratchet" not wholly
-unlike off-the-record (OtR) messaging ratchet \cite{??OtR??}.  
+unlike off-the-record (OtR) messaging ratchet \cite{??OtR??},
+sometimes described as a three-step Diffie-Hellman ratchet.  
 We shall extend fs-mixes to provide stronger protection and be more
 reliable.  Intuitively this parallels how Trevor Perrin's Axolotl 
 ratchet extends OtR with a hash iteration ratchet. 
@@ -175,7 +176,7 @@ users interact with numerous nodes and key material overhead is
 quadratic in the number of hops. % $n(n+1)/2$
 
 \smallskip
-% \section{Sphinx key blinding}
+% \subsubsection{Sphinx key blinding}
 
 Sphinx \cite{Sphinx} is a packet format for anonymizing mix networks
 that is provably secure in the universal composability framework, and
@@ -299,19 +300,60 @@ keys are already extremely large.
 In this vein, a circuit based approach like Tor at least avoids
 transmitting unnecessary key material, but it exposes circuit
 metadata by doing so. 
+
 Instead, we draw inspiration from Trevor Perrin's Axolotl ratchet
 \cite{Axolotl}, and George Danezis' fs-mixes \cite{fs-mix}.
 \footnote{In fact, we developed Xolotl without knowing about fs-mixes
-but they simplify }
+but the comparison clearly simplifies the exposition.}
 
-In George Danezis' fs-mixes, every packet leaves some trace 
+% fs-mixes refresher
+
+In George Danezis' fs-mixes, every packet leaves a trace of symmetric
+key materials $v$ that \em{one} later packet can reference with its
+name $k$.  In principle, we could chain these traces similarly to
+how off-the-record messaging \cte{OtR??} chains key exchanges.
+In fact, we could buy ourselves a measure of post-quantum protections
+through chaining if our initial trace pairs $(k,v)$ were created with
+a post-quantum key exchange.  Yet, we cannot employ chaining with
+fs-mixes directly because doing so magnifies any unreliability in
+our mix network. 
 
 % Axolotl refresher
 
-Axolotl remains secure against Shor's algorithm if instantiated with
-a single post-quantum key exchange.  In this scenario, Axolotl does
-not provide post-quantum forward security, but that might be perfectly
-acceptable given the current obstacles to building quantum computers.
+\def\ck{\texttt{ck}}
+\def\rk{\texttt{rk}}
+\def\mk{\texttt{mk}}
+
+The Axolotl ratchet \cite{Axolotl??} replaces the off-the-record
+messaging ratchet's three-step process with a two-step procedure
+that omits advertising a new update and instead transmits the senders
+current public key $A = a G$ in each packet and does the key exchange
+between $A$ and the receivers last seen public key $B = b G$. 
+As in OtR, there is a \em{root key} $\rk$ that Axolotl advances by
+hashing it with the results of this key exchange.  Axolotl avoids using the same key for
+repeated encryptions when the receiver remains silent by deriving the
+\em{chain key} $\ck_i$ for a hash iteration ratchet from the root key.
+
+\[ \begin{aligned}
+\textrm{root advance}\quad
+r' &:= H(r \,||\, a B) = H(r \,||\, b A) \\ % \mathcomma
+\textrm{chain start}\quad
+ \ck_0 &:= H(\textrm{``Start''} \,||\, \rk) \\
+\textrm{chain advance}\quad
+ \ck_{i+1} &:= H(\textrm{``Chain''} \,||\, \ck_i)  \\
+\textrm{message keys}\quad
+ \mk_{j+1} &:= H(\textrm{``Message''} \,||\, \ck_i)  \\
+\end{aligned} \]
+
+These ratchet constructions like Axolotl and OtR remain secure against
+Shor's algorithm \em{if} the root key is first instantiated with some
+post-quantum key exchange, and is twice the desired security level. 
+In this case, our ratchet does not provide any post-quantum forward
+security per se, but that might be perfectly acceptable given current
+obstacles to building quantum computers.  In this way, 
+
+This removes worries
+about the ratchet
 
 
 
@@ -344,10 +386,8 @@ A typical rotation period should be a week or month.
 \noindent {\bf Xolotl ratchet description :} 
 
 \def\cn{\texttt{cn}}
-\def\ck{\texttt{ck}}
 \def\DH{\texttt{DH}}
 \def\lk{\texttt{lk}}
-\def\mk{\texttt{mk}}
 \def\sk{\texttt{sk}}
 \def\ECDH{\textrm{ECDH}}
 
