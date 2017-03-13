@@ -326,9 +326,12 @@ our mix network.
 
 The Axolotl ratchet \cite{Axolotl??} replaces the off-the-record
 messaging ratchet's three-step process with a two-step procedure
-that omits advertising a new update and instead transmits the senders
-current public key $A = a G$ in each packet and does the key exchange
-between $A$ and the receivers last seen public key $B = b G$. 
+that omits advertising a new key update.  Instead, Axolotl continues
+using the same public key $A = a G$ in each packet until witnessing
+the other side change their key $B = b G$.  Axolotl does the key
+exchange between the sender's new public key $A$ and receiver's
+public key $B$ that was last seen by the sender.
+
 As in OtR, there is a \em{root key} $\rk$ that Axolotl advances by
 hashing it with the results of this key exchange.  Axolotl avoids using the same key for
 repeated encryptions when the receiver remains silent by deriving the
@@ -350,40 +353,19 @@ Shor's algorithm \em{if} the root key is first instantiated with some
 post-quantum key exchange, and is twice the desired security level. 
 In this case, our ratchet does not provide any post-quantum forward
 security per se, but that might be perfectly acceptable given current
-obstacles to building quantum computers.  In this way, 
-
-This removes worries
-about the ratchet
+obstacles to building quantum computers, and the large key sizes of
+some post-quantum key exchanges. 
 
 
-
-
-Axolotl itself continues using the same public key until witnessing
- the other side reply with it, which meshes poorly with the mix networks
-for several reasons.
+Axolotl meshes poorly with the mix networks for several reasons.
 %
-First, we prefer to exploit the elliptic curve point
- already in our Sphinx header, which must change with each packet.
+First, we would prefer to exploit the elliptic curve point
+ already in our Sphinx header, which must change with each packet,
+while Axolotl must hold this constant until recieving a response.
 %
-Second, we cannot oblige mix nodes to directly communicate with
- the sender, as that becomes onion routing and Tor's territory.
-%
-Instead, we hope to improve anonymity over Tor alone by
- judiciously exploiting high latency and not creating circuits per se.
-
-We resolve these tensions by ``swapping the order'' of the hash iteration
-ratchet and the two-step ECDH ratchet that make up Axolotl.  
-
-In fact, we shall exploit the ECDH operation already in Sphinx rather
- than adding a typical two-step ECDH ratchet.
-Although the mix node's key is not ephemeral, any Sphinx mix network
-should already rotate node keys for constant-time replay protection.
-A typical rotation period should be a week or month.
-% sometimes faster than the reply rate seen in Pond or Signal.
-
-\smallskip
-
-\noindent {\bf Xolotl ratchet description :} 
+Second, we cannot make mix nodes to respond to the sender, as that
+becomes an onion routing like scheme and sounds more vulnerable to
+traffic analysis.
 
 \def\cn{\texttt{cn}}
 \def\DH{\texttt{DH}}
@@ -391,67 +373,133 @@ A typical rotation period should be a week or month.
 \def\sk{\texttt{sk}}
 \def\ECDH{\textrm{ECDH}}
 
+We resolve these tensions by ``swapping the order'' of the hash
+iteration ratchet and the two-step Diffie-Hellman ratchet that make
+up Axolotl.   
+%
+We have not root key per se in Xolotl.  
+Instead, we have only a hash iteration ratchet, called a branch,
+consisting of a \em{chain key} $\ck_j$ representing the head of the
+ratchet and \em{link keys} $\lk_j$, which Axolotl called a message
+key.  We hash this link key $\lk_j$ with the shared secret $s_i$
+derived from the key exchange in Sphinx to produce both an improved
+shared secret $t_j$ for another layer of Sphinx and a \em{berry key} $r_j$. 
+These berry keys act like the root key in Axolotl because if the
+client determines the message passed through the network successfully
+then it could spawn a new hash iteration ratchet.
+
+We address a branch with a mid-evil naming convention: 
+A branch's own proper name has the form $(f,b)$ where
+ $f$ is its family name determined by its parent branch, and
+ $b$ is the index of the berry from which it grew.
+In essence, we address the branch as ``5th child of George'',
+or $(f,b)$, because everybody already knows the great deeds
+of the branch's parent ``George'', or $f$ or short. 
+There is however a family name $f'$ defined by $(f,b)$ so that
+once $(f,b)$ has performed their own great deeds then their
+children may be addressed as $(f',\cdot)$.
+
+\smallskip \noindent {\bf Xolotl ratchet description :} 
+
 A node begins as if decoding a typical Sphinx packet by
- verifying the MAC,
- producing the shared secret $s_i$, and 
- unwrapping one layer of the header's onion layer,
+ producing the shared secret $s_i$, verifying the MAC, and 
+ unwrapping one layer of the header's onion encrypted $\beta$,
+producing a $\beta'$,
 but then pauses to check for a ratchet flag. 
-If not found, then it continues with Sphinx as usual, 
- extracting the next hop and MAC, and unwrapping a payload onion.
+If not found, then our node continues with Sphinx as usual.
+In particular, it takes $\beta_{i+1}$ to be $\beta'$,
+derives the blinding factor $b_i$,
+blinds the public key as $\alpha_{i+1} := b_i \alpna_i$,
+extracts the next hop $n_{i+1}$ and MAC $\gamma_{i+1}$,
+unwraps an onion layer from the payload $\delta_i$,
+ yielding $\delta_{i+1}$, and queues the new packet
+$(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
+
 If found, then we extract the ratchet instructions instead.
+These ratchet instructions consist of a branch address,
+which contains a branch family name $f$ and a berry index $b$,
+ as well as a chain index $j'$,
+along with an intermediate MAC $\gamma'$.
+% perhaps along with information for closing the previous chain. 
 
-These ratchet instructions consist of
- a chain name $\cn$ and chain index $j$,
-along with the length of the previous chain, or
- perhaps other information for closing the previous chain.  
-
-We define
+If the branch $(f,b)$ is unknown, then we locate its parent's
+proper name $(f_0,b_0)$ using $f$ alone, and extract the berry
+key $r$ with berry index $b$ on $(f_0,b_0)$,
+ aborting if it does not exist.
+From $r$, we define
 \[ \begin{aligned}
+\textrm{family name}\quad
+ f' &:= H(\textrm{``Family''} \,||\, r) \quad\textrm{and} \\ % \mathcomma \\
 \textrm{chain start}\quad
- \ck_0 &:= H(\textrm{``Start''} \,||\, \sk) \mathcomma \\
-\textrm{chain name}\quad
- \cn &:= H(\textrm{``Name''} \,||\, \ck_0) \mathcomma \\
-\textrm{chain keys}\quad
- \ck_{j+1} &:= H(\textrm{``Chain''} \,||\, \ck_j) \mathcomma \\
-\textrm{link keys}\quad
- \lk_j &:= H(\textrm{``Link''} \,||\, \ck_j) \mathcomma \\
-\textrm{packet keys}\quad 
- s' &:= H(\lk_j \,||\, s_i) \mathcomma \\ % \quad\textrm{and} \\
-\textrm{source keys}\quad 
- \sk_j &:= H(\textrm{``Source''} \,||\, s') \mathperiod \\
+ \ck_0 &:= H(\textrm{``Start''} \,||\, r) \mathperiod \\
 \end{aligned} \]
-In essence, there is a hash iteration ratchet named by $\cn$
-% with internal state $(\ck, (a,\lk_a), \ldots, (b,\lk_b))$,
-from which we determine a link key $\lk$.
-We hash $\lk$ with the Sphinx shared secret $s_i$ to produce
-an altered Sphinx shared secret $s'$.
-We finally conclude by running Sphinx with $s'$ to produce the 
-blinding factor $b_i$ and unwrap both the Sphinx header and body. 
+On our branch $(f,b)$, we inductively define 
+\[ \begin{aligned}
+\textrm{chain keys}\quad
+ \ck_{j+1} &:= H(\textrm{``Chain''} \,||\, \ck_j) \quad\textrm{and} \\ % \mathcomma \\
+\textrm{link keys}\quad
+ \lk_j &:= H(\textrm{``Link''} \,||\, \ck_j) \mathperiod \\
+\end{aligned} \]
+In advancing the chain to index $j'$, we naturally save any 
+intermediate $\lk_j$ for later use by out of sequence packets.
+
+We now have the particular $\lk_{j'}$ requested by our ratchet 
+instructions $(f,b,j')$, so we may define 
+\[ \begin{aligned}
+\textrm{packet keys}\quad 
+ s' &:= H(\lk_j \,||\, s_i) \quad\textrm{and} \\ % \mathcomma \\
+\textrm{berry keys}\quad 
+ r' &:= H(\textrm{``Berry''} \,||\, s') \mathperiod \\
+\end{aligned} \]
+We first replace $s_i$ by $s'$ in our Sphinx-like component
+and verify the intermediate MAC $\gamma'$.  If this verification
+fails, then we abort and abandon our ratchet database transaction.
+We thus assume the verification succeeds.  
+
+We now save $r'$ as the berry key for $(f,b,j')$, and commit any
+other ratchet database changes, including erasing $r$ or any 
+$\ck_i$ previously recorded.  Our branch $(f,b)$ has started
+earning the short name its children will use.  
+Also, our Sphinx-like component continues, but now using $s'$.
+To be specific, it derives the blinding factor $b_i$,
+blinds the public key as $\alpha_{i+1} = b_i \alpna_i$,
+unwraps a second layer of $\beta$ to extracts the
+ next hop $n_{i+1}$ and MAC $\gamma_{i+1}$ and 
+ producing our $\beta_{i+1}$,
+unwraps an onion layer from the payload $\delta_i$,
+ yielding $\delta_{i+1}$, and queues the new packet
+$(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
 
 \begin{figure}[b!]%[h!]
 \begin{tikzcd}[ampersand replacement=\&, column sep=small]
 \cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \ar[r, dotted] \& ? \& \\
  \& \lk \ar[d] \& \lk \ar[d]  \& \lk \ar[d] \&  \& \& \\ 
  \& \ECDH \ar[d] \& \ECDH \ar[d] \& \ECDH\ar[d] \&  \& \& \\
- \& \mk \& \mk \ar[dddll, in=90, out=270] \& \mk \ar[dddlll, dotted, in=30, out=270] \&  \& \& \\
+ \& r \& r \ar[dddll, in=90, out=270] \& r \ar[dddlll, dotted, in=30, out=270] \&  \& \& \\
 \\
 \\
 \cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \& \& \\
  \& \lk \ar[d] \& \lk \ar[d] \& \lk \ar[d, dotted] \& \lk \ar[d] \&  \& \& \\ 
  \& \ECDH \ar[d] \& \ECDH \ar[d] \& ? \& \ECDH\ar[d] \&  \& \& \\
- \& \mk \& \mk \&  \& \mk \&  \& \& \\
+ \& r \& r \&  \& r \&  \& \& \\
 \end{tikzcd}
 \end{figure}
 
 \smallskip
 
-Assuming an initial ratchet source was created using a post-quantum
-key exchange, an Xolotl ratchet retains that post-quantum security.
-It also provides an interesting measure of forward secrecy against
-a classical adversary. 
+We take $r$ to be 256 bits so that, assuming the initial ratchet
+source was created using a post-quantum key exchange, then our
+Xolotl ratchet provides 128 bits of post-quantum security.
+
+In addition, Xolotl provides a measure of forward secrecy against
+a classical adversary in that the symmetric key information $r$,
+$\ck_j$ for $j<j'$, $\lk_{j'}$, and $s'$ all gets erased when
+the packet gets queued.  An adversary who later compromises the
+private key of our node $n_i$ learns the next hop only for packets
+that did not employ any ratchet at $n_i$.
 
 For these advantages, we have exposed,
- to the node $i$ hosting the ratchet, that all packets using this
+ to the node $n_i$ hosting the ratchet, that all packets using this
 particular ratchet have either the same sender or receiver.
 
 There is no need for every hop to employ a ratchet, % though, 
@@ -469,9 +517,14 @@ There are many concerns around this point however, primarily balancing
 the improved forward secrecy with the risk of linking packets across
 different sessions, but
  also practical matters like ratchet storage requirements on mix nodes.  
-On that point, Ratchet link keys must expire with node keys,
- capping their lifetime anyways,
-but source keys or chain keys could outlive them.
+
+Ratchet key material does not expire with node keys.  Indeed, even berry
+keys may outlive node keys because the sender simply remembers them.
+We may therefore set ratchet key expiration based upon storage concerns. 
+
+
+
+
 
 Aside from usage patterns and ratchet longevity,
 there are several interesting possible enhancements worth discussing : 
