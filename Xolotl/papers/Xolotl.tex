@@ -3,6 +3,7 @@
 \documentclass[twoside,letterpaper]{llncs}
 % \documentclass[twoside,letterpaper]{sig-alternate}
 
+\usepackage{amsmath}
 \usepackage[margin=1in]{geometry}
 \usepackage[utf8]{inputenc}
 \usepackage{url}
@@ -309,9 +310,9 @@ but the comparison clearly simplifies the exposition.}
 % fs-mixes refresher
 
 In George Danezis' fs-mixes, every packet leaves a trace of symmetric
-key materials $v$ that \em{one} later packet can reference with its
+key materials $v$ that {\it one} later packet can reference with its
 name $k$.  In principle, we could chain these traces similarly to
-how off-the-record messaging \cte{OtR??} chains key exchanges.
+how off-the-record messaging \cite{OtR??} chains key exchanges.
 In fact, we could buy ourselves a measure of post-quantum protections
 through chaining if our initial trace pairs $(k,v)$ were created with
 a post-quantum key exchange.  Yet, we cannot employ chaining with
@@ -332,10 +333,10 @@ the other side change their key $B = b G$.  Axolotl does the key
 exchange between the sender's new public key $A$ and receiver's
 public key $B$ that was last seen by the sender.
 
-As in OtR, there is a \em{root key} $\rk$ that Axolotl advances by
+As in OtR, there is a {\it root key} $\rk$ that Axolotl advances by
 hashing it with the results of this key exchange.  Axolotl avoids using the same key for
 repeated encryptions when the receiver remains silent by deriving the
-\em{chain key} $\ck_i$ for a hash iteration ratchet from the root key.
+{\it chain key} $\ck_i$ for a hash iteration ratchet from the root key.
 
 \[ \begin{aligned}
 \textrm{root advance}\quad
@@ -349,7 +350,7 @@ r' &:= H(r \,||\, a B) = H(r \,||\, b A) \\ % \mathcomma
 \end{aligned} \]
 
 These ratchet constructions like Axolotl and OtR remain secure against
-Shor's algorithm \em{if} the root key is first instantiated with some
+Shor's algorithm {\it if} the root key is first instantiated with some
 post-quantum key exchange, and is twice the desired security level. 
 In this case, our ratchet does not provide any post-quantum forward
 security per se, but that might be perfectly acceptable given current
@@ -379,11 +380,11 @@ up Axolotl.
 %
 We have not root key per se in Xolotl.  
 Instead, we have only a hash iteration ratchet, called a branch,
-consisting of a \em{chain key} $\ck_j$ representing the head of the
-ratchet and \em{link keys} $\lk_j$, which Axolotl called a message
+consisting of a {\it chain key} $\ck_j$ representing the head of the
+ratchet and {\it link keys} $\lk_j$, which Axolotl called a message
 key.  We hash this link key $\lk_j$ with the shared secret $s_i$
 derived from the key exchange in Sphinx to produce both an improved
-shared secret $t_j$ for another layer of Sphinx and a \em{berry key} $r_j$. 
+shared secret $t_j$ for another layer of Sphinx and a {\it berry key} $r_j$. 
 These berry keys act like the root key in Axolotl because if the
 client determines the message passed through the network successfully
 then it could spawn a new hash iteration ratchet.
@@ -409,7 +410,7 @@ but then pauses to check for a ratchet flag.
 If not found, then our node continues with Sphinx as usual.
 In particular, it takes $\beta_{i+1}$ to be $\beta'$,
 derives the blinding factor $b_i$,
-blinds the public key as $\alpha_{i+1} := b_i \alpna_i$,
+blinds the public key as $\alpha_{i+1} := b_i \alpha_i$,
 extracts the next hop $n_{i+1}$ and MAC $\gamma_{i+1}$,
 unwraps an onion layer from the payload $\delta_i$,
  yielding $\delta_{i+1}$, and queues the new packet
@@ -462,7 +463,7 @@ $\ck_i$ previously recorded.  Our branch $(f,b)$ has started
 earning the short name its children will use.  
 Also, our Sphinx-like component continues, but now using $s'$.
 To be specific, it derives the blinding factor $b_i$,
-blinds the public key as $\alpha_{i+1} = b_i \alpna_i$,
+blinds the public key as $\alpha_{i+1} = b_i \alpha_i$,
 unwraps a second layer of $\beta$ to extracts the
  next hop $n_{i+1}$ and MAC $\gamma_{i+1}$ and 
  producing our $\beta_{i+1}$,
