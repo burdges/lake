@@ -20,7 +20,6 @@
 %\usetikzlibrary{positioning}
 %\usetikzlibrary{calc}
 
-\def\mathcomma{,}
 \def\mathperiod{.}
 
 \def\mathcomma{}
@@ -41,8 +40,9 @@
 
 \begin{abstract}
 We describe a new double ratchet construction Xolotl,
- inspired by the Axolotl ratchet \cite{Axolotl},
-that integrates with the Sphinx mix network packet format \cite{Sphinx}.
+ inspired by the Axolotl ratchet \cite{TextSecure}, that
+integrates with the Sphinx mix network packet format \cite{Sphinx}.
+% TODO: Another Axolotl citation?
 We argue this opens the door to compact mix network formats with
 stronger forward secrecy and truly hybrid anonymity, meaning they
 rest upon the stronger of the security assumptions required by
@@ -52,14 +52,15 @@ rest upon the stronger of the security assumptions required by
 
 % \section{Motivation}
 
-Anonymity systems based on ``onion routing'' \cite{??OR??}
+Anonymity systems based on ``onion routing'' \cite{SS03,timing-fc2004}
 like Tor or I2P are known to be vulnerable to correlation attacks by
 a passive adversary who can observe both endpoints of a circuit, such
 as a national ISP.   Any attempt to defeat correlation attacks must
 take latency into consideration. 
+% TODO: cite https://blog.torproject.org/blog/one-cell-enough
 
-There are several recent proposals like \cite{Alpenhorn??} and
-\cite{Dissent??} that avoid introducing much latency by instead
+There are several recent proposals like \cite{Alpenhorn} and
+\cite{Dissent} that avoid introducing much latency by instead
 introducing vast amounts of unnecessary traffic, which impacts their
 scalability, and limits their anonymity set size.  We consider such
 approaches problematic because schemes that do not scale well would
@@ -88,7 +89,7 @@ In this setting, there are technical obstacles to deploying a
 post-quantum key exchange in a mix network.  
 
 In this article, we propose Xolotl, a stateful "ratchet" based
-solution, inspired by Trevor Perrin's Axolotl ratchet \cite{Axolotl},
+solution, inspired by Trevor Perrin's Axolotl ratchet \cite{TextSecure},
 that extends the Sphinx mix net packet format \cite{Sphinx}.
 Xolotl provides limited post-quantum protections and forward secrecy
 in exchange for a small sacrifice of some correlating information,
@@ -125,9 +126,10 @@ rotating identity-based epoch key.  This buys use forward security
 assuming at least some trusted node does not get compromised, but
 sounds difficult to deploy in practice. 
 
-We could use punctured encryption \cite{punctured_encryption} for our
+We could use punctured encryption \cite{libforwardsec} for our
 mix nodes key, so that mix nodes who correctly puncture their key
 after decrypting a message cannot decrypt the same message again. 
+% TODO: Should I cite an older article on punctured encryption?
 As a rule, punctured encryption schemes require $O(n)$ time for
 decryption where $n$ is the number of punctures so far.  There are
 techniques for epoch based puncturing that make $n$ far less than
@@ -136,7 +138,7 @@ deforming the SURB as well.
 
 Any scheme for deforming SURBs requires a delicate proof of security
 because several mix network packet formats based on malleable key
-material were broken in \cite{GD-breaking_universal_reencryption}.  
+material were broken in \cite{Danezis2006}. 
 Also, these ideas all require slower pairing based cryptography that
 increase our mix nodes vulnerability to denial of service attacks. 
 
@@ -150,7 +152,7 @@ key epoch may ask that $v$ be hashed into the key exchange after
 revealing its name $k$.  
 
 These fs-mixes could be viewed as a form of "ratchet" not wholly
-unlike off-the-record (OtR) messaging ratchet \cite{??OtR??},
+unlike off-the-record (OtR) messaging ratchet \cite{OtR},
 sometimes described as a three-step Diffie-Hellman ratchet.  
 We shall extend fs-mixes to provide stronger protection and be more
 reliable.  Intuitively this parallels how Trevor Perrin's Axolotl 
@@ -223,7 +225,7 @@ points for blinding, thus avoiding  because blinding happens after the key excha
 establishes confidentiallity, but doing so requires building confidence
 in this new cryptographic operation.  Worse, there are currently open
 questions around key validation in SIDH that prevent using long term
-keys \cite{??SIDH-valiadation??}, which Sphinx requires.
+keys \cite{SIDH-NoValidation}, which Sphinx requires.
 
 In Ring-LWE, there is enough flexibility for blinding constructions
 that increase the key size, fully homomorphic encryption schemes that
@@ -303,7 +305,7 @@ transmitting unnecessary key material, but it exposes circuit
 metadata by doing so. 
 
 Instead, we draw inspiration from Trevor Perrin's Axolotl ratchet
-\cite{Axolotl}, and George Danezis' fs-mixes \cite{fs-mix}.
+\cite{TextSecure}, and George Danezis' fs-mixes \cite{fs-mix}.
 \footnote{In fact, we developed Xolotl without knowing about fs-mixes
 but the comparison clearly simplifies the exposition.}
 
@@ -312,7 +314,7 @@ but the comparison clearly simplifies the exposition.}
 In George Danezis' fs-mixes, every packet leaves a trace of symmetric
 key materials $v$ that {\it one} later packet can reference with its
 name $k$.  In principle, we could chain these traces similarly to
-how off-the-record messaging \cite{OtR??} chains key exchanges.
+how off-the-record messaging \cite{OtR} chains key exchanges.
 In fact, we could buy ourselves a measure of post-quantum protections
 through chaining if our initial trace pairs $(k,v)$ were created with
 a post-quantum key exchange.  Yet, we cannot employ chaining with
@@ -325,7 +327,7 @@ our mix network.
 \def\rk{\texttt{rk}}
 \def\mk{\texttt{mk}}
 
-The Axolotl ratchet \cite{Axolotl??} replaces the off-the-record
+The Axolotl ratchet \cite{TextSecure} replaces the off-the-record
 messaging ratchet's three-step process with a two-step procedure
 that omits advertising a new key update.  Instead, Axolotl continues
 using the same public key $A = a G$ in each packet until witnessing
@@ -486,7 +488,7 @@ $(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
 \end{tikzcd}
 \end{figure}
 
-\smallskip
+\section{Analysis}
 
 We take $r$ to be 256 bits so that, assuming the initial ratchet
 source was created using a post-quantum key exchange, then our
@@ -503,15 +505,38 @@ For these advantages, we have exposed,
  to the node $n_i$ hosting the ratchet, that all packets using this
 particular ratchet have either the same sender or receiver.
 
+We expect Xolotl ratchets to be more reliable than fs-mixes because
+the hash iteration ratchet component permits ratchet reuse even when
+packets get dropped or delayed.  There is a corresponding cost in
+that we reveal a connection between far more packets to the node
+$n_i$ hosting the ratchet.
+
 There is no need for every hop to employ a ratchet, % though, 
-but specific usage patterns require detailed analysis. 
+but specific usage patterns require detailed analysis.
 
 \[ \begin{aligned}
 \textrm{User} \to &\textrm{Tor} \to \textrm{Xolotl} \to \textrm{Sphinx} \to \\
 \quad &\to \textrm{Xolotl} \to \textrm{Sphinx} \to \textrm{Cross} \to \cdots 
 \end{aligned} \]
 
-An initial ``guard'' ratchet should be created anew for each session.
+If ratchets are used at only certain hops, then the mix learns
+information about its role and position in the route.  
+We could mitigate this by consolidating ratchets on specified mix
+nodes, presumably with more storage and/or hardened hosting, but
+this doing so concentrates our forward secrecy and post-quantum 
+defenses as well.
+
+In Tor, there is a more restrictive procedure for selecting the
+first hop in a circuit, called a {\it guard} node.  We expect
+mix networks will benefit from specialized guard selection as well.
+Assuming mix nodes can easily distinguish clients from mix nodes,
+there is no need for a ratchet at guard node because the client and
+the mix node should use a conventional ephemeral key exchange,
+likely a hybrid of an elliptic curve and post-quantum key exchange.
+
+An initial set of ``guard'' ratchets could be created anew for each
+session, possibly distinct from the client's actual guard nodes.
+
 We believe that retaining middle ratchets for longer periods could
 improve forward secrecy over creating them all anew with each session. 
 There are many concerns around this point however, primarily balancing
@@ -523,6 +548,20 @@ Ratchet key material does not expire with node keys.  Indeed, even berry
 keys may outlive node keys because the sender simply remembers them.
 We may therefore set ratchet key expiration based upon storage concerns. 
 
+
+\section{Improvements}
+
+
+
+
+Xolotl's primary disadvantage is 
+
+Ratchets could be given away to other users, thereby allowing a
+collaborative form of forward secrecy, and obfuscating ownership. 
+In principle, adversaries could not break middle ratchets without
+breaking all cryptography up through to the messaging layer itself,
+which could reasonably employ multiple post-quantum key exchanges,
+ possibly even McBits.
 
 
 
@@ -552,15 +591,15 @@ which could reasonably employ multiple post-quantum key exchanges,
 % \end{itemize}
 
 
-% \section*{Acknowledgements}
-% This work benefits from the financial support of the Brittany Region
-% (ARED 9178) and a grant from the Renewable Freedom Foundation.
+\section*{Acknowledgements}
+This work benefits from the financial support of the Brittany Region
+(ARED 9178) and a grant from the Renewable Freedom Foundation.
 
 
 %\newpage
 
 \bibliographystyle{abbrv}
-\bibliography{mix,pq,rlwe,sidh}
+\bibliography{mix,nonmix,or,msg,pq,rlwe,sidh}
 
 \end{document}
 
