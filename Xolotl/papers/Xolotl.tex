@@ -488,6 +488,50 @@ $(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
 \end{tikzcd}
 \end{figure}
 
+
+\section{Faster chains}
+
+We have described a simple linear hash iteration ratchet above.  
+These work well in Axolotl because the sender controls the desired
+order of delivery and the transport makes some effort to comply.
+
+In Xolotl, we envision using ratchets when recieving a message 
+using a single-use reply blocks (SURBs), as well as when sending.
+We should expect SURBs to be used in a far more haphazard way or
+indeed discarded when node keys rotate.  
+
+Axolotl also benifits from being used between established contacts,
+while mix nodes would provide Xolotl ratchets as a service, like
+for free.  We therefore worry malicious clients might ask mix nodes
+to forward ratchets for extreme distances as a denial of service
+attack, while the mix node cannot easily distinguish this malicious
+behavior from poor SURB usage.
+
+We address these concerns by optimizing our procedure for advancing
+the chain key.  We reserve the low $l$ bits of the chain index
+for a chain key that works as described above.  
+If our index $j$ has a nonzero bit among its lower $l$ bits,
+meaning $j \& (2^l-1) \neq 0$, then
+we define
+\[ \begin{aligned}
+ \ck_{j+1} &:= H(\textrm{``Chain''} \,||\, \ck_j) \quad\textrm{and} \\ % \mathcomma \\
+\end{aligned} \]
+We reserve bit $l$ and higher for a faster tree-like {\it train key}
+built using heap addressing.  If the lower $l$ bits of $j$ are
+all zero, meaning $j \& (2^l-1) \neq 0$, then we define 
+\[ \begin{aligned}
+% \textrm{train left}\quad
+ \ck_{2j} &:= H(\textrm{``Left''} \,||\, \ck_j) \mathcomma \\
+% \textrm{train right}\quad
+ \ck_{2j+2^l} &:= H(\textrm{``Right''} \,||\, \ck_j) \mathcomma \\
+% \textrm{chain key}\quad
+ \ck_{j+1} &:= H(\textrm{``Chain''} \,||\, \ck_j) \quad\textrm{and} \\
+\end{aligned} \]
+In both case, we could define the link key $\lk_j$ as before, but
+the actual key derivations functions could differ between these two
+cases, and doing so appears more efficient.
+
+
 \section{Analysis}
 
 We take $r$ to be 256 bits so that, assuming the initial ratchet
@@ -503,7 +547,8 @@ that did not employ any ratchet at $n_i$.
 
 For these advantages, we have exposed,
  to the node $n_i$ hosting the ratchet, that all packets using this
-particular ratchet have either the same sender or receiver.
+particular ratchet were directed by the same party, making that
+party either the sender or receiver if the packet is a SURB.
 
 We expect Xolotl ratchets to be more reliable than fs-mixes because
 the hash iteration ratchet component permits ratchet reuse even when
@@ -541,54 +586,47 @@ We believe that retaining middle ratchets for longer periods could
 improve forward secrecy over creating them all anew with each session. 
 There are many concerns around this point however, primarily balancing
 the improved forward secrecy with the risk of linking packets across
-different sessions, but
- also practical matters like ratchet storage requirements on mix nodes.  
+different sessions, but also
+ practical matters like ratchet storage requirements on mix nodes.  
 
-Ratchet key material does not expire with node keys.  Indeed, even berry
-keys may outlive node keys because the sender simply remembers them.
-We may therefore set ratchet key expiration based upon storage concerns. 
+Ratchet key material does not expire with node keys.  Indeed, even
+berry keys may outlive node keys because the sender simply remembers
+them.  We may therefore set ratchet key expiration based upon storage
+concerns. 
 
 
 \section{Improvements}
 
+We expect that a malicious mix node hosting a Xolotl ratchet learns
+that all packets using the ratchet were directed by the same party,
+either the sender or reciever.  To mitigate this, we think clients
+could share particular ratchet configurations with other nodes,
+possibly other clients.  
 
+As a simple example, we could support a delay mode so that clients
+could send out a number of messages with delays that would traverse
+their ratchets in the future while they might be offline. 
+This cover traffic sounds expensive however.
 
+If several link keys from the same branch can be shared anonymously,
+then the sharer risks nothing in doing so, assuming pre-image
+resistance for our hash function.  We might wish to share a batch
+of link keys from the same branch with a mix node so that it could
+utilize our ratchet for messages it needed to send anyways, but this
+assumes mix nodes send numerous messages  over the mix network.
 
-Xolotl's primary disadvantage is 
+We observe that anyone using this shared link key could gain a berry
+key that only they know, along with the mix node hosting the ratchet,
+thus allowing them to create a whole new branch.  It follows that,
+if individual shared link keys can be retrieved anonymously, then
+the recipient of the shared link key risks only that the key fails,
+creating a form of denial of service attack.
 
-Ratchets could be given away to other users, thereby allowing a
-collaborative form of forward secrecy, and obfuscating ownership. 
-In principle, adversaries could not break middle ratchets without
-breaking all cryptography up through to the messaging layer itself,
-which could reasonably employ multiple post-quantum key exchanges,
- possibly even McBits.
-
-
-
-
-Aside from usage patterns and ratchet longevity,
-there are several interesting possible enhancements worth discussing : 
-
-% \begin{itemize}
-% \item
-An onion header could contain a SIDH key accessed by a single mix node,
-allowing for post-quantum security at one middle hop
- where no ratchet exists.
-
-% \item 
-A standard hash iteration ratchet could occupy considerable space
- if early messages see long delays. 
-We believe a tree-like hash ratchet configuration would be more efficient,
- especially if ratchets are used with SURBs.
-
-% \item
-Ratchets could be given away to other users, thereby allowing a
-collaborative form of forward secrecy, and obfuscating ownership. 
-In principle, adversaries could not break middle ratchets without
-breaking all cryptography up through to the messaging layer itself,
-which could reasonably employ multiple post-quantum key exchanges,
- possibly even McBits.
-% \end{itemize}
+In practice, we cannot provide perfect anonymity in either sharing
+or retrieving shared link keys, and retrieving lone link keys sounds
+problematic.  Yet, there is room here for a second anonymity system
+that communicates these shared link keys, which sounds like an
+interesting research project.
 
 
 \section*{Acknowledgements}
