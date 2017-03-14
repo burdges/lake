@@ -215,14 +215,14 @@ why these primitives still lack convenient signature schemes.
 In particular, there are blinding operations but they incur significant
 costs  that are asymptotic in the number of hops.
 
-In SIDH, a public key is an isogeny whose kernel consits $p$-torsion
+In SIDH, a public key is an isogeny whose kernel consists $p$-torsion
 for $p=2$ or $3$.  It reveals guide points in the $5-p$-torsion but
 must not reveal the image of any known $p$-torsion points.  
 As a result, current attempts to blind SIDH keys for signature schemes
 add another torsion prime beyond 2 or 3, increasing the size of the
 base field.  In Sphinx, we could invent new shared $p$-torsion guide
 points for blinding, thus avoiding  because blinding happens after the key exchange
-establishes confidentiallity, but doing so requires building confidence
+establishes confidentiality, but doing so requires building confidence
 in this new cryptographic operation.  Worse, there are currently open
 questions around key validation in SIDH that prevent using long term
 keys \cite{SIDH-NoValidation}, which Sphinx requires.
@@ -237,24 +237,24 @@ schemes.
 
 \smallskip
 
-We consder such schemes currently unsuitable for another reason though: 
+We consider such schemes currently unsuitable for another reason though: 
 
 In Sphinx, there is no requirement that the blinding keys $b_i$ be
 drawn from a uniform distribution because standard assumptions on
 elliptic curves suitable for cryptography ask that an adversary has
 no appreciable advantage in determining the correspondence between
 $\alpha_i$ and $\alpha_{i+1}$ without knowing $b_i$.  
-Indeed, the curve25519 function commonly used for Diffie-Helamn key
+Indeed, the curve25519 function commonly used for Diffie-Hellman key
 exchange in Sphinx implementations goes so far as to set the high bit
 of the private scalar as a protection against non-constant time
 implementation.
 There are also cryptographic algorithms like signatures for which
 this assumption does not suffice and blinding scalars must be chosen
-from a uniform distruction.
+from a uniform distribution.
 
 There are similar assumptions underlying both Ring-LWE and SIDH.
 We believe they should be viewed as stronger than simply assuming the
-security of the key exchagne scheme itself, partially due to their
+security of the key exchange scheme itself, partially due to their
 youth, but also because the underlying operations cannot so easily
 yield a uniform distribution on public keys.  We believe further
 research into signature schemes might help build our confidence in
@@ -285,7 +285,7 @@ To be blunt, the elliptic curve scalar multiplication can act as
 a blinding operation in a hybrid protocol because the blinding itself
 can be made information theoretically secure.
 
-We enconter a fatal difficult if imagine that our post-quantum key 
+We encounter a fatal difficult if imagine that our post-quantum key 
 exchange might be broken while elliptic curves remains secure.  
 There are no known blinding operations that provide information
 theoretic security, so attacks on the post-quantum component can
@@ -295,7 +295,7 @@ yield an advantage in guessing packet routes.
 \section{Solution}
 
 We could build a hybrid protocol if our post-quantum key exchange
-used a seperate keys for each hop instead of blinding.  These keys
+used a separate keys for each hop instead of blinding.  These keys
 could be packaged into $\beta$ along with the routing directions and
 MACs for Sphinx, but doing so makes the total size of post-quantum 
 key material quadratic in the number of hops, and these post-quantum
@@ -364,7 +364,7 @@ Axolotl meshes poorly with the mix networks for several reasons.
 %
 First, we would prefer to exploit the elliptic curve point
  already in our Sphinx header, which must change with each packet,
-while Axolotl must hold this constant until recieving a response.
+while Axolotl must hold this constant until receiving a response.
 %
 Second, we cannot make mix nodes to respond to the sender, as that
 becomes an onion routing like scheme and sounds more vulnerable to
@@ -495,12 +495,12 @@ We have described a simple linear hash iteration ratchet above.
 These work well in Axolotl because the sender controls the desired
 order of delivery and the transport makes some effort to comply.
 
-In Xolotl, we envision using ratchets when recieving a message 
+In Xolotl, we envision using ratchets when receiving a message 
 using a single-use reply blocks (SURBs), as well as when sending.
 We should expect SURBs to be used in a far more haphazard way or
 indeed discarded when node keys rotate.  
 
-Axolotl also benifits from being used between established contacts,
+Axolotl also benefits from being used between established contacts,
 while mix nodes would provide Xolotl ratchets as a service, like
 for free.  We therefore worry malicious clients might ask mix nodes
 to forward ratchets for extreme distances as a denial of service
@@ -599,7 +599,7 @@ concerns.
 
 We expect that a malicious mix node hosting a Xolotl ratchet learns
 that all packets using the ratchet were directed by the same party,
-either the sender or reciever.  To mitigate this, we think clients
+either the sender or receiver.  To mitigate this, we think clients
 could share particular ratchet configurations with other nodes,
 possibly other clients.  
 
