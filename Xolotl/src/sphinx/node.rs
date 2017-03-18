@@ -4,8 +4,8 @@
 //!
 //! ...
 
-use std::borrow::{Borrow,BorrowMut};
-use std::sync::{Arc,RwLock};
+use std::borrow::{BorrowMut}; // Borrow
+use std::sync::{Arc}; // RwLock
 
 // pub ed25519_dalek::ed25519;
 
@@ -116,8 +116,8 @@ impl SphinxRouter {
         // we're unwinding an arriving SURB anyways.
         // TODO: Should we better authenticate that SURB were created by us?
         if let Command::ArrivalSURB { } = command {
-            // hop.xor_surb(refs.surb);
-            // hop.xor_surb_log(refs.surb_log);
+            // hop.xor_surb(refs.surb) ?;
+            // hop.xor_surb_log(refs.surb_log) ?;
             // hop.body_cipher().decrypt(body) ?;  // InternalError 
             return self.surbs.unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body);
         }
@@ -164,8 +164,8 @@ impl SphinxRouter {
             // this code evolves. 
             Command::Transmit { route, gamma } => {
                 // Only transmit need to mask the SURB.
-                hop.xor_surb(refs.surb);
-                hop.xor_surb_log(refs.surb_log);
+                hop.xor_surb(refs.surb) ?;
+                hop.xor_surb_log(refs.surb_log) ?;
                 // Prepare packet for next hop as usual in Sphinx.
                 *refs.gamma = gamma.0;
                 *refs.alpha = alpha.blind(& hop.blinding()).compress();

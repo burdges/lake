@@ -4,7 +4,8 @@
 //!
 //! ...
 
-use std::iter::{Iterator,IntoIterator};  // TrustedLen, ExactSizeIterator
+use std::iter::{Iterator};  // IntoIterator, TrustedLen, ExactSizeIterator
+
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 

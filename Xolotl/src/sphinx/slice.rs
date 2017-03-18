@@ -68,7 +68,7 @@ pub fn pre_shift_right_slice<T: Copy>(s: &mut [T], shift: usize) -> ::std::ops::
 pub fn prepend_iterator<I>(target: &mut [I::Item], prepend: I) -> usize
   where I: IntoIterator, I::IntoIter: TrustedLen, I::Item: Copy
 {
-    let mut prepend = prepend.into_iter();
+    let prepend = prepend.into_iter();
 
     // let start = prepend.len();
     let (start,end) = prepend.size_hint();

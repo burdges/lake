@@ -145,7 +145,7 @@ impl RoutingPublic {
         RoutingPublic {
             public: *public,
             validity: ValidityPeriod::from_bytes(validity),
-            issuer: ed25519::PublicKey( CompressedEdwardsY(*public) ),
+            issuer: ed25519::PublicKey( CompressedEdwardsY(*issuer) ),
             signature: ed25519::Signature(*signature),
         }
     }
@@ -243,7 +243,6 @@ impl IssuerSecret {
 
     pub fn issue<R: Rng>(&self, rng: &mut R, validity: ValidityPeriod)
       -> (RoutingName,RoutingPublic,RoutingSecret) {
-        let keys = ed25519::Keypair::generate(rng);
         let mut s = RoutingSecret {
             name: RoutingName([0u8; 16]),
             secret: curve::Scalar::rand(rng),

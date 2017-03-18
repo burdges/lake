@@ -8,7 +8,7 @@
 use std::fmt;
 use std::ops::Range;
 
-use clear_on_drop::ClearOnDrop;
+// use clear_on_drop::ClearOnDrop;
 use crypto::mac::Mac;
 use crypto::poly1305::Poly1305;
 
@@ -21,7 +21,7 @@ impl<'a> From<KeystreamError> for SphinxError {
             KeystreamError::EndReached => {
                 // We verify the maximum key stream length is not
                 // exceeded inside `SphinxParams::stream_chunks`.
-                panic!("Failed to unwrap ChaCha call!");
+                // panic!("Failed to unwrap ChaCha call!");
                 SphinxError::InternalError("XChaCha20 stream exceeded!")
             },
         }
@@ -72,7 +72,7 @@ impl SphinxParams {
         use crypto::digest::Digest;
         use crypto::sha3::Sha3;
 
-        let mut r = &mut [0u8; 32+16];  // ClearOnDrop
+        let r = &mut [0u8; 32+16];  // ClearOnDrop
         let mut sha = Sha3::shake_256();
         sha.input(&ss.0);
         sha.input_str( "Sphinx" );

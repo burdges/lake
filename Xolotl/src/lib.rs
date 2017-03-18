@@ -14,7 +14,6 @@
 // #![feature(step_by)]
 #![feature(trusted_len)]
 #![feature(box_syntax)]
-#![feature(field_init_shorthand)]
 #![feature(associated_consts)]
 #![feature(exclusive_range_pattern)]
 // #![feature(conservative_impl_trait)]

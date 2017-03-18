@@ -8,11 +8,9 @@ use std::fmt;
 
 use rand::{Rng, Rand};
 
-use curve25519_dalek::field;
+// use curve25519_dalek::field;
 use curve25519_dalek::curve;
 use curve25519_dalek::scalar;
-
-use crypto::curve25519 as rc_curve25519;
 
 use super::SphinxSecret;
 use super::error::*;
@@ -175,6 +173,8 @@ impl fmt::Debug for Point {
 
 #[cfg(test)]
 mod tests {
+    use crypto::curve25519 as rc_curve25519;
+
     use rand::{OsRng, Rng, Rand};
     use super::*;
     // use rustc_serialize::hex::ToHex;

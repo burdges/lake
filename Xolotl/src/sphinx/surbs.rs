@@ -17,7 +17,7 @@ use super::error::*;
 use super::slice::*;
 use super::*;
 
-use ::state::{HasherState,Filter};
+use ::state::{HasherState};
 
 
 pub const MAX_SURB_METADATA : usize = 8;
@@ -106,7 +106,10 @@ impl SURBStore {
             metadata.push(meta);
             for surb in hops.iter().rev() {
                 if let Some(berry_twig) = surb.berry_twig {
-                    unimplemented!(); 
+                    unimplemented!();
+                    // TODO: Should we write to the data base here, taking
+                    // and releasing locks frequently?  Or return the list
+                    // to add all at once? 
                 }
                 // TODO: Use protocol specified in the delivery surb
                 let mut hop = SphinxKey {
