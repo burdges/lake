@@ -47,6 +47,12 @@ We argue this opens the door to compact mix network formats with
 stronger forward secrecy and truly hybrid anonymity, meaning they
 rest upon the stronger of the security assumptions required by
  the different public key primitives employed.
+
+We also describe an onion encrypted ``log'' that allows messages to
+be routed by several single-use reply blocks (SURBs) before being
+unwrapped by the receiver.  This gives us a store-and-forward
+architecture with privacy for both the sender and recipient,
+increases reliability, and simplifies several protocol enhancements.
 \end{abstract}
 
 
@@ -94,6 +100,9 @@ that extends the Sphinx mix net packet format \cite{Sphinx}.
 Xolotl provides limited post-quantum protections and forward secrecy
 in exchange for a small sacrifice of some correlating information,
 but far less than using a circuit based system like Tor.
+
+
+% \section{Sphinx}
 
 
 \section{Problems} % explanation
