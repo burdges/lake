@@ -102,7 +102,95 @@ in exchange for a small sacrifice of some correlating information,
 but far less than using a circuit based system like Tor.
 
 
-% \section{Sphinx}
+\section{Sphinx}
+
+We provide a rough outline of the Sphinx mix net packet format here,
+but the reader should become familiar with \cite{Sphinx}, perhaps 
+along with the security proof that inspired it \cite{FormalOnion}
+ and wide block ciphers \cite{Lionness}.
+
+We envision a mix network in which each mix node has a
+medium term routing key $X = x G$ with a predefined validity period,
+and a medium term name that identifies both it and $X$.
+We expect this name would be derived from the signature of a longer
+term signing key on $X$ and its validity period.
+
+A Sphinx packet has a client selected route $X_1,\ldots,X_n$
+where $n$ is less than some small network defined constant.
+A Sphinx packet consists of an elliptic curve point $\alpha$,
+a routing header $\beta$ of a fixed length $L$,
+a single-use reply block (SURB) field $\epsilon$ also of length $L$,
+a MAC $\gamma$ that authenticates the contents of $\beta$ and $\epsilon$,
+and a payload $\delta$.
+All of $\beta$, $\delta$, and $\epsilon$ are onion encrypted,
+but $\beta$ and $\epsilon$ use a stream cipher, while
+ $\delta$ uses a wide block cipher since it is not authenticated.
+
+Our hop $X$ processes $(\alpha,\beta,\gamma,\delta,\epsilon)$
+as follows.  First, it computes a shared secret $s = x \alpha$ to
+derive a replay code, a MAC key, a stream cipher key, 
+ a blinding key $b$, and a wide block cipher key. 
+It uses the MAC key to check the MAC of $\beta$ and $\epsilon$ and
+ then checks its database for the replay code.
+It aborts and drops the packet if either the MAC check fails or
+ if the replay code is present.  It now adds the absent replay code.
+It next pads $\beta$ with $l$ zeros and decrypts the result
+ using the stream cipher to produce a $\hat\beta$.
+An initial segment $\hat\beta$ of length $l' < l$ must contain
+a valid routing command.  
+
+We discuss some new routing commands in this paper, but the typical
+routing command tells the next hop $N'$ to which to forward the
+packet, and the $\gamma'$ the next hop $N'$ requires. 
+In this case, our hop $N$ computes $\alpha' := b \alpha$,
+extracts $\beta' := \hat\beta[l'..L+l']$,
+decrypts $\delta$ using the wide block cipher
+ to produce $\delta'$, and
+decrypts $\epsilon$ using more of the stream cipher
+ to produce $\epsilon'$.
+Now the packet $(\alpha',\beta',\gamma',\delta',\epsilon')$ is
+forwarded to $N'$,
+ according to whatever mixing rules the protocol specifies.
+
+... security ...
+
+Another classical command orders the mix to act as a ``cross over''
+point by activating our SURB $\epsilon$ to give routing control to
+the message's recipient.  A cross over command provides a new
+$\alpha''$ and $\gamma''$ that replace our old ones.  
+In addition, $\delta$ is replaced by the decrypted $\delta'$, 
+$\beta$ is replaced by $\epsilon'$, and $\epsilon$ itself is zeroed.
+Now the mix reruns the Sphinx decoding process on the new packet
+$(\alpha'',\epsilon',\gamma'',\delta',\bar{0})$.  
+After this second run there is nothing about the packet that can
+identify to even the original sender, much less another hop.
+We must zero $\epsilon$ field so that the recipient can compute
+the required MACs without encoding additional information. 
+
+As stated, our recipient has chosen the cross over point $X$,
+supplied the sender with $(X,\alpha'',\beta'',\epsilon')$,
+and the sender built a route to $X$.  This reduces the sender's
+effective route length by roughly 2.5 hops, assuming an $\alpha$
+is twice as long as an $X$.  There is never any reason to encode
+$\alpha''$ and $\gamma''$ into $\epsilon'$ because doing so
+requires that every packet pay that cost even if it lacks a SURB.
+Instead we should make $\epsilon'$ shorter than the length $L$ of
+$\beta$ by zero padding it at the cross over point. 
+
+We could similarly increase the total route length by one if
+we added a next hop $X'$ to the cross over command, built an
+$\epsilon''$ using a stream cipher and sent
+ $(\alpha'',\epsilon',\gamma'',\delta',\epsilon'')$ to $X''$.
+We consider this is wasteful because hops cost vastly more than
+a few bytes in the header.  Worse, we observe that $\delta'$ has
+been stripped of all onion encryption layers created by the sender.
+We must protect $\delta'$ from the cross over point with another
+layer of encryption not specified here.  Yet, it impacts our mix
+networks' security less if $\delta'$ is only ever seen by the cross
+over point, thereby simplifying our overall design.  In particular,
+we might not mind if the cross over point observes an ephemeral
+elliptic curve point in $\delta'$, but one requires tools like
+elligator \cite{elligator,elligator2} to hide it from another hop.
 
 
 \section{Problems} % explanation
@@ -636,6 +724,11 @@ or retrieving shared link keys, and retrieving lone link keys sounds
 problematic.  Yet, there is room here for a second anonymity system
 that communicates these shared link keys, which sounds like an
 interesting research project.
+
+
+\section{Delivery}
+
+We now change the ...
 
 
 \section*{Acknowledgements}
