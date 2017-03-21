@@ -43,6 +43,7 @@ We describe a new double ratchet construction Xolotl,
  inspired by the Axolotl ratchet \cite{TextSecure}, that
 integrates with the Sphinx mix network packet format \cite{Sphinx}.
 % TODO: Another Axolotl citation?
+% https://whispersystems.org/docs/specifications/doubleratchet/
 We argue this opens the door to compact mix network formats with
 stronger forward secrecy and truly hybrid anonymity, meaning they
 rest upon the stronger of the security assumptions required by
@@ -560,7 +561,7 @@ theoretic security, so attacks on the post-quantum component can
 yield an advantage in guessing packet routes.
 
 
-\section{Solution}
+\section{Xolotl ratchet}
 
 We could build a hybrid protocol if our post-quantum key exchange
 used a separate keys for each hop instead of blinding.  These keys
