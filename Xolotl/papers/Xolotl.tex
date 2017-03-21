@@ -1,5 +1,3 @@
-
-
 \documentclass[twoside,letterpaper]{llncs}
 % \documentclass[twoside,letterpaper]{sig-alternate}
 
@@ -28,8 +26,9 @@
 
 \title{Xolotl}
 \subtitle{A request-and-forward mixnet format with selective statefulness for forward secure and post-quantum anonymity}
-\author{Jeffrey Burdges and Christian Grothoff}
+\author{Jeffrey Burdges \and Christian Grothoff}
 \date{\today}
+\institute{Inria}
 
 \begin{document}
 \maketitle
@@ -39,15 +38,12 @@
 % L\'aszl\'o Baba's quasi-polynomial time algorithm for graph isomorphism\cite{Babai-GI}
 
 \begin{abstract}
-We describe a new double ratchet construction Xolotl,
- inspired by the Axolotl ratchet \cite{TextSecure}, that
-integrates with the Sphinx mix network packet format \cite{Sphinx}.
-% TODO: Another Axolotl citation?
-% https://whispersystems.org/docs/specifications/doubleratchet/
-We argue this opens the door to compact mix network formats with
-stronger forward secrecy and truly hybrid anonymity, meaning they
-rest upon the stronger of the security assumptions required by
- the different public key primitives employed.
+We describe a new double ratchet construction Xolotl, inspired by the
+Axolotl ratchet, that integrates with the Sphinx mix network packet
+format.  We argue this opens the door to compact mix network formats
+with stronger forward secrecy and truly hybrid anonymity, meaning they
+rest upon the stronger of the security assumptions required by the
+different public key primitives employed.
 
 We also describe an onion encrypted ``log'' that allows messages to
 be routed by several single-use reply blocks (SURBs) before being
@@ -57,85 +53,159 @@ increases reliability, and simplifies several protocol enhancements.
 \end{abstract}
 
 
-% \section{Motivation}
+\section{Introduction}
 
-Anonymity systems based on ``onion routing'' \cite{SS03,timing-fc2004}
-like Tor or I2P are known to be vulnerable to correlation attacks by
-a passive adversary who can observe both endpoints of a circuit, such
-as a national ISP.   Any attempt to defeat correlation attacks must
-take latency into consideration. 
+Anonymity systems based on ``onion routing''~\cite{SS03} like Tor or
+I2P are known to be vulnerable to correlation attacks by a passive
+adversary who can observe both endpoints of a
+circuit~\cite{timing-fc2004}, such as a national ISP.  Any attempt to
+defeat correlation attacks must take latency into consideration.
 % TODO: cite https://blog.torproject.org/blog/one-cell-enough
 
-There are several recent proposals like \cite{Alpenhorn} and
-\cite{Dissent} that avoid introducing much latency by instead
-introducing vast amounts of unnecessary traffic, which impacts their
-scalability, and limits their anonymity set size.  We consider such
-approaches problematic because schemes that do not scale well would
-make privacy expensive, and might favor powerful players seeking to
-avoid accountability over efforts to liberate people from power. ???
+There are several recent proposals like~\cite{Alpenhorn}
+and~\cite{Dissent} that avoid introducing much latency by instead
+introducing vast amounts of cover traffic, which uses bandwidth
+that might be better used to grow the user base and thus increase
+the anonymity set size. 
 
-We favor the opposite trade off in which we impose higher latency but
+We favor the opposite trade off in which we accept higher latency but
 avoid introducing excessive cover traffic. In effect, we propose to
 sacrifice use cases that require low latency like voice, while
 offering an inexpensive privacy tool that defeats correlation attacks.
-for high latency applications, including text messaging applications.
+Our target domain includes most text messaging applications and
+e-mail, but excludes large file transfers.
 
-In doing so, there is a cryptographic inconvenience that high latency
-schemes like mix networks lack forward secrecy.  We give low latency
-anonymity tools like Tor forward secrecy by employing an ephemeral
-key exchange on both servers and clients, but high latency schemes
-require the client to encrypt to a long term keys of the servers.
+\subsection{Network architecture}
+
+A central goal for our network architecture is that messaging is {\bf
+  asynchronous} and must work reliably even if sender and receiver are
+never online at the same time.  As a result, we require that messages
+can be stored for days to months at nodes in the network.  Generally,
+the receiver will select a set of nodes to store his messages and
+select a replication level to achieve the desired level of
+reliability. While the number of replicas can be disclosed to the
+sender, the specific set of replicas is only known to the receiver.
+Replicas also do not know of each other, and even collaborating
+replicas must not be able to detect that they are storing the same
+message for the same receiver.
+
+We assume that the sender initially has a way to securely resolve the
+recipient's address to a set of sender-specific single-use reply
+blocks (SURBs), for example using an out-of-band exchange or using
+name resolution in the GNU Name System~\cite{gns} using a private
+label.  However, once a set of SURBs has been established between
+sender and receiver, the protocol must maintain the connection
+indefinetely, or at least as long as neither sender nor receiver fail
+to be online for weeks or months at a time.  Naturally, either side
+can also choose to sever the link at any time.
+
+For path selection, sender and receiver require the ability to select
+``random'' nodes for routing.  We assume that the network offers a
+Byzantine fault-tolerant random peer sampling mechanism, for example
+using trusted directory servers~\cite{tordir} or using fault-tolerant
+random peer sampling protocols, such as BRAHMS~\cite{brahms}.  Our
+design allows peers to in principle impose further constraints on the
+path selection, for example limiting the set of guard
+nodes~\cite{oneguardisenough}, biasing the selection in favor of
+higher bandwidth routers~\cite{findexample} or selecting nodes for
+persistent replication based on advertisted storage capabilities.
+While those choices do matter for privacy, we consider them orthogonal
+and thus outside of the scope of this work.
+
+
+\subsection{Cryptographic challenges}
+
+When constructing asynchronous messaging systems, there is a
+cryptographic inconvenience that high latency schemes like mix
+networks lack forward secrecy.  Synchronous anonymity tools like Tor
+achieve forward secrecy by employing an ephemeral key exchange on both
+servers and clients, but asynchronous schemes generally require
+clients to encrypt to long term keys of the servers.
 
 There is a superficial similarity between forward secrecy and
-post-quantum cryptography:  As post-quantum public key primitives
+post-quantum cryptography: As post-quantum public key primitives
 remain young, post-quantum protocols should be analyzed in a hybrid
-setting where even ephemeral keys might be compromised.  
-In other words, either the classical elliptic curve key exchange or
-the post-quantum key exchange might be compromised, but not both. 
-In this setting, there are technical obstacles to deploying a
-post-quantum key exchange in a mix network.  
+setting where even ephemeral keys might be compromised.  In other
+words, there is a chance that either the classical elliptic curve key
+exchange or the post-quantum key exchange might be compromised, but
+the chance of both being broken is naturally lower and thus is is
+desirable to produce a scheme that combines the strengths of both
+classic and post-quantum methods.  However, there are technical
+obstacles to deploying a post-quantum key exchange in a mix network,
+starting with the simple problem that messages tend to be larger
+and computations more expensive.
 
-In this article, we propose Xolotl, a stateful "ratchet" based
-solution, inspired by Trevor Perrin's Axolotl ratchet \cite{TextSecure},
-that extends the Sphinx mix net packet format \cite{Sphinx}.
-Xolotl provides limited post-quantum protections and forward secrecy
-in exchange for a small sacrifice of some correlating information,
-but far less than using a circuit based system like Tor.
+In this article, we propose Xolotl, a stateful ``ratchet'' based
+solution, inspired by the Axolotl
+ratchet~\cite{TextSecure}, that extends the Sphinx mix net packet
+format~\cite{Sphinx}.  Xolotl provides limited post-quantum
+protections and forward secrecy in exchange for a small sacrifice of
+leaking some (mostly harmless) correlating information and increased
+path length.  Xolotl also enables system architects the liberty to
+make trade-offs between the amount of state routers have to keep and
+the key rotation frequency, without this trade-off significantly
+impacting forward secrecy.  As a result, the key rotation frequency
+can be set to the maximum possible value limited only by expected
+bandwidth utilization and available storage capacity.  This is
+important as short key lifetimes can cause SURBs to expire, which
+would cause messages or even sessions to be lost.
 
 
-\section{Sphinx}
+\section{Extending Sphinx}
 
-We provide a rough outline of the Sphinx mix net packet format here,
-but the reader should become familiar with \cite{Sphinx}, perhaps 
-along with the security proof that inspired it \cite{FormalOnion}
- and wide block ciphers \cite{Lionness}.
+We start with a setup consisting of a Sphinx-based mix network in
+which each mix node has a medium term routing key $X = x G$ with a
+predefined validity period, and a medium term name that identifies
+both it and $X$.  We expect this name would be derived from the
+signature of a longer term signing key on $X$ and its validity period.
 
-We envision a mix network in which each mix node has a
-medium term routing key $X = x G$ with a predefined validity period,
-and a medium term name that identifies both it and $X$.
-We expect this name would be derived from the signature of a longer
-term signing key on $X$ and its validity period.
+For simplicity, we assume all nodes in the network are aware of the
+medium term routing keys $X$ and validity periods for all other nodes.
+Furthermore, public keys for future periods are expected to be
+securely distributed ahead of time, possibly months before they are
+used.
 
-A Sphinx packet has a client selected route $X_1,\ldots,X_n$
-where $n$ is less than some small network defined constant.
-A Sphinx packet consists of an elliptic curve point $\alpha$,
-a routing header $\beta$ of a fixed length $L$,
-a single-use reply block (SURB) field $\epsilon$ also of length $L$,
-a MAC $\gamma$ that authenticates the contents of $\beta$ and $\epsilon$,
-and a body $\delta$.
-All of $\beta$, $\delta$, and $\epsilon$ are onion encrypted,
-but $\beta$ and $\epsilon$ use a stream cipher, while
- $\delta$ uses a wide block cipher since it is not authenticated.
 
-Our hop $X$ processes $(\alpha,\beta,\gamma,\delta,\epsilon)$
+\subsection{Background: The Sphinx packet format}
+
+We provide a rough outline of the Sphinx mix net packet format here.
+For a more in-depth treatment, we refer to~\cite{Sphinx} and the
+security proof that inspired it~\cite{FormalOnion}, as well as wide
+block ciphers~\cite{Lionness}.
+
+\begin{figure}
+  \begin{center}
+     FIXME: include graphic. Or maybe make new one with $\epsilon$?
+  \end{center}
+  \caption{The Sphinx packet format (reproduced from~\cite{Sphinx}).}
+  \label{fig:sphinx}
+\end{figure}
+
+A Sphinx packet (Figure~\ref{fig:sphinx}) is flows along a client-selected route $X_1,\ldots,X_n$
+where $n$ is less than some small network defined constant.  A Sphinx
+packet consists of an elliptic curve point $\alpha$, a routing header
+$\beta$ of a fixed length $L$, a single-use reply block (SURB) field
+$\epsilon$ also of length $L$, a MAC $\gamma$ that authenticates the
+contents of $\beta$ and $\epsilon$, and a body $\delta$.  All of
+$\beta$, $\delta$, and $\epsilon$ are onion encrypted, but $\beta$ and
+$\epsilon$ use a stream cipher, while $\delta$ uses a wide block
+cipher since it is not authenticated.
+
+% FIXME: epsilon is a new thing, not in original Sphinx, right?
+% (Don't have the paper here, its' not in the diagram...).
+% If it is not in the paper, we need to point out where this
+% part comes from (or if it is new).
+
+Each hop $X$ processes $(\alpha,\beta,\gamma,\delta,\epsilon)$
 as follows.  First, it computes a shared secret $s = x \alpha$ to
 derive a replay code, a MAC key, a stream cipher key, 
  a blinding key $b$, and a wide block cipher key. 
 It uses the MAC key to check the MAC of $\beta$ and $\epsilon$ and
  then checks its database for the replay code.
 It aborts and drops the packet if either the MAC check fails or
- if the replay code is present.  It now adds the absent replay code.
-It next pads $\beta$ with $l$ zeros and decrypts the result
+ if the replay code is present.  Otherwise it adds the replay code
+ to its database.
+Next, it pads $\beta$ with $l$ zeros and decrypts the result
  using the stream cipher to produce a $\hat\beta$.
 An initial segment $\hat\beta$ of length $l' < l$ must contain
 a valid routing command.  
@@ -153,62 +223,100 @@ Now the packet $(\alpha',\beta',\gamma',\delta',\epsilon')$ is
 forwarded to $N'$,
  according to whatever mixing rules the protocol specifies.
 
-... security ...
 
 \subsection{Cross over points}
 
+% FIXME: is this in the sphinx paper, or new?
+% (Don't have the paper handy...)
+% FIXME: needs a diagram, regardless ;-).
+
 Another classical command orders the mix to act as a ``cross over''
 point by activating our SURB $\epsilon$ to give routing control to
-the message's recipient.  A cross over command provides a new
+the message's recipient.  The path up to the cross over point
+is selected by the sender and protects the privacy of the sender,
+while the path from the cross over point on is selected by the
+receiver and protects the receiver.  Only the cross over point
+itself is disclosed in the clear to the sender.
+
+A cross over command provides a new
 $\alpha''$ and $\gamma''$ that replace our old ones.  
 In addition, $\delta$ is replaced by the decrypted $\delta'$, 
 $\beta$ is replaced by $\epsilon'$, and $\epsilon$ itself is zeroed.
 Now the mix reruns the Sphinx decoding process on the new packet
 $(\alpha'',\epsilon',\gamma'',\delta',\bar{0})$.  
-After this second run there is nothing about the packet that can
-identify to even the original sender, much less another hop.
-We must zero $\epsilon$ field so that the recipient can compute
+After this second run there is nothing about the packet that 
+identifies it --- not even to the original sender.
+We must zero the $\epsilon$ field so that the recipient can compute
 the required MACs without encoding additional information. 
 
 As stated, our recipient has chosen the cross over point $X$,
-supplied the sender with $(X,\alpha'',\beta'',\epsilon')$,
+supplied the sender with $(X,\alpha'',\epsilon',\gamma'')$,
+% NOTE: fixed the above, you had them wrong (pretty sure...)
 and the sender built a route to $X$.  This reduces the sender's
-effective route length by roughly 2.5 hops, assuming an $\alpha$
-is twice as long as an $X$.  There is never any reason to encode
+maximum route length by roughly 2.5 hops, assuming an $\alpha$
+is twice as long as an $X$.
+% FIXME: I don't understand why. We use data from \epsilon
+% to update the header, so why does this impact the sender's
+% route at all?
+There is never any reason to encode
 $\alpha''$ and $\gamma''$ into $\epsilon'$ because doing so
-requires that every packet pay that cost even if it lacks a SURB.
+would require that every packet pay that cost even if it lacks a SURB.
+% FIXME: I see that there is no reason for \alpha or \gamma to
+% be in \epsilon, but I do not see how this impacts non-SURB
+% packets, other than that we obviously like \epsilon to be
+% short as it is overhead and all mixes must decrypt and process
+% it, even if it is just garbage.  Is that your point? Then
+% we might want to clarify it.
 Instead we should make $\epsilon'$ shorter than the length $L$ of
-$\beta$ by zero padding it at the cross over point. 
+$\beta$ by zero padding it at the cross over point.
+% FIXME: I _suspect_ I understand, but most readers will
+% not. Needs clarification and/or picture.
 
 We could similarly increase the total route length by one if
 we added a next hop $X'$ to the cross over command, built an
 $\epsilon''$ using a stream cipher and sent
  $(\alpha'',\epsilon',\gamma'',\delta',\epsilon'')$ to $X''$.
 We consider this is wasteful because hops cost vastly more than
-a few bytes in the header.  
+a few bytes in the header.
+% FIXME: I do not understand :-(.  But, what I wonder is
+% why we throw away all of \beta, instead of requiring
+% the sender to compute \beta in such a way that some
+% bytes (L - hops-spent) to match the new
+% \beta''; that might allow us to reduce \epsilon further...
 
 Worse, we observe that $\delta'$ has been stripped of all onion
 encryption layers created by the sender because the sender must not
 know anything about the packet after the cross over point,
  including wide block cipher keys.
-We must therefore protect $\delta'$ from the cross over point with
-another layer of encryption not specified here.  Yet, it impacts our
-mix networks' security less if $\delta'$ is only ever seen by the
-cross over point, thereby simplifying our overall design.  
-In particular, we might not mind if the cross over point observes an
-ephemeral elliptic curve point in $\delta'$, but one requires tools
-like elligator \cite{elligator} to hide it from another hop.
+We must therefore ensure that the plaintext message itself
+ is not $\delta'$, and instead protect the plaintext using
+ another layer of end-to-end encryption.
+ Furthermore, if the same message is routed over different
+ paths, this end-to-end encryption layer must use different
+ (ephemeral) keys to prevent cross over points from performing
+ correlation attacks on $\delta'$.
 
+%Yet, it impacts our
+%mix networks' security less if $\delta'$ is only ever seen by the
+%cross over point, thereby simplifying our overall design.  
+%In particular, we might not mind if the cross over point observes an
+%ephemeral elliptic curve point in $\delta'$, but one requires tools
+%like Elligator~\cite{elligator} to hide it from another hop.
+ % NOTE: I do not understand the above; as all the other hops
+ % will get the ephemeral curve point with onion encryption.
+ % (The exception being the receiver, but the receiver knows
+ % its cross over node and/or the path anyway.) So I do not
+ % see why you want to go Elligator on me here...
 
-\section{Aggregation}
+\subsection{Aggregation points}
 
-We must never assume that users, nor any agent they control, is
-reliably online.  
+As mentioned in the introduction, we must never assume that users,
+nor any agent they control, is reliably online.  
 % ``It's an asynchronous world.''
 % https://github.com/WhisperSystems/Signal-Android/blob/master/CONTRIBUTING.md
-In consequence, we must retain messages for an offline recipient
+As a consequence, we must retain messages for an offline recipient
 until their client requests delivery.  
-At present, there are no successful messaging protocols without
+At present, there are no successful secure messaging protocols without
 this IMAP/POP-like {\em request-and-forward} functionality, except
 arguably off-the-record messaging. 
 
@@ -217,15 +325,15 @@ recipient flow into mailboxes at a small number aggregation points
 that process delivery requests.  These aggregation points should
 learn as little as possible about recipients or senders, but the
 recipient should learn the sender's identity from the protocol.
-In \cite{agl-pond-hmac}, Adam Langely explains that Pond has similar
+In~\cite{agl-pond-hmac}, Adam Langely explains that Pond has similar
 requirements and indicates important advantages of delivery tokens
-over more complex schemes, like group signatures \cite{VLR,BBS}.
+over more complex schemes, like group signatures~\cite{VLR,BBS}.
 
-We can easily add a ``deliver to mailbox'' command so that SURBS
+We can easily add a ``deliver to mailbox'' command to Sphinx so that SURBS
 can act as a delivery token.  In fact, SURBs provide near perfect
-delivery properties in setting of \cite{warner-delivery}.
-An aggregation point cannot learn the sender's identity, even 
-by colluding with cross over point, but not all he mixes in the 
+delivery properties in setting of~\cite{warner-delivery}.
+An aggregation point cannot learn the sender's identity, unless
+colluding with the cross over point and all the mixes in the 
 sender's route to the cross over point.  
 In fact, even the receiver cannot learn more by colluding with
 the aggregation and cross over points.  In addition, our SURB
@@ -233,44 +341,55 @@ hides both the aggregation points and the mailbox from the sender,
 which simplifies the recipient's task if they change aggregation
 points and mailbox identifiers.
 
-We must fix a hiccup in how SURBs identify themselves and senders
-however.
+% FIXME: 'hiccup -> issue'? 'fix -> address'?
+However, we must fix a hiccup in how SURBs identify themselves
+and senders.
 
-\subsection{Unwinding}
+\subsection{Unwinding the SURB path}
 
-We noted that cross over point sees the body, denoted $\delta'$
+We noted that a cross over point sees the body, denoted $\delta'$
 above, without any wide block cipher encryption layers.  We have
-chosen our wide block cipher so that ts encryption and decryption
+chosen our wide block cipher so that its encryption and decryption
 operations provide exactly the same security guarantees and can
 safely be swapped.  This conceptual swap happens at our cross over
 point so that subsequent hops do not recognize themselves as being
 after a cross over point.  They happily apply the decryption
 operation without realizing that it further encrypts the body.
-Our recipient must unwind these layers of onion encryption of course.
+However, our recipient must somehow {\bf unwind} these layers of
+onion encryption, and to do so efficiently the recipient must have
+a way to identify which of its SURBs was used, so that they
+can select the correct set of keys.
 
-There are two basic schemes for unwinding the encryption applied to
-$\delta$ when nodes process SURB hops.  
+There are two basic schemes for obtaining the key material to
+unwind the encryption applied to $\delta$ from mixes encrypting
+during the SURB hops:
 
-Of course, the recipient may simply record the wide block cipher 
-keys used under a {\it SURB name} $\eta$ derived from the shared
-secret $s$.  We prefer this approach since clients have vast storage
-capacity anyways and doing so requires no additional space in the
-header and provides free authentication for arriving SURBs.  
+\begin{enumerate}
+ \item The recipient may {\em record} the wide block cipher keys used
+   under a {\it SURB name} $\eta$ derived from the shared secret $s$.
+   This approach has the advantage that it requires no additional
+   space in the header and provides simple authentication for arriving
+   SURBs.
 
-As an alternative, our recipient could construct their SURB using 
-a seed that they also encode into the ``bottom'' of the SURB itself,
-so that they may reconstruct the original SURB and keys.
-We dislike that seeds require yet another authentication step and
-numerous public key operations, which possibly presents a denial of
-service vector in some scenarios, like if mix nodes issue SURBs for
-any reason.  Also, we expect network churn so seeds require 
-recipients to record their past knowledge of the mix network, which
-reduces the storage savings and might weaken the deniablity for
-other packets.
+ \item Alternatively, our recipient could construct their SURB using a
+   {\em seed} that they also encode into the ``bottom'' of the SURB
+   itself, so that they may {\em reconstruct} the original SURB and
+   keys.  Encoding a seed provides advantages in multi-device
+   scenarios where all devices of a user can decrypt messages without
+   further communication after sharing some initial key material.
+   However, to reconstruct the SURB from a seed in an evolving
+   mix network does recipients to record their past knowledge of
+   the mix network, which may eliminate the advantage in multi-device
+   scenarios in cases where peers do not always share the same global
+   view.
+\end{enumerate}
+
+
+\subsection{The need to retarget messages}
 
 In either scenario, our packet takes a predetermined route to the
 recipient who unwinds $n$ encryptions using information present on
-their disk and either $s$ or their $\beta'$.  We certainly delay
+their disk and either $s$ or their $\beta'$.  Mixes delay
 messages along this route, but so far our recipient cannot change
 the route. 
 
@@ -278,103 +397,147 @@ In principle, recipients could simply send the aggregation point
 a packet with a flush mailbox command that launched all pending
 packets along whatever remained of their route.  We foresee many
 difficulties with such an approach, including packet loss due to
-network churn and mix node key lifetime, a requirement for guard
-nodes similar to Tor, and route length problems.
+network churn and mix node key lifetime (both of which can cause
+paths used in SURBs to become unavailable), requirements for guard
+nodes that force an unpredictable change in guard over time,
+and route length limitations.
 
 Instead, we propose that SURB directed messages should arrive at
-an aggregation point as their final destination, which stores only
-the incoming SURB's name $\eta$ derived from $s$ and $\delta'$.  
-We now need only method for our final recipient to retrieve both
-$\delta'$ along with the corresponding SURB name.  
+an aggregation point as the final destination as far as the SURB
+is concerned. The aggregation point then stores 
+the incoming SURB's name $\eta$ derived from $s$ and $\delta'$.
+This should even be done if the aggregation point is the ultimate
+recipient, for example if the user is logged out and thus the
+secret keys for decryption might be unavailable.  This way, the
+user's desktop may also act as just another aggregation point if
+the user then chooses to access his messages from a mobile device.
 
-We exclude private information retrieval (PIR) schemes because
-they increase complexity, invoke disparate security properties,
-leak metadata through excessive bandwidth, and do not support
-message deletion.  
+Thus, we need a method for our final recipient to retrieve
+$\delta'$ and the corresponding SURB name from the aggregation point.
+
+
+\subsection{SURB logs}
+
+We do not consider private information retrieval (PIR)
+schemes~\cite{pir} because they increase complexity, invoke disparate
+security properties, leak metadata through excessive bandwidth, and do
+not support message deletion.
+% FIXME: citations needed...
 
 We cannot ``squeeze'' our incoming SURB name $\eta_0$ into the body.
-Our recipient could ask the aggregation point report the waiting
+% FIXME: why not? I think this is because we want to be able
+% to repeatedly re-target a message (so we could have many
+% SURB names, many unpredictable to the original sender); but
+% we need to explain this!
+
+Our recipient could ask the aggregation point to report the waiting
 messages, and then send it separate SURBs assigned to each reported
 SURB name, but this requires an extra round trip in a protocol with
 notable latency. 
 
-Instead we propose adding a {\it SURB log} $\zeta$ to the header.
-Any regular Sphinx hops encrypts $\zeta$ with more of the stream
+Instead, we propose adding a {\it SURB log} $\zeta$ to the header.
+Any regular Sphinx hop encrypts $\zeta$ with more of the stream
 cipher, but does not include it when verifying the MAC $\gamma$.
 An aggregation point that receives fresh SURBs for a nonempty
 mailbox simply places the previous SURB name $\eta_0$ into $\zeta$,
 places $\delta'$ into the body, and populates the remaining fields
-as usual. 
+as usual.
 
 For our recipient, there is an incoming SURB name $\eta_1$ that 
 controls unwinding back to the state seen by the aggregation point.
 We unwind $\zeta$ as well so that our recipient learns $\eta_0$ too,
 and may continue unwinding back to the cross over point.
+% FIXME: Pictures, please!
 
-As $\zeta$ is not MACed, any adversarial can arbitrarily flip bits
-in the result.  As $\eta$ is random, if it is large enough then
-random collisions should be impossible, but an aggregation point
-sees valid $\zeta$.  
+Because $\zeta$ is not MACed, any adversarial can arbitrarily flip
+bits in the result.  As $\eta$ is random, if it is large enough then
+random collisions should be impossible, but an aggregation point sees
+well-formed $\zeta$.
 
 We weakly authenticate the $\eta_0$ extracted from $\zeta$ because
 only the client knows $\eta_1$.  If all hops from the aggregation
-point to the client collude, then they may supply a false $\eta_0$,
+point to the client collude, then they may supply a false $\eta_0'$,
 thereby identifying themselves as a false original sender, and
 causing the client to decrypt the body with keys for another message.
+% FIXME: not sure, how would they be able to find a (valid/known)
+% $\eta_0'$? They would have to know about a second message
+% arriving for the very same client, so they would need to collude
+% with additional peers on another path to the same client (or
+% the client has to use the same path for more than one message).
 
-For this reason, we consider the mix network's sender identification
+For this reason, one should consider the mix network's sender identification
 as an unauthenticated hint that simplifies proper authentication in
 the body, say by supporting Axolotl header encryption.
+
 We believe this hint can be considered more strongly authenticated
 if used to identify the source of a denial of service attack, as
 numerous nodes must collude against the recipient otherwise.
+% FIXME: I'd leave this last sentence out, as I do not
+% think there is (1) a chance to actually use this to identify
+% the source of a DOS, nor (2) a need in doing so.
 
-There is no reason for an aggregation point to delete messages
-until explicitly told to do so by the recipient, or after some expiry
-time.  Instead, aggregation points merely avoid wasting two SURBs
-from the same batch on the same message.  A message delivering a
-subsequent batch should request deletion. 
 
-\subsection{Unwinding guards}
+\subsection{Deletion policy}
+
+To maximize the chance of delivery and to possibly support the user
+accessing their messages from multiple devices, aggregation points
+should not delete messages until they either need to reclaim the
+storage space or are explicitly told to do so by the recipient.
+However, aggregation points should be careful to avoid wasting two
+SURBs from the same batch on the same message.  A message delivering a
+subsequent batch can then request their deletion to avoid re-delivery.
+
+
+\subsection{Unwinding guards and repeated retargeting}
 
 In Tor, clients rotate circuits every 10 minutes, while holding
 fixed their first hop, called a guard node.  This protects clients
-from attackers seeking to push them onto a malicious guard node
-\cite{tor-guards}.
+from attackers seeking to push them onto a malicious guard
+node~\cite{tor-guards}.
 
+% FIXME: discussion below is a bit confusing, needs editing.
 In a mix network, there are reasons clients might concentrate their
 traffic through a few guard nodes, like batching messages to hide
 message count, or saving battery on a mobile device, as notification
 servers do currently.  At the same time, an aggregation point could
-hoard a users messages until the user selects a malicious guard,
+hoard a user's messages until the user selects a malicious guard,
 so users may wish to avoid rotating guards too much.
 
-As a result, any recipient's guard node become a de facto aggregator.
-If a user does change guard then the networks latency may leave
-messages left waiting at the old guard.  
+As a result, any recipient's guard node become a de-facto aggregation
+point, except that the SURB would contain instructions for another hop
+to be taken.  If a user does change the guard, then SURBs used to poll
+messages from aggregation points may leave messages left waiting at
+the old guard, and this may be common due to the mix network's
+high latency.
 
-We noted that aggregation points need not delete messages until told
-to do so.  Yet, we also envision conversing clients achieving lower 
-latency by sharing SURBs that arrive directly without passing through
-official aggregation points.  Any such messages could more easily be
-left waiting at an old guard.  
+We noted that aggregation points also need not delete messages until
+told to do so.  Yet, we also envision conversing clients achieving
+lower latency by sharing SURBs that arrive directly without passing
+through long-term storage aggregation points.  Any such messages could
+more easily be left waiting at an old guard.
 
 We can pick these messages up using the same technique of extending
-unwinding with the SURB log $\zeta$ as with aggregation points.
-In fact, we should allow multiple SURB names in $\zeta$, shift
-$\zeta$ rightward when adding a SURB name $\eta$, and shift $\zeta$
-leftward when extracting a SURB name during unwinding.
+unwinding with the SURB log $\zeta$ as with aggregation points.  In
+fact, to allow repeated retargeting we allow multiple SURB names in
+$\zeta$, shift $\zeta$ rightward when adding a SURB name $\eta$, and
+shift $\zeta$ leftward when extracting a SURB name during unwinding.
+
+% FIXME: Pictures, please! Especially for the iterative retargeting!
+% Having a picture of the complete package format with the
+% multi-\eta \zeta in a network diagram that shows an old
+% guard, a new guard, a crossover and at least one (storage)
+% aggregator (not in this order ;)) would be good.
 
 
-\section{Key compromises}
-
-\subsection{Forward security}
+\section{Key compromises and forward secrecy}
 
 We have observed that high latency anonymity schemes depends upon
 nodes using non-ephemeral key material, thus opening them to key
 compromise attacks that do not impact onion routers like Tor.
 There are several natural ways one might harden mix networks against
-node keys being compromises. 
+node keys being compromised. 
+
+\subsection{Key rotation and replay attacks}
 
 As a rule, mix networks must prevent replay attacks, normally using
 a database of some form.  As this database must not grow indefinitely,
@@ -382,23 +545,26 @@ mix nodes must rotate their keys periodically.  These keys should be
 destroyed when no longer used to provide a measure of forward security.
 
 In principle, we could rotate keys quickly so that the compromise
-window for each key stays short.  In general, mix networks must
+window for each key stays short.  However, we also must
 support single-use reply blocks (SURBs) so that anonymous users can
-receive messages.  These SURBs are built to a specific set of node
-keys, so they cannot outlive the key rotation schedule.  This creates
+receive messages.  As SURBs are built to a specific set of node
+keys they cannot outlive the key rotation schedule.  This creates
 a tension between forward security and usability.
 
 We could rotate node keys slow enough for our usability goals, but add
 a faster rotating identity-based epoch key issued by a collective of
 trusted nodes, and deform the SURB's key material to account for this
-rotating identity-based epoch key.  This buys use forward security
+rotating identity-based epoch key.
+% FIXME: citation needed (I assume somebody published this atrocity?)
+This buys use forward security
 assuming at least some trusted node does not get compromised, but
-sounds difficult to deploy in practice. 
+would be difficult to deploy in practice. 
 
-We could use punctured encryption \cite{libforwardsec} for our
+We could use punctured encryption~\cite{libforwardsec} for our
 mix nodes key, so that mix nodes who correctly puncture their key
 after decrypting a message cannot decrypt the same message again. 
 % TODO: Should I cite an older article on punctured encryption?
+% TODO: Sure. For now we have no page limit ;-).
 As a rule, punctured encryption schemes require $O(n)$ time for
 decryption where $n$ is the number of punctures so far.  There are
 techniques for epoch based puncturing that make $n$ far less than
@@ -407,38 +573,23 @@ deforming the SURB as well.
 
 Any scheme for deforming SURBs requires a delicate proof of security
 because several mix network packet formats based on malleable key
-material were broken in \cite{Danezis2006}. 
-Also, these ideas all require slower pairing based cryptography that
-increase our mix nodes vulnerability to denial of service attacks. 
+material were broken~\cite{Danezis2006}. 
+Also, these ideas all require slower pairing-based cryptography that
+would increase our mix node's vulnerability to denial of service attacks. 
 
-George Danezis' fs-mixes \cite{fs-mix} provide an approach that
-avoids imposing constraints on the public key exchange.  In fs-mixed,
-a mix node derives a $(k,v)$ from from each key exchange and records
-$(k,v)$  in a name-value store.  We already do something similar for 
-replay protection, but this new name-value store outlives our public
-key rotation schedule.  A subsequent packet sent in another public
-key epoch may ask that $v$ be hashed into the key exchange after
-revealing its name $k$.  
 
-These fs-mixes could be viewed as a form of "ratchet" not wholly
-unlike off-the-record (OtR) messaging ratchet \cite{OtR},
-sometimes described as a three-step Diffie-Hellman ratchet.  
-We shall extend fs-mixes to provide stronger protection and be more
-reliable.  Intuitively this parallels how Trevor Perrin's Axolotl 
-ratchet extends OtR with a hash iteration ratchet. 
+\subsection{Post-quantum cryptography}
 
-\subsection{Post-quantum}
-
-% Along with the primitives being relatively young and poorly explored,
-An important obstacle to deploying post-quantum cryptography is
-the comparatively large key sizes.  As a comparison : 
+Along with the primitives being relatively young and poorly explored,
+an important obstacle to deploying post-quantum cryptography is
+the comparatively large key sizes.  As a comparison: 
 %
-A recent Ring-LWE key exchange New Hope \cite[\S7, p.10]{NewHope} needs
+A recent Ring-LWE key exchange New Hope~\cite[\S7, p.10]{NewHope} needs
  key sizes of 1824 or 2048 bytes, both of which must be ephemeral,
-while one McEliece-like system McBits % \cite{McBits,InitRec}
+while one McEliece-like system McBits~\cite{McBits,InitRec}
  needs a staggering 1MB for public keys.
 %
-Super-singular isogeny Diffie-Hellman (SIDH) \cite[p. 21]{SIDH-2016} keys
+Super-singular isogeny Diffie-Hellman (SIDH)~\cite[p. 21]{SIDH-2016} keys
 are only 564 bytes, or 751 bytes uncompressed, but
  the key exchange requires at least 100 times as much CPU time as
  an ECDH key exchange with equivalent classical security.
@@ -446,11 +597,21 @@ are only 564 bytes, or 751 bytes uncompressed, but
 Anonymity tools like mix networks are sensitive to key size because 
 users interact with numerous nodes and key material overhead is 
 quadratic in the number of hops. % $n(n+1)/2$
+% FIXME: Eh, what? How? Where? It is linear!!?!?!?!!
 
-\smallskip
-% \subsubsection{Sphinx key blinding}
+% FIXME: need to add a conclusion from this, i.e
+% that we do not want to do PQC on every hop or
+% for every message, but might be happy with
+% setting up PQC-secured pairwise crypto with
+% one designated hop on a path.
 
-Sphinx \cite{Sphinx} is a packet format for anonymizing mix networks
+\subsection{Sphinx key blinding}
+
+% FIXME: deduplicate with what we had above, most of it is duplicated
+% and/or ought to have been said when we first talked about Sphinx.
+% After that, this subsection can probably go away.
+
+Sphinx~\cite{Sphinx} is a packet format for anonymizing mix networks
 that is provably secure in the universal composability framework, and
  addresses the key material burden by mutating or reblinding a
  single ephemeral public key $\alpha$ with each hop,
@@ -475,7 +636,8 @@ we recursively define
 \end{aligned} \]
 Our $i$th node replaces $\alpha_i$ by $\alpha_{i+1}$.
 
-\smallskip
+
+\subsection{Problems combining post-quantum cryptography and Sphinx}
 
 We ask if any post-quantum public key exchanges admit 
 a key blinding operation suitable for Sphinx. 
@@ -490,21 +652,21 @@ must not reveal the image of any known $p$-torsion points.
 As a result, current attempts to blind SIDH keys for signature schemes
 add another torsion prime beyond 2 or 3, increasing the size of the
 base field.  In Sphinx, we could invent new shared $p$-torsion guide
-points for blinding, thus avoiding  because blinding happens after the key exchange
+points for blinding, thus avoiding
+% FIXME: avoiding WHAT? correlation attacks?
+because blinding happens after the key exchange
 establishes confidentiality, but doing so requires building confidence
 in this new cryptographic operation.  Worse, there are currently open
 questions around key validation in SIDH that prevent using long term
-keys \cite{SIDH-NoValidation}, which Sphinx requires.
+keys~\cite{SIDH-NoValidation}, which Sphinx requires.
 
 In Ring-LWE, there is enough flexibility for blinding constructions
 that increase the key size, fully homomorphic encryption schemes that
 avoid this increase, and even a primitive similar to universal
-reencryption exists \cite{963628}.  In all cases however, we still
+reencryption exists~\cite{963628}.  In all cases however, we still
 increase key sizes dramatically over existing key exchanges and we face
 difficult key wrap problems with the fully homomorphic encryption
 schemes.
-
-\smallskip
 
 We consider such schemes currently unsuitable for another reason though: 
 
@@ -513,10 +675,14 @@ drawn from a uniform distribution because standard assumptions on
 elliptic curves suitable for cryptography ask that an adversary has
 no appreciable advantage in determining the correspondence between
 $\alpha_i$ and $\alpha_{i+1}$ without knowing $b_i$.  
-Indeed, the curve25519 function commonly used for Diffie-Hellman key
+Indeed, the Curve25519 function commonly used for Diffie-Hellman key
 exchange in Sphinx implementations goes so far as to set the high bit
 of the private scalar as a protection against non-constant time
 implementation.
+% FIXME: there is a sentence missing here relating this back to
+% RLWE, i.e saying that RLWE requires keys selected from uniform
+% distribution. ``there are also'' here makes no sense.
+% It is totally unclear what algorithms you are talking about!!!
 There are also cryptographic algorithms like signatures for which
 this assumption does not suffice and blinding scalars must be chosen
 from a uniform distribution.
@@ -536,7 +702,7 @@ that blinding operations can fail if only one of the component schemes
 fails.
 
 As an example, we consider a Sphinx-like mix net packet format that
-employs the ordinary curve25519 key exchange for blinding along side
+employs the ordinary Curve25519 key exchange for blinding along side
 a post-quantum scheme with any magical properties we desire.  
 A quantum computer can break this by computing $b_{\alpha,\alpha'}$
 such that $\alpha' = b_{\alpha,\alpha'} \alpha$ for every pair of
@@ -544,7 +710,7 @@ incoming $\alpha$ and outgoing $\alpha'$.  Any $b_{\alpha,\alpha'}$
 with high bit zero cannot be correct, thus giving the adversary at
 least a 50\% advantage in guessing packet routes correctly.
 
-We can correctly this by using a scalar multiplication that does not
+We can theoretically correct this by using a scalar multiplication that does not
 zero the high bit in the scalar.  In doing so, we must keep the
 multiplication by the cofactor so that the adversary cannot tag
 packets by injecting small subgroup elements that do not impact the
@@ -554,14 +720,16 @@ To be blunt, the elliptic curve scalar multiplication can act as
 a blinding operation in a hybrid protocol because the blinding itself
 can be made information theoretically secure.
 
-We encounter a fatal difficult if imagine that our post-quantum key 
+While this may suffice to secure a hybrid scheme against post-quantum
+attacks against the Elliptic curve, we encounter a fatal difficulty
+if we imagine that our post-quantum key 
 exchange might be broken while elliptic curves remains secure.  
 There are no known blinding operations that provide information
-theoretic security, so attacks on the post-quantum component can
-yield an advantage in guessing packet routes.
+theoretic security, so attacks on the post-quantum component must be
+expected to yield an advantage in guessing packet routes.
 
 
-\section{Xolotl ratchet}
+\subsection{Hybrid schemes using separate keys}
 
 We could build a hybrid protocol if our post-quantum key exchange
 used a separate keys for each hop instead of blinding.  These keys
@@ -569,18 +737,37 @@ could be packaged into $\beta$ along with the routing directions and
 MACs for Sphinx, but doing so makes the total size of post-quantum 
 key material quadratic in the number of hops, and these post-quantum
 keys are already extremely large.
+% FIXME: again, how do you get to quadratic!?!?!?!?
 In this vein, a circuit based approach like Tor at least avoids
 transmitting unnecessary key material, but it exposes circuit
 metadata by doing so. 
+Instead, we draw inspiration from the Axolotl
+ratchet~\cite{TextSecure}, and fs-mixes~\cite{fs-mix}.\footnote{In
+  fact, we developed Xolotl without knowing about fs-mixes but the
+  comparison clearly simplifies the exposition.}
 
-Instead, we draw inspiration from Trevor Perrin's Axolotl ratchet
-\cite{TextSecure}, and George Danezis' fs-mixes \cite{fs-mix}.
-\footnote{In fact, we developed Xolotl without knowing about fs-mixes
-but the comparison clearly simplifies the exposition.}
-
+\subsubsection{fs-mixes}
 % fs-mixes refresher
+% FIXME: combined text that was previously spread all over
+% the document here, but needs editing ...
 
-In George Danezis' fs-mixes, every packet leaves a trace of symmetric
+fs-mixes~\cite{fs-mix} provide an approach that
+avoids imposing constraints on the public key exchange.  In fs-mixes,
+a mix node derives a $(k,v)$ from from each key exchange and records
+$(k,v)$ in a name-value store.  We already do something similar for 
+replay protection, but this new name-value store outlives our public
+key rotation schedule.  A subsequent packet sent in another public
+key epoch may ask that $v$ be hashed into the key exchange after
+revealing its name $k$.  
+
+These fs-mixes could be viewed as a form of ``ratchet'' not wholly
+unlike off-the-record (OtR) messaging ratchet~\cite{OtR},
+sometimes described as a three-step Diffie-Hellman ratchet.  
+We shall extend fs-mixes to provide stronger protection and be more
+reliable.  Intuitively this parallels how the Axolotl 
+ratchet extends OtR with a hash iteration ratchet.
+
+In fs-mixes, every packet leaves a trace of symmetric
 key materials $v$ that {\it one} later packet can reference with its
 name $k$.  In principle, we could chain these traces similarly to
 how off-the-record messaging \cite{OtR} chains key exchanges.
@@ -590,22 +777,22 @@ a post-quantum key exchange.  Yet, we cannot employ chaining with
 fs-mixes directly because doing so magnifies any unreliability in
 our mix network. 
 
+\subsubsection{Axolotl}
 % Axolotl refresher
-
 \def\ck{\texttt{ck}}
 \def\rk{\texttt{rk}}
 \def\mk{\texttt{mk}}
 
-The Axolotl ratchet \cite{TextSecure} replaces the off-the-record
+The Axolotl ratchet~\cite{TextSecure} replaces the off-the-record
 messaging ratchet's three-step process with a two-step procedure
 that omits advertising a new key update.  Instead, Axolotl continues
 using the same public key $A = a G$ in each packet until witnessing
-the other side change their key $B = b G$.  Axolotl does the key
-exchange between the sender's new public key $A$ and receiver's
+the other side change their key $B = b G$.  Then, Axolotl does the DH key
+exchange between the sender's new public key $A$ and the receiver's
 public key $B$ that was last seen by the sender.
 
 As in OtR, there is a {\it root key} $\rk$ that Axolotl advances by
-hashing it with the results of this key exchange.  Axolotl avoids using the same key for
+hashing it with the results of the DH key exchange.  Axolotl avoids using the same key for
 repeated encryptions when the receiver remains silent by deriving the
 {\it chain key} $\ck_i$ for a hash iteration ratchet from the root key.
 
@@ -623,21 +810,28 @@ r' &:= H(r \,||\, a B) = H(r \,||\, b A) \\ % \mathcomma
 These ratchet constructions like Axolotl and OtR remain secure against
 Shor's algorithm {\it if} the root key is first instantiated with some
 post-quantum key exchange, and is twice the desired security level. 
-In this case, our ratchet does not provide any post-quantum forward
+In this case, the ratchet does not provide any post-quantum forward
 security per se, but that might be perfectly acceptable given current
 obstacles to building quantum computers, and the large key sizes of
 some post-quantum key exchanges. 
 
 
-Axolotl meshes poorly with the mix networks for several reasons.
-%
-First, we would prefer to exploit the elliptic curve point
- already in our Sphinx header, which must change with each packet,
-while Axolotl must hold this constant until receiving a response.
-%
-Second, we cannot make mix nodes to respond to the sender, as that
-becomes an onion routing like scheme and sounds more vulnerable to
-traffic analysis.
+Axolotl meshes poorly with the mix networks for two key reasons:
+\begin{enumerate}
+ \item
+ We would prefer to exploit the elliptic curve point
+ already in the Sphinx header, which must change with each packet
+ to avoid correlation attacks; 
+ however, Axolotl must hold its key constant until receiving a response.
+ \item
+ We cannot make mix nodes to respond to the sender, as that
+ be comes an onion routing like scheme and the additional traffic
+ would make it much more vulnerable to traffic analysis.
+\end{enumerate}
+
+
+\section{The Xolotl ratchet}
+% NOTE: CG has not yet really gone over this section.
 
 \def\cn{\texttt{cn}}
 \def\DH{\texttt{DH}}
@@ -742,7 +936,8 @@ unwraps an onion layer from the body $\delta_i$,
  yielding $\delta_{i+1}$, and queues the new packet
 $(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
 
-\begin{figure}[b!]%[h!]
+ \begin{figure}[b!]%[h!]
+   \begin{center}
 \begin{tikzcd}[ampersand replacement=\&, column sep=small]
 \cdot \ar[r] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \cdot \ar[r] \ar[d] \& \ck \ar[r, dotted] \& ? \& \\
  \& \lk \ar[d] \& \lk \ar[d]  \& \lk \ar[d] \&  \& \& \\ 
@@ -755,10 +950,12 @@ $(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
  \& \ECDH \ar[d] \& \ECDH \ar[d] \& ? \& \ECDH\ar[d] \&  \& \& \\
  \& r \& r \&  \& r \&  \& \& \\
 \end{tikzcd}
+% FIXME: ECDH should probably be SPHINX+? 
+\end{center}
 \end{figure}
 
 
-\section{Faster chains}
+\subsection{Faster chains}
 
 We have described a simple linear hash iteration ratchet above.  
 These work well in Axolotl because the sender controls the desired
@@ -801,7 +998,7 @@ the actual key derivations functions could differ between these two
 cases, and doing so appears more efficient.
 
 
-\section{Analysis}
+\subsection{Analysis}
 
 We take $r$ to be 256 bits so that, assuming the initial ratchet
 source was created using a post-quantum key exchange, then our
@@ -864,45 +1061,110 @@ them.  We may therefore set ratchet key expiration based upon storage
 concerns. 
 
 
+\section{Implementation}
+
+Explain:
+
+Xolotl in Rust.
+Lake for storage and messaging.
+pEp for migration.
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{|c|c|c|} \hline
+   MTA & IM & (sensor network protocol) \\ \hline
+   \multicolumn{3}{|c|}{{p$\equiv$p}}  \\ \hline
+   & \multicolumn{2}{|c|}{{\bf Lake}}   \\ \cline{2-3}
+   & \multicolumn{2}{|c|}{{\bf Xolotl}} \\ \cline{2-3}
+   \raisebox{1.5ex}{SMTP} & CADET~\cite{cadet} & GNU Name System~\cite{gns}  \\ \cline{2-3}
+   & \multicolumn{2}{|c|}{GNUnet-CORE}  \\ \hline
+   \multicolumn{3}{|c|}{TCP/IP}       \\ \hline
+   \multicolumn{3}{|c|}{Ethernet}     \\ \hline
+\end{tabular}
+\end{center}
+\caption{A plan for replacing IMAP/SMTP with a few extra layers.}
+\label{fig:layers}
+\end{figure}
+
+
+\section{Performance evaluation}
+
+Using Bloom filter, how much storage per message?
+Give resulting key rotation frequencies for realistic
+scenarios. (all calculated)
+
+Bandwidth overhead (ok to do mathematically, but precise,
+in bytes).  Computational overhead (measured).
+
+Expected latency by pool strategy. (simulated or calculated)
+
+Messages per second on realistic hardware. (calculated from
+microbenchmarks is sufficient)
+
+Required replication level for different reliability assumptions.
+Assume different reliabilities for ordinary mixes vs. aggregators
+(aggregation points are picked based on known reliability).  How high
+does availability need to be to keep replication reasonably low?
+(calculated)
+
+Total (system-wide) financial cost per message including reliability
+for 99.9999\% availability under realistic assumptions about node
+availability. (Assume Amazon EC2 compute node profile for availability
+and cost on the one hand, and say a Raspberry Pi at home with typical
+DSL-like network (un)availability with Indian-style power outages on
+the other)
+
+Discussion on use of Taler to pay for service.
+
+
+
 \section{Improvements}
 
 We expect that a malicious mix node hosting a Xolotl ratchet learns
 that all packets using the ratchet were directed by the same party,
-either the sender or receiver.  To mitigate this, we think clients
-could share particular ratchet configurations with other nodes,
-possibly other clients.  
+either the sender or receiver.  Considering the modest delay created
+by mixes, this allows a weak correlation to be made between ratchet
+use and the respective client being online.
 
-As a simple example, we could support a delay mode so that clients
-could send out a number of messages with delays that would traverse
-their ratchets in the future while they might be offline. 
-This cover traffic sounds expensive however.
+A simple counter-measure would be support for a delay mode where
+clients can flag messages to be artificially delayed by mixes beyond
+the usual delay for mixing.  This could be used to create messages
+that traverse the client's ratchet at times where they have been
+offline for a while, thereby reducing the correlation between ratchet
+use and the client being online.
 
+Another mitigation strategy would be for clients
+to share particular ratchet configurations with other nodes.
 If several link keys from the same branch can be shared anonymously,
 then the sharer risks nothing in doing so, assuming pre-image
-resistance for our hash function.  We might wish to share a batch
-of link keys from the same branch with a mix node so that it could
-utilize our ratchet for messages it needed to send anyways, but this
-assumes mix nodes send numerous messages  over the mix network.
+resistance for our hash function.  Thus, another way of destroying the
+link between ratched use and user being online would be to share a
+batch of link keys from the same branch with a mix node so that it
+could utilize our ratchet for messages it needed to send anyways.
+However, this assumes mix nodes send numerous messages over the mix
+network, which our design currently does not require.
 
 We observe that anyone using this shared link key could gain a berry
 key that only they know, along with the mix node hosting the ratchet,
 thus allowing them to create a whole new branch.  It follows that,
 if individual shared link keys can be retrieved anonymously, then
-the recipient of the shared link key risks only that the key fails,
-creating a form of denial of service attack.
+the recipient of the shared link key risks only that the key fails.
+Thus, this creates a minor problem in the form of denial of service
+attack against the receiver of such a shared ratched.
 
-In practice, we cannot provide perfect anonymity in either sharing
-or retrieving shared link keys, and retrieving lone link keys sounds
-problematic.  Yet, there is room here for a second anonymity system
-that communicates these shared link keys, which sounds like an
-interesting research project.
-
+In practice, we cannot provide perfect anonymity in either sharing or
+retrieving shared link keys, and retrieving lone link keys sounds
+problematic.  Yet, there may be an opportunity here for a second
+anonymity system that communicates these shared link keys.
+% FIXME: not sure I understand ``lone link keys'' here.
 
 
 \section*{Acknowledgements}
+
 This work benefits from the financial support of the Brittany Region
 (ARED 9178) and a grant from the Renewable Freedom Foundation.
-
+% FIXME: Do you have productive discussions to acknowledge, i.e.
+% with George or other pandemix people?
 
 %\newpage
 
