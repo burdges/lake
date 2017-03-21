@@ -26,8 +26,8 @@
 \def\mathperiod{}
 
 
-\title{Xolotl ratchet}
-\subtitle{A selectively stateful mixnet format for forward secure and post-quantum anonymity}
+\title{Xolotl}
+\subtitle{A request-and-forward mixnet format with selective statefulness for forward secure and post-quantum anonymity}
 \author{Jeffrey Burdges}
 \date{\today}
 
@@ -50,7 +50,7 @@ rest upon the stronger of the security assumptions required by
 
 We also describe an onion encrypted ``log'' that allows messages to
 be routed by several single-use reply blocks (SURBs) before being
-unwrapped by the receiver.  This gives us a store-and-forward
+unwrapped by the receiver.  This gives us a request-and-forward
 architecture with privacy for both the sender and recipient,
 increases reliability, and simplifies several protocol enhancements.
 \end{abstract}
@@ -121,7 +121,7 @@ A Sphinx packet consists of an elliptic curve point $\alpha$,
 a routing header $\beta$ of a fixed length $L$,
 a single-use reply block (SURB) field $\epsilon$ also of length $L$,
 a MAC $\gamma$ that authenticates the contents of $\beta$ and $\epsilon$,
-and a payload $\delta$.
+and a body $\delta$.
 All of $\beta$, $\delta$, and $\epsilon$ are onion encrypted,
 but $\beta$ and $\epsilon$ use a stream cipher, while
  $\delta$ uses a wide block cipher since it is not authenticated.
@@ -154,6 +154,8 @@ forwarded to $N'$,
 
 ... security ...
 
+\subsection{Cross over points}
+
 Another classical command orders the mix to act as a ``cross over''
 point by activating our SURB $\epsilon$ to give routing control to
 the message's recipient.  A cross over command provides a new
@@ -182,27 +184,196 @@ we added a next hop $X'$ to the cross over command, built an
 $\epsilon''$ using a stream cipher and sent
  $(\alpha'',\epsilon',\gamma'',\delta',\epsilon'')$ to $X''$.
 We consider this is wasteful because hops cost vastly more than
-a few bytes in the header.  Worse, we observe that $\delta'$ has
-been stripped of all onion encryption layers created by the sender.
-We must protect $\delta'$ from the cross over point with another
-layer of encryption not specified here.  Yet, it impacts our mix
-networks' security less if $\delta'$ is only ever seen by the cross
-over point, thereby simplifying our overall design.  In particular,
-we might not mind if the cross over point observes an ephemeral
-elliptic curve point in $\delta'$, but one requires tools like
-elligator \cite{elligator,elligator2} to hide it from another hop.
+a few bytes in the header.  
+
+Worse, we observe that $\delta'$ has been stripped of all onion
+encryption layers created by the sender because the sender must not
+know anything about the packet after the cross over point,
+ including wide block cipher keys.
+We must therefore protect $\delta'$ from the cross over point with
+another layer of encryption not specified here.  Yet, it impacts our
+mix networks' security less if $\delta'$ is only ever seen by the
+cross over point, thereby simplifying our overall design.  
+In particular, we might not mind if the cross over point observes an
+ephemeral elliptic curve point in $\delta'$, but one requires tools
+like elligator \cite{elligator} to hide it from another hop.
 
 
-\section{Problems} % explanation
+\section{Aggregation}
+
+We must never assume that users, nor any agent they control, is
+reliably online.  
+% ``It's an asynchronous world.''
+% https://github.com/WhisperSystems/Signal-Android/blob/master/CONTRIBUTING.md
+In consequence, we must retain messages for an offline recipient
+until their client requests delivery.  
+At present, there are no successful messaging protocols without
+this IMAP/POP-like {\em request-and-forward} functionality, except
+arguably off-the-record messaging. 
+
+We expect this necessitates that messages destined for the same
+recipient flow into mailboxes at a small number aggregation points
+that process delivery requests.  These aggregation points should
+learn as little as possible about recipients or senders, but the
+recipient should learn the sender's identity from the protocol.
+In \cite{agl-pond-hmac}, Adam Langely explains that Pond has similar
+requirements and indicates important advantages of delivery tokens
+over more complex schemes, like group signatures \cite{VLR,BBS}.
+
+We can easily add a ``deliver to mailbox'' command so that SURBS
+can act as a delivery token.  In fact, SURBs provide near perfect
+delivery properties in setting of \cite{warner-delivery}.
+An aggregation point cannot learn the sender's identity, even 
+by colluding with cross over point, but not all he mixes in the 
+sender's route to the cross over point.  
+In fact, even the receiver cannot learn more by colluding with
+the aggregation and cross over points.  In addition, our SURB
+hides both the aggregation points and the mailbox from the sender,
+which simplifies the recipient's task if they change aggregation
+points and mailbox identifiers.
+
+We must fix a hiccup in how SURBs identify themselves and senders
+however.
+
+\subsection{Unwinding}
+
+We noted that cross over point sees the body, denoted $\delta'$
+above, without any wide block cipher encryption layers.  We have
+chosen our wide block cipher so that ts encryption and decryption
+operations provide exactly the same security guarantees and can
+safely be swapped.  This conceptual swap happens at our cross over
+point so that subsequent hops do not recognize themselves as being
+after a cross over point.  They happily apply the decryption
+operation without realizing that it further encrypts the body.
+Our recipient must unwind these layers of onion encryption of course.
+
+There are two basic schemes for unwinding the encryption applied to
+$\delta$ when nodes process SURB hops.  
+
+Of course, the recipient may simply record the wide block cipher 
+keys used under a {\it SURB name} $\eta$ derived from the shared
+secret $s$.  We prefer this approach since clients have vast storage
+capacity anyways and doing so requires no additional space in the
+header and provides free authentication for arriving SURBs.  
+
+As an alternative, our recipient could construct their SURB using 
+a seed that they also encode into the ``bottom'' of the SURB itself,
+so that they may reconstruct the original SURB and keys.
+We dislike that seeds require yet another authentication step and
+numerous public key operations, which possibly presents a denial of
+service vector in some scenarios, like if mix nodes issue SURBs for
+any reason.  Also, we expect network churn so seeds require 
+recipients to record their past knowledge of the mix network, which
+reduces the storage savings and might weaken the deniablity for
+other packets.
+
+In either scenario, our packet takes a predetermined route to the
+recipient who unwinds $n$ encryptions using information present on
+their disk and either $s$ or their $\beta'$.  We certainly delay
+messages along this route, but so far our recipient cannot change
+the route. 
+
+In principle, recipients could simply send the aggregation point
+a packet with a flush mailbox command that launched all pending
+packets along whatever remained of their route.  We foresee many
+difficulties with such an approach, including packet loss due to
+network churn and mix node key lifetime, a requirement for guard
+nodes similar to Tor, and route length problems.
+
+Instead, we propose that SURB directed messages should arrive at
+an aggregation point as their final destination, which stores only
+the incoming SURB's name $\eta$ derived from $s$ and $\delta'$.  
+We now need only method for our final recipient to retrieve both
+$\delta'$ along with the corresponding SURB name.  
+
+We exclude private information retrieval (PIR) schemes because
+they increase complexity, invoke disparate security properties,
+leak metadata through excessive bandwidth, and do not support
+message deletion.  
+
+We cannot ``squeeze'' our incoming SURB name $\eta_0$ into the body.
+Our recipient could ask the aggregation point report the waiting
+messages, and then send it separate SURBs assigned to each reported
+SURB name, but this requires an extra round trip in a protocol with
+notable latency. 
+
+Instead we propose adding a {\it SURB log} $\zeta$ to the header.
+Any regular Sphinx hops encrypts $\zeta$ with more of the stream
+cipher, but does not include it when verifying the MAC $\gamma$.
+An aggregation point that receives fresh SURBs for a nonempty
+mailbox simply places the previous SURB name $\eta_0$ into $\zeta$,
+places $\delta'$ into the body, and populates the remaining fields
+as usual. 
+
+For our recipient, there is an incoming SURB name $\eta_1$ that 
+controls unwinding back to the state seen by the aggregation point.
+We unwind $\zeta$ as well so that our recipient learns $\eta_0$ too,
+and may continue unwinding back to the cross over point.
+
+As $\zeta$ is not MACed, any adversarial can arbitrarily flip bits
+in the result.  As $\eta$ is random, if it is large enough then
+random collisions should be impossible, but an aggregation point
+sees valid $\zeta$.  
+
+We weakly authenticate the $\eta_0$ extracted from $\zeta$ because
+only the client knows $\eta_1$.  If all hops from the aggregation
+point to the client collude, then they may supply a false $\eta_0$,
+thereby identifying themselves as a false original sender, and
+causing the client to decrypt the body with keys for another message.
+
+For this reason, we consider the mix network's sender identification
+as an unauthenticated hint that simplifies proper authentication in
+the body, say by supporting Axolotl header encryption.
+We believe this hint can be considered more strongly authenticated
+if used to identify the source of a denial of service attack, as
+numerous nodes must collude against the recipient otherwise.
+
+There is no reason for an aggregation point to delete messages
+until explicitly told to do so by the recipient, or after some expiry
+time.  Instead, aggregation points merely avoid wasting two SURBs
+from the same batch on the same message.  A message delivering a
+subsequent batch should request deletion. 
+
+\subsection{Unwinding guards}
+
+In Tor, clients rotate circuits every 10 minutes, while holding
+fixed their first hop, called a guard node.  This protects clients
+from attackers seeking to push them onto a malicious guard node
+\cite{tor-guards}.
+
+In a mix network, there are reasons clients might concentrate their
+traffic through a few guard nodes, like batching messages to hide
+message count, or saving battery on a mobile device, as notification
+servers do currently.  At the same time, an aggregation point could
+hoard a users messages until the user selects a malicious guard,
+so users may wish to avoid rotating guards too much.
+
+As a result, any recipient's guard node become a de facto aggregator.
+If a user does change guard then the networks latency may leave
+messages left waiting at the old guard.  
+
+We noted that aggregation points need not delete messages until told
+to do so.  Yet, we also envision conversing clients achieving lower 
+latency by sharing SURBs that arrive directly without passing through
+official aggregation points.  Any such messages could more easily be
+left waiting at an old guard.  
+
+We can pick these messages up using the same technique of extending
+unwinding with the SURB log $\zeta$ as with aggregation points.
+In fact, we should allow multiple SURB names in $\zeta$, shift
+$\zeta$ rightward when adding a SURB name $\eta$, and shift $\zeta$
+leftward when extracting a SURB name during unwinding.
+
+
+\section{Key compromises}
 
 \subsection{Forward security}
 
 We have observed that high latency anonymity schemes depends upon
-node using non-ephemeral key material, thus opening them to key
-compromise attacks that do not
-
-There are however several ways one might harden mix networks against node
-keys being compromise. 
+nodes using non-ephemeral key material, thus opening them to key
+compromise attacks that do not impact onion routers like Tor.
+There are several natural ways one might harden mix networks against
+node keys being compromises. 
 
 As a rule, mix networks must prevent replay attacks, normally using
 a database of some form.  As this database must not grow indefinitely,
@@ -511,7 +682,7 @@ In particular, it takes $\beta_{i+1}$ to be $\beta'$,
 derives the blinding factor $b_i$,
 blinds the public key as $\alpha_{i+1} := b_i \alpha_i$,
 extracts the next hop $n_{i+1}$ and MAC $\gamma_{i+1}$,
-unwraps an onion layer from the payload $\delta_i$,
+unwraps an onion layer from the body $\delta_i$,
  yielding $\delta_{i+1}$, and queues the new packet
 $(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
 
@@ -566,7 +737,7 @@ blinds the public key as $\alpha_{i+1} = b_i \alpha_i$,
 unwraps a second layer of $\beta$ to extracts the
  next hop $n_{i+1}$ and MAC $\gamma_{i+1}$ and 
  producing our $\beta_{i+1}$,
-unwraps an onion layer from the payload $\delta_i$,
+unwraps an onion layer from the body $\delta_i$,
  yielding $\delta_{i+1}$, and queues the new packet
 $(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
 
@@ -726,10 +897,6 @@ that communicates these shared link keys, which sounds like an
 interesting research project.
 
 
-\section{Delivery}
-
-We now change the ...
-
 
 \section*{Acknowledgements}
 This work benefits from the financial support of the Brittany Region
@@ -745,5 +912,19 @@ This work benefits from the financial support of the Brittany Region
 
 
 \section{}
+
+
+
+
+
+
+
+Anonymous messaging proposals have traditionally either avoided
+request-and-forward facilities, due to metadata leakage \cite{??},
+or addressed it using private information retrieval (PIR) schemes
+\cite{??}.  These PIR schemes increase complexity, invoke disparate
+security analysis techniques, and still leak considerable metadata.
+
+
 
 
