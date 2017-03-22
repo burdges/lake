@@ -28,25 +28,29 @@ pub type Length = usize;
 ///
 /// We require a `&'static SphinxParams` when used because the
 /// protocol specification should be compiled into the binary.
+///
+/// In some cases, there could be minor performance hits if some
+/// of these are not multiples of the ChaCha blocksize of 64 byte.
 #[derive(Debug)] // Clone, Copy
 pub struct SphinxParams {
     /// Unique version identifier for the protocol
     pub protocol_name: &'static str,
 
     /// Length of the routing information block `Beta`.
-    ///
-    /// A multiple of the ChaCha blocksize of 64 may produce better performance.
     pub beta_length: Length,
 
     /// Maximal amount of routing infomrmation in `Beta` consued
     /// by a single sub-hop.
-    ///
-    /// A multiple of the ChaCha blocksize of 64 may produce better performance.
     pub max_beta_tail_length: Length,
 
-    /// Length of the SURB log.
+    /// Length of the SURB itself.
     ///
-    /// A multiple of the ChaCha blocksize of 64 may produce better performance.
+    /// Alpha and Gamma are encoded into the "bottom" of beta, and
+    /// hence do not contribute here.  This is unlikely to change.
+    /// As a result this should not exceed `beta_length`
+    pub surb_length: Length,
+
+    /// Length of the SURB log.
     pub surb_log_length: Length,
 
     /// Approved message body lengths
@@ -54,22 +58,13 @@ pub struct SphinxParams {
 }
 
 impl SphinxParams {
-    /// Sphinx SURB length
-    ///
-    /// Alpha and Gamma do not appear here currently because we encode
-    /// them into the "bottom" of beta; however, this could be changed.
-    #[inline(always)]
-    pub fn surb_length(&self) -> usize {
-         self.beta_length as usize
-    }
-
     /// Sphinx header length
     #[inline(always)]
     pub fn header_length(&self) -> usize {
         ALPHA_LENGTH + GAMMA_LENGTH
         + self.beta_length as usize
         + self.surb_log_length as usize
-        + self.surb_length()
+        + self.surb_length as usize
     }
 
     /// Create a `Box<[u8]>` with the required header length
@@ -87,6 +82,10 @@ impl SphinxParams {
     pub fn slice_header<'a>(&'static self, mut header: &'a mut [u8])
       -> SphinxResult<HeaderRefs<'a>>
     {
+        if self.surb_length > self.beta_length {
+            return Err( SphinxError::BadLength("SURB is longer than Beta",
+                self.surb_length-self.beta_length) );
+        }
         let orig_len = header.len();
         if orig_len < self.header_length() {
             return Err( SphinxError::BadLength("Header is too short",orig_len) );
@@ -95,9 +94,9 @@ impl SphinxParams {
             params: self,
             alpha: reserve_fixed_mut!(&mut header,ALPHA_LENGTH),
             gamma: reserve_fixed_mut!(&mut header,GAMMA_LENGTH),
-            beta: reserve_mut(&mut header,self.beta_length),
-            surb_log: reserve_mut(&mut header,self.surb_log_length),
-            surb: reserve_mut(&mut header,self.surb_length()),
+            beta: reserve_mut(&mut header,self.beta_length as usize),
+            surb_log: reserve_mut(&mut header,self.surb_log_length as usize),
+            surb: reserve_mut(&mut header,self.surb_length as usize),
         };
         if header.len() > 0 {
             return Err( SphinxError::BadLength("Header is too long",orig_len) );
@@ -135,6 +134,7 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
     protocol_name: "Invalid Sphinx!",
     beta_length: 0,
     max_beta_tail_length: 0,
+    surb_length: 0,
     surb_log_length: 0,
     body_lengths: &[0]
 };
@@ -359,6 +359,21 @@ impl<'a> HeaderRefs<'a> {
         for i in eaten..length { self.beta[i-eaten] = self.beta[i];  }
         hop.set_beta_tail(&mut self.beta[length-eaten..length]) ?;  // InternalError
         Ok(command)
+    }
+
+    /// Copy the SURB to beta, zeroing the tail of beta if beta is 
+    /// is longer.  Zeroing the tail of beta is safe because this
+    /// only gets called during cross over and the new beta gets
+    /// encrypted.  If this assuption changes, then we must fill 
+    /// beta using a new stream cipher.  We must fill beta with data
+    /// known by the SURB creator regardless, like zeros.
+    pub fn copy_surb_to_beta(&mut self) {
+        // Avoid these debug_asserts with HideMut above?
+        debug_assert_eq!(self.surb.len(),self.params.surb_length);
+        debug_assert_eq!(self.beta.len(),self.params.beta_length);
+        let l = ::std::cmp::min(self.surb.len(),self.beta.len());
+        self.beta[..l].copy_from_slice(self.surb);
+        for i in self.beta[l..].iter_mut() { *i = 0; }
     }
 }
 

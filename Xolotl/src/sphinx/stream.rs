@@ -158,7 +158,7 @@ impl SphinxParams {
                 beta:  reserve(self.beta_length as usize,true),
                 beta_tail:  reserve(self.max_beta_tail_length as usize,false),
                 surb_log:  reserve(self.surb_log_length as usize,true),
-                surb:  reserve(self.surb_length(),true),
+                surb:  reserve(self.surb_length as usize,true),
                 lioness_key:  reserve(BODY_CIPHER_KEY_SIZE,true),
                 blinding:  reserve(64,true),
                 packet_name:  reserve(64,true),
@@ -229,7 +229,7 @@ impl SphinxHop {
          if beta.len() != self.params.beta_length as usize {
              return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
          }
-         if surb.len() != self.params.surb_length() {
+         if surb.len() != self.params.surb_length as usize {
              return Err( SphinxError::InternalError("SURB has the incorrect length for MAC!") );
          }
 
@@ -334,7 +334,7 @@ impl SphinxHop {
     }
 
     pub fn xor_surb(&mut self, surb: &mut [u8]) -> SphinxResult<()> {
-        if surb.len() != self.params.surb_length() {
+        if surb.len() != self.params.surb_length as usize {
             return Err( SphinxError::InternalError("SURB has incorrect length!") );
         }
         self.stream.seek_to(self.chunks.surb.start as u64).unwrap();

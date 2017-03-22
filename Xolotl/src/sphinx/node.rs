@@ -138,7 +138,7 @@ impl SphinxRouter {
                 // Put SURB in control of packet.
                 *refs.alpha = alpha;
                 *refs.gamma = gamma.0;
-                refs.beta.copy_from_slice(refs.surb);
+                refs.copy_surb_to_beta();
                 // We must zero the SURB feld so that our SURB's gammas
                 // cover values known by its creator.  We might improve
                 // SURB unwinding by zeroing the SURB log field too. 

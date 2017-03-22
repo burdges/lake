@@ -7,6 +7,12 @@
 use std::iter::{Iterator,IntoIterator,TrustedLen};  // ExactSizeIterator
 
 
+/*
+pub fn set_slice<T>(s: &mut [T], z: T) {
+    for i in s.iter_mut() { *i = z; }
+}
+*/
+
 /// Returns an initial segment of a `mut &[T]` replacing the inner
 /// `&[T]` with the remainder.  In effect, this executes the command
 /// `(return,heap) = heap.split_at(len)` without annoying the borrow
