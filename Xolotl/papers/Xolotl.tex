@@ -64,9 +64,21 @@ defeat correlation attacks must take latency into consideration.
 
 There are several recent proposals like~\cite{Alpenhorn}
 and~\cite{Dissent} that avoid introducing much latency by instead
-introducing vast amounts of cover traffic, which uses bandwidth
-that might be better used to grow the user base and thus increase
-the anonymity set size. 
+introducing vast amounts of cover traffic.  There are several issues
+with this trade off:  
+
+First, if users can tolerate latency comfortably then they should
+use a protocol that does so.  An adversary can extract metadata not
+only from timing the protocol but from timing side channels, even
+user behavior.  Also there is likely a synergy between anonymity from
+latency and cover traffic \cite{??}.
+
+Second, a protocol that scales poorly might favor powerful
+organizations with fixed established anonymity sets, such as hiding
+which executive at a company asked managers to violate some law.
+Instead, we should favor users' whose anonymity needs naturally
+cross organizational boundaries, like volunteer organizations,
+jornalists' sources, whistleblowers, protest organizers, etc.
 
 We favor the opposite trade off in which we accept higher latency but
 avoid introducing excessive cover traffic. In effect, we propose to
@@ -75,11 +87,12 @@ offering an inexpensive privacy tool that defeats correlation attacks.
 Our target domain includes most text messaging applications and
 e-mail, but excludes large file transfers.
 
-\subsection{Network architecture}
+\subsection{Messaging API goals} 
+% COMMENT: This seems more line API goles than network architecture
 
-A central goal for our network architecture is that messaging is {\bf
-  asynchronous} and must work reliably even if sender and receiver are
-never online at the same time.  As a result, we require that messages
+A central goal for our network architecture is that messaging is 
+{\bf asynchronous} and must work reliably even if sender and receiver
+are never online at the same time.  As a result, we ask that messages
 can be stored for days to months at nodes in the network.  Generally,
 the receiver will select a set of nodes to store his messages and
 select a replication level to achieve the desired level of
@@ -98,6 +111,9 @@ sender and receiver, the protocol must maintain the connection
 indefinetely, or at least as long as neither sender nor receiver fail
 to be online for weeks or months at a time.  Naturally, either side
 can also choose to sever the link at any time.
+% TODO: SURBs expire too fast for this.  We need semi-public contact
+% points.  GNS would leak metadata if used for this.  So I think 
+% ``mailbox gatway points'' do this better.
 
 For path selection, sender and receiver require the ability to select
 ``random'' nodes for routing.  We assume that the network offers a
@@ -111,7 +127,6 @@ higher bandwidth routers~\cite{findexample} or selecting nodes for
 persistent replication based on advertisted storage capabilities.
 While those choices do matter for privacy, we consider them orthogonal
 and thus outside of the scope of this work.
-
 
 \subsection{Cryptographic challenges}
 
@@ -128,27 +143,28 @@ remain young, post-quantum protocols should be analyzed in a hybrid
 setting where even ephemeral keys might be compromised.  In other
 words, there is a chance that either the classical elliptic curve key
 exchange or the post-quantum key exchange might be compromised, but
-the chance of both being broken is naturally lower and thus is is
-desirable to produce a scheme that combines the strengths of both
-classic and post-quantum methods.  However, there are technical
-obstacles to deploying a post-quantum key exchange in a mix network,
-starting with the simple problem that messages tend to be larger
+the chance of both being broken is judged lower.  We therefore wish
+to produce a scheme that combines the strengths of both classic and
+post-quantum primitives.  However, there are technical obstacles to
+deploying a post-quantum key exchange in a mix network, starting with
+the simple problem that messages tend to be larger
 and computations more expensive.
 
 In this article, we propose Xolotl, a stateful ``ratchet'' based
-solution, inspired by the Axolotl
-ratchet~\cite{TextSecure}, that extends the Sphinx mix net packet
-format~\cite{Sphinx}.  Xolotl provides limited post-quantum
-protections and forward secrecy in exchange for a small sacrifice of
-leaking some (mostly harmless) correlating information and increased
-path length.  Xolotl also enables system architects the liberty to
-make trade-offs between the amount of state routers have to keep and
-the key rotation frequency, without this trade-off significantly
-impacting forward secrecy.  As a result, the key rotation frequency
-can be set to the maximum possible value limited only by expected
-bandwidth utilization and available storage capacity.  This is
-important as short key lifetimes can cause SURBs to expire, which
-would cause messages or even sessions to be lost.
+solution, inspired by the Axolotl ratchet~\cite{TextSecure}, that
+extends the Sphinx mix net packet format~\cite{Sphinx}.  
+Xolotl provides limited post-quantum protections and forward secrecy
+in exchange for leaking some limited correlating information and
+increased path length.  
+
+Although harmful, this leakage, and ratchet storage costs, provide an
+important paramater for mix network architects.  In any mix network,
+mix node key lifetimes correspond with SURB lifetimes, so anytime
+contacts do not communicate during a key epoch they must reestablish
+connection through a slightly riskier channel.  We believe Xolotl
+provides the flexibility needed to extend SURB lifetimes without
+making mix node keys too juicy of a target for adversaries.
+% George Danezis' fs-mixes~\cite{fs-mix}, or perhaps punctured encryption.
 
 
 \section{Extending Sphinx}
