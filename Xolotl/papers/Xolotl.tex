@@ -136,7 +136,9 @@ and thus outside of the scope of this work.
 
 We desire anonymity properties that improve on Tor in all respects,
 provided our system can achieve similar usage to Tor.  In this vein,
-we want cryptographic properties that seems equivalently strong as well. 
+we want cryptographic properties that seems equivalently strong as well.
+% I donno if I like this "competitive" framing. 
+% Should we mention that Tor might gain post-quantum?
 
 Low latency anonymity tools like Tor achieve {\em forward secrecy}
 by employing an ephemeral key exchange on both servers and clients.
@@ -165,7 +167,7 @@ in exchange for leaking some limited correlating information and
 increased path length.  
 
 Although harmful, this leakage, and ratchet storage costs, provide an
-important paramater for mix network architects.  In any mix network,
+important parameter for mix network architects:  In any mix network,
 mix node key lifetimes correspond with SURB lifetimes, so anytime
 contacts do not communicate during a key epoch they must reestablish
 connection through a slightly riskier channel.  We believe Xolotl
@@ -189,12 +191,14 @@ securely distributed ahead of time, possibly months before they are
 used.
 
 
-\subsection{Background: The Sphinx packet format}
+\subsection{Sphinx background}
 
-We provide a rough outline of the Sphinx mix net packet format here.
-For a more in-depth treatment, we refer to~\cite{Sphinx} and the
-security proof that inspired it~\cite{FormalOnion}, as well as wide
-block ciphers~\cite{Lionness}.
+We provide a rough outline of the Sphinx mix net packet format from 
+\cite{Sphinx}, adapted to transport SURBs for use at a cross over point
+to provide simultaneous anonymity for both senders and receivers.
+For further background, we refer the reader to the Sphinx construction
+in \cite{Sphinx} and the securityproof that inspired it~\cite{FormalOnion},
+as well as wide block ciphers~\cite{Lionness}.
 
 \begin{figure}
   \begin{center}
@@ -204,20 +208,21 @@ block ciphers~\cite{Lionness}.
   \label{fig:sphinx}
 \end{figure}
 
-A Sphinx packet (Figure~\ref{fig:sphinx}) is flows along a client-selected route $X_1,\ldots,X_n$
-where $n$ is less than some small network defined constant.  A Sphinx
-packet consists of an elliptic curve point $\alpha$, a routing header
-$\beta$ of a fixed length $L$, a single-use reply block (SURB) field
-$\epsilon$ also of length $L$, a MAC $\gamma$ that authenticates the
-contents of $\beta$ and $\epsilon$, and a body $\delta$.  All of
-$\beta$, $\delta$, and $\epsilon$ are onion encrypted, but $\beta$ and
-$\epsilon$ use a stream cipher, while $\delta$ uses a wide block
+A Sphinx packet (Figure~\ref{fig:sphinx}) flows along a client-selected
+route $X_1,\ldots,X_n$ where $n$ is less than some small network defined
+constant.  A Sphinx packet consists of an elliptic curve point $\alpha$,
+a routing header $\beta$ of a fixed length $L$, a single-use reply block
+(SURB) field $\epsilon$ also of length $L$, a MAC $\gamma$ that
+authenticates the contents of $\beta$ and $\epsilon$, and a body $\delta$.
+All of $\beta$, $\delta$, and $\epsilon$ are onion encrypted, but $\beta$
+and $\epsilon$ use a stream cipher, while $\delta$ uses a wide block
 cipher since it is not authenticated.
 
 % FIXME: epsilon is a new thing, not in original Sphinx, right?
 % (Don't have the paper here, its' not in the diagram...).
 % If it is not in the paper, we need to point out where this
 % part comes from (or if it is new).
+% Yes, we should look up a citation eventually.
 
 Each hop $X$ processes $(\alpha,\beta,\gamma,\delta,\epsilon)$
 as follows.  First, it computes a shared secret $s = x \alpha$ to
@@ -230,11 +235,11 @@ It aborts and drops the packet if either the MAC check fails or
  to its database.
 Next, it pads $\beta$ with $l$ zeros and decrypts the result
  using the stream cipher to produce a $\hat\beta$.
-An initial segment $\hat\beta$ of length $l' < l$ must contain
+An initial segment of $\hat\beta$ of length $l' < l$ must contain
 a valid routing command.  
 
 We discuss some new routing commands in this paper, but the typical
-routing command tells the next hop $N'$ to which to forward the
+routing command states the next hop $N'$ to which to forward the
 packet, and the $\gamma'$ the next hop $N'$ requires. 
 In this case, our hop $N$ computes $\alpha' := b \alpha$,
 extracts $\beta' := \hat\beta[l'..L+l']$,
@@ -249,11 +254,9 @@ forwarded to $N'$,
 
 \subsection{Cross over points}
 
-% FIXME: is this in the sphinx paper, or new?
-% (Don't have the paper handy...)
-% FIXME: needs a diagram, regardless ;-).
+% FIXME: needs a diagram ;-).
 
-Another classical command orders the mix to act as a ``cross over''
+A classical mix node command tells the mix to act as a ``cross over''
 point by activating our SURB $\epsilon$ to give routing control to
 the message's recipient.  The path up to the cross over point
 is selected by the sender and protects the privacy of the sender,
@@ -262,11 +265,11 @@ receiver and protects the receiver.  Only the cross over point
 itself is disclosed in the clear to the sender.
 
 A cross over command provides a new
-$\alpha''$ and $\gamma''$ that replace our old ones.  
+ $\alpha''$ and $\gamma''$ that replace our old ones.  
 In addition, $\delta$ is replaced by the decrypted $\delta'$, 
 $\beta$ is replaced by $\epsilon'$, and $\epsilon$ itself is zeroed.
 Now the mix reruns the Sphinx decoding process on the new packet
-$(\alpha'',\epsilon',\gamma'',\delta',\bar{0})$.  
+$(\alpha'',\epsilon',\gamma'',\delta',0\cdots0)$.  
 After this second run there is nothing about the packet that 
 identifies it --- not even to the original sender.
 We must zero the $\epsilon$ field so that the recipient can compute
@@ -274,26 +277,17 @@ the required MACs without encoding additional information.
 
 As stated, our recipient has chosen the cross over point $X$,
 supplied the sender with $(X,\alpha'',\epsilon',\gamma'')$,
-% NOTE: fixed the above, you had them wrong (pretty sure...)
 and the sender built a route to $X$.  This reduces the sender's
 maximum route length by roughly 2.5 hops, assuming an $\alpha$
-is twice as long as an $X$.
-% FIXME: I don't understand why. We use data from \epsilon
-% to update the header, so why does this impact the sender's
-% route at all?
-There is never any reason to encode
-$\alpha''$ and $\gamma''$ into $\epsilon'$ because doing so
-would require that every packet pay that cost even if it lacks a SURB.
-% FIXME: I see that there is no reason for \alpha or \gamma to
-% be in \epsilon, but I do not see how this impacts non-SURB
-% packets, other than that we obviously like \epsilon to be
-% short as it is overhead and all mixes must decrypt and process
-% it, even if it is just garbage.  Is that your point? Then
-% we might want to clarify it.
-Instead we should make $\epsilon'$ shorter than the length $L$ of
-$\beta$ by zero padding it at the cross over point.
-% FIXME: I _suspect_ I understand, but most readers will
-% not. Needs clarification and/or picture.
+is twice as long as an $X$.  There is never any reason to encode
+$\alpha''$ and $\gamma''$ into $\epsilon'$ because doing so would
+$\epsilon$ longer for every packet, even when $\epsilon$ is unused
+because the packet does not traverse another cross over point.
+Instead we should simply make $\epsilon'$ shorter than the length
+$L$ of $\beta$ by zero padding $\epsilon'$ when we insert it into
+the $\beta$ slot at the cross over point.
+$$ \beta'' := \epsilon' \,||\, 0\cdots0 $$
+% TODO: This is the only occurance of $\beta''$
 
 We could similarly increase the total route length by one if
 we added a next hop $X'$ to the cross over command, built an
@@ -311,25 +305,33 @@ Worse, we observe that $\delta'$ has been stripped of all onion
 encryption layers created by the sender because the sender must not
 know anything about the packet after the cross over point,
  including wide block cipher keys.
-We must therefore ensure that the plaintext message itself
- is not $\delta'$, and instead protect the plaintext using
- another layer of end-to-end encryption.
- Furthermore, if the same message is routed over different
- paths, this end-to-end encryption layer must use different
- (ephemeral) keys to prevent cross over points from performing
- correlation attacks on $\delta'$.
+We therefore forbid $\delta'$ from being the plaintext message itself
+and insist that it be protected with another layer of end-to-end
+encryption.  Indeed, this end-to-end encryption layer must use
+different ephemeral keys to prevent cross over points from performing
+correlation attacks on $\delta'$.
 
-%Yet, it impacts our
-%mix networks' security less if $\delta'$ is only ever seen by the
-%cross over point, thereby simplifying our overall design.  
-%In particular, we might not mind if the cross over point observes an
-%ephemeral elliptic curve point in $\delta'$, but one requires tools
-%like Elligator~\cite{elligator} to hide it from another hop.
- % NOTE: I do not understand the above; as all the other hops
- % will get the ephemeral curve point with onion encryption.
- % (The exception being the receiver, but the receiver knows
- % its cross over node and/or the path anyway.) So I do not
- % see why you want to go Elligator on me here...
+If all SURBs are supplied to the sender by the recipient, then
+we could simply provide an extra wide block cipher key with which
+the sender pre-encrypts $\delta$ before applying its own onion layers.
+We do assume this because SURBs have a limited lifespan.  
+If the sender does not posses any SURBs, then they could contact the
+recipient through a public access point, and ask for SURB. 
+These public access points would act like cross over points, except
+that they would supply the SURB themselves from a stash supplied by
+the recipient.
+
+In this unusual scenario, it impacts our mix networks' security
+less if $\delta'$ is only ever seen by the cross over point, thereby
+simplifying our overall design.   In particular, we might not mind
+if the cross over point observes an ephemeral elliptic curve point
+in $\delta'$, but even tools like Elligator~\cite{elligator} do not
+conceal this point from a second hop.
+
+In short, if we added this second hop $X''$ to lengthen the route
+then $X''$ might discover its position as the hop after a cross over
+point.  We could have a more oblivious hop at the cost of adding a
+few bytes to the header.
 
 \subsection{Aggregation points}
 
@@ -339,9 +341,9 @@ nor any agent they control, is reliably online.
 % https://github.com/WhisperSystems/Signal-Android/blob/master/CONTRIBUTING.md
 As a consequence, we must retain messages for an offline recipient
 until their client requests delivery.  
-At present, there are no successful secure messaging protocols without
-this IMAP/POP-like {\em request-and-forward} functionality, except
-arguably off-the-record messaging. 
+At present, there are no successful secure messaging protocols
+without this IMAP/POP-like {\em request-and-forward} functionality,
+except arguably off-the-record messaging. 
 
 We expect this necessitates that messages destined for the same
 recipient flow into mailboxes at a small number aggregation points
@@ -352,9 +354,9 @@ In~\cite{agl-pond-hmac}, Adam Langely explains that Pond has similar
 requirements and indicates important advantages of delivery tokens
 over more complex schemes, like group signatures~\cite{VLR,BBS}.
 
-We can easily add a ``deliver to mailbox'' command to Sphinx so that SURBS
-can act as a delivery token.  In fact, SURBs provide near perfect
-delivery properties in setting of~\cite{warner-delivery}.
+We can easily add a ``deliver to mailbox'' command to Sphinx so that
+SURBS can act as a delivery token.  In fact, SURBs provide near
+perfect delivery properties in sense of~\cite{warner-delivery}.
 An aggregation point cannot learn the sender's identity, unless
 colluding with the cross over point and all the mixes in the 
 sender's route to the cross over point.  
@@ -364,8 +366,7 @@ hides both the aggregation points and the mailbox from the sender,
 which simplifies the recipient's task if they change aggregation
 points and mailbox identifiers.
 
-% FIXME: 'hiccup -> issue'? 'fix -> address'?
-However, we must fix a hiccup in how SURBs identify themselves
+However, we must address a hiccup in how SURBs identify themselves
 and senders.
 
 \subsection{Unwinding the SURB path}
