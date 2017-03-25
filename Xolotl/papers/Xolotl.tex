@@ -134,12 +134,15 @@ and thus outside of the scope of this work.
 
 \subsection{Cryptographic challenges}
 
-When constructing asynchronous messaging systems, there is a
-cryptographic inconvenience that high latency schemes like mix
-networks lack forward secrecy.  Synchronous anonymity tools like Tor
-achieve forward secrecy by employing an ephemeral key exchange on both
-servers and clients, but asynchronous schemes generally require
-clients to encrypt to long term keys of the servers.
+We desire anonymity properties that improve on Tor in all respects,
+provided our system can achieve similar usage to Tor.  In this vein,
+we want cryptographic properties that seems equivalently strong as well. 
+
+Low latency anonymity tools like Tor achieve {\em forward secrecy}
+by employing an ephemeral key exchange on both servers and clients.
+We face a cryptographic inconvenience that high latency schemes
+like mix networks must ask clients to encrypt to the long term keys
+of mix nodes, meaning they lack conventional {\em forward secrecy}.  
 
 There is a superficial similarity between forward secrecy and
 post-quantum cryptography: As post-quantum public key primitives
