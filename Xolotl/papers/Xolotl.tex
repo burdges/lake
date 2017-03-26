@@ -369,7 +369,7 @@ points and mailbox identifiers.
 However, we must address a hiccup in how SURBs identify themselves
 and senders.
 
-\subsection{Unwinding the SURB path}
+\subsection{Unwinding SURB onion layers}
 
 We noted that a cross over point sees the body, denoted $\delta'$
 above, without any wide block cipher encryption layers.  We have
@@ -401,15 +401,12 @@ during the SURB hops:
    keys.  Encoding a seed provides advantages in multi-device
    scenarios where all devices of a user can decrypt messages without
    further communication after sharing some initial key material.
-   However, to reconstruct the SURB from a seed in an evolving
-   mix network does recipients to record their past knowledge of
+   However, to reconstruct the SURB from a seed in an evolving mix
+   network does require recipients to record their past knowledge of
    the mix network, which may eliminate the advantage in multi-device
    scenarios in cases where peers do not always share the same global
    view.
 \end{enumerate}
-
-
-\subsection{The need to retarget messages}
 
 In either scenario, our packet takes a predetermined route to the
 recipient who unwinds $n$ encryptions using information present on
@@ -417,24 +414,32 @@ their disk and either $s$ or their $\beta'$.  Mixes delay
 messages along this route, but so far our recipient cannot change
 the route. 
 
+\subsection{Redirecting messages}
+
+We want SURB to be used to reach the aggregation point because
+this gives us good delivery properties.  We also require the
+aggregation point not learn anything about either the user, or
+the SURB used to reach the aggregation point
+
 In principle, recipients could simply send the aggregation point
 a packet with a flush mailbox command that launched all pending
 packets along whatever remained of their route.  We foresee many
-difficulties with such an approach, including packet loss due to
-network churn and mix node key lifetime (both of which can cause
-paths used in SURBs to become unavailable), requirements for guard
-nodes that force an unpredictable change in guard over time,
-and route length limitations.
+difficulties with such an approach, including simple route length
+constraints and packet loss due to network churn, mix node key
+lifetime, and clients changing guard nodes, any of which can cause
+paths used in SURBs to become unavailable.
 
 Instead, we propose that SURB directed messages should arrive at
 an aggregation point as the final destination as far as the SURB
-is concerned. The aggregation point then stores 
-the incoming SURB's name $\eta$ derived from $s$ and $\delta'$.
+is concerned. The aggregation point then stores  the incoming SURB's
+name $\eta$ derived from $s$ and $\delta'$.
 This should even be done if the aggregation point is the ultimate
 recipient, for example if the user is logged out and thus the
-secret keys for decryption might be unavailable.  This way, the
-user's desktop may also act as just another aggregation point if
-the user then chooses to access his messages from a mobile device.
+secret keys for decryption might be unavailable.  
+% Discuss: I'm not do sure about this part : 
+ % This way, the user's desktop may also act as just another
+ % aggregation point if the user then chooses to access his messages
+ % from a mobile device.
 
 Thus, we need a method for our final recipient to retrieve
 $\delta'$ and the corresponding SURB name from the aggregation point.
@@ -448,11 +453,9 @@ security properties, leak metadata through excessive bandwidth, and do
 not support message deletion.
 % FIXME: citations needed...
 
-We cannot ``squeeze'' our incoming SURB name $\eta_0$ into the body.
-% FIXME: why not? I think this is because we want to be able
-% to repeatedly re-target a message (so we could have many
-% SURB names, many unpredictable to the original sender); but
-% we need to explain this!
+There is no way to ``squeeze'' our incoming SURB name $\eta_0$ into
+the body $\delta$ because the body was previously encrypted with a
+wide block cipher and thus cannot be shrunk.
 
 Our recipient could ask the aggregation point to report the waiting
 messages, and then send it separate SURBs assigned to each reported
@@ -473,33 +476,23 @@ We unwind $\zeta$ as well so that our recipient learns $\eta_0$ too,
 and may continue unwinding back to the cross over point.
 % FIXME: Pictures, please!
 
-Because $\zeta$ is not MACed, any adversarial can arbitrarily flip
-bits in the result.  As $\eta$ is random, if it is large enough then
-random collisions should be impossible, but an aggregation point sees
-well-formed $\zeta$.
+We do not MAC $\zeta$, so any adversary can flip bits arbitrarily
+there.  As $\eta$ is random, if it is large enough then random
+collisions should be impossible, but an aggregation point sees
+well-formed $\zeta$.  An aggregation point could therefore identify
+a message as coming form an incorrect original sender.
 
-We weakly authenticate the $\eta_0$ extracted from $\zeta$ because
-only the client knows $\eta_1$.  If all hops from the aggregation
-point to the client collude, then they may supply a false $\eta_0'$,
-thereby identifying themselves as a false original sender, and
-causing the client to decrypt the body with keys for another message.
-% FIXME: not sure, how would they be able to find a (valid/known)
-% $\eta_0'$? They would have to know about a second message
-% arriving for the very same client, so they would need to collude
-% with additional peers on another path to the same client (or
-% the client has to use the same path for more than one message).
+For this reason, one should consider the mix network's sender
+identification as an unauthenticated hint that simplifies proper
+authentication in the body, say by supporting Axolotl header
+encryption.  
 
-For this reason, one should consider the mix network's sender identification
-as an unauthenticated hint that simplifies proper authentication in
-the body, say by supporting Axolotl header encryption.
-
-We believe this hint can be considered more strongly authenticated
-if used to identify the source of a denial of service attack, as
-numerous nodes must collude against the recipient otherwise.
-% FIXME: I'd leave this last sentence out, as I do not
-% think there is (1) a chance to actually use this to identify
-% the source of a DOS, nor (2) a need in doing so.
-
+We weakly authenticate the $\eta_0$ extracted from $\zeta$,
+as being supplied by the aggregation point, because only the client
+knows $\eta_1$ and all the layers of encryption applied to $\eta_0$.  
+We imagine this weak authentication may help identify the source of
+unwanted messages, or a denial of service attack, say by a malicious
+public access point.
 
 \subsection{Deletion policy}
 
