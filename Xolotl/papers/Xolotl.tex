@@ -507,6 +507,8 @@ subsequent batch can then request their deletion to avoid re-delivery.
 
 \subsection{Unwinding guards and repeated retargeting}
 
+... back to an aggregation point ...
+
 In Tor, clients rotate circuits every 10 minutes, while holding
 fixed their first hop, called a guard node.  This protects clients
 from attackers seeking to push them onto a malicious guard
@@ -519,6 +521,9 @@ message count, or saving battery on a mobile device, as notification
 servers do currently.  At the same time, an aggregation point could
 hoard a user's messages until the user selects a malicious guard,
 so users may wish to avoid rotating guards too much.
+
+
+
 
 As a result, any recipient's guard node become a de-facto aggregation
 point, except that the SURB would contain instructions for another hop
