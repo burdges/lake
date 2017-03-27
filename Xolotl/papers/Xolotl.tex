@@ -848,7 +848,6 @@ Axolotl meshes poorly with the mix networks for two key reasons:
 
 
 \section{The Xolotl ratchet}
-% NOTE: CG has not yet really gone over this section.
 
 \def\cn{\texttt{cn}}
 \def\DH{\texttt{DH}}
@@ -863,33 +862,43 @@ up Axolotl.
 We have not root key per se in Xolotl.  
 Instead, we have only a hash iteration ratchet, called a branch,
 consisting of a {\it chain key} $\ck_j$ representing the head of the
-ratchet and {\it link keys} $\lk_j$, which Axolotl called a message
-key.  We hash this link key $\lk_j$ with the shared secret $s_i$
+ratchet and {\it link keys} $\lk_j$, which Axolotl called message
+keys.  We hash link keys $\lk_j$ with the shared secret $s_i$
 derived from the key exchange in Sphinx to produce both an improved
 shared secret $t_j$ for another layer of Sphinx and a {\it berry key} $r_j$. 
-These berry keys act like the root key in Axolotl because if the
-client determines the message passed through the network successfully
-then it could spawn a new hash iteration ratchet.
+These berry keys replace the root keys in Axolotl, with the key difference
+being that once the
+client determines the message passed through the network successfully,
+it can decide to spawn a new hash iteration ratchet from a berry key.
+Thus, the evolution of the Xolotl ratchet is driven by one party, while
+the Axolotl ratchet branches based on actions driven by both parties.
 
-We address a branch with a mid-evil naming convention: 
-A branch's own proper name has the form $(f,b)$ where
- $f$ is its family name determined by its parent branch, and
- $b$ is the index of the berry from which it grew.
-In essence, we address the branch as ``5th child of George'',
-or $(f,b)$, because everybody already knows the great deeds
-of the branch's parent ``George'', or $f$ or short. 
-There is however a family name $f'$ defined by $(f,b)$ so that
-once $(f,b)$ has performed their own great deeds then their
-children may be addressed as $(f',\cdot)$.
+% FIXME: is mid-evil supposed to be cute?
+We address a branch with a mid-evil naming convention: A branch's own
+proper name has the form $(f,b)$ where $f$ is its family name
+determined by its parent branch, and $b$ is the index of the berry
+from which it grew.  In essence, we address the branch as ``5th child
+of George'', or $(f,b)$, under the assumption that everybody already
+knows the great deeds of the branch's parent ``George'', or $f$ for
+short.  There is, however, a family name $f'$ assigned to $(f,b)$.
+Hence, once $(f,b)$ has performed its own great deed --- that is,
+successfully delivered a message where the delivery was confirmed to
+the sender --- then the children of $f' = (f,b)$ may be addressed as
+$(f',\cdot)$.
 
-\smallskip \noindent {\bf Xolotl ratchet description :} 
+\subsection{Birth of a Xolotl ratchet}
+
+PQC.
+
+
+\subsection{Formal Xolotl ratchet description} 
 
 A node begins as if decoding a typical Sphinx packet by
  producing the shared secret $s_i$, verifying the MAC, and 
  unwrapping one layer of the header's onion encrypted $\beta$,
 producing a $\beta'$,
 but then pauses to check for a ratchet flag. 
-If not found, then our node continues with Sphinx as usual.
+If the ratchet flag is not found, then our node continues with Sphinx as usual.
 In particular, it takes $\beta_{i+1}$ to be $\beta'$,
 derives the blinding factor $b_i$,
 blinds the public key as $\alpha_{i+1} := b_i \alpha_i$,
@@ -898,7 +907,7 @@ unwraps an onion layer from the body $\delta_i$,
  yielding $\delta_{i+1}$, and queues the new packet
 $(\alpha_{i+1},\gamma_{i+1},\beta_{i+1},\delta_{i+1})$ for $n_{i+1}$.
 
-If found, then we extract the ratchet instructions instead.
+If a ratchet flag is found, then we extract the ratchet instructions instead.
 These ratchet instructions consist of a branch address,
 which contains a branch family name $f$ and a berry index $b$,
  as well as a chain index $j'$,
@@ -906,9 +915,9 @@ along with an intermediate MAC $\gamma'$.
 % perhaps along with information for closing the previous chain. 
 
 If the branch $(f,b)$ is unknown, then we locate its parent's
-proper name $(f_0,b_0)$ using $f$ alone, and extract the berry
-key $r$ with berry index $b$ on $(f_0,b_0)$,
- aborting if it does not exist.
+proper name $(f_p,b_p)$ using $f$ alone, and extract the berry
+key $r$ with berry index $b$ on $(f_p,b_p)$,
+ aborting if $f$ or berry $b$ on $(f_p,b_p)$ do not exist.
 From $r$, we define
 \[ \begin{aligned}
 \textrm{family name}\quad
@@ -923,7 +932,7 @@ On our branch $(f,b)$, we inductively define
 \textrm{link keys}\quad
  \lk_j &:= H(\textrm{``Link''} \,||\, \ck_j) \mathperiod \\
 \end{aligned} \]
-In advancing the chain to index $j'$, we naturally save any 
+In advancing the chain to index $j'$, we save any 
 intermediate $\lk_j$ for later use by out of sequence packets.
 
 We now have the particular $\lk_{j'}$ requested by our ratchet 
@@ -1013,6 +1022,28 @@ all zero, meaning $j \& (2^l-1) \neq 0$, then we define
 In both case, we could define the link key $\lk_j$ as before, but
 the actual key derivations functions could differ between these two
 cases, and doing so appears more efficient.
+
+
+\subsection{State of a Xolotl ratchet}
+
+What are the various maps a xolotl router needs to keep?
+$f' \to (f,b)$, $(f,b) \to (j,ck_j,lk_j)$,
+$(f,b,i) \to lk_i$ for $i < j$ if message not received;
+left/right/train key data structure modifications.
+
+
+\subsection{Expiration of a Xolotl ratchet}
+
+When is which key discarded.  Be precise.
+
+For example, I do not think we need to keep $(f,b)$ if
+$f'$ has been used, but we did NOT talk about
+how the message involving $f'$ tells us about
+the maximum $j$ for which we need to keep
+$(f,b) \to (j,ck_j,lk_j)$.
+
+I don't even see an explicit statement that we
+cannot fork two berries of the same $f'$ into ratchets...
 
 
 \subsection{Analysis}
