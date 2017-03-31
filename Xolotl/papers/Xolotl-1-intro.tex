@@ -1,0 +1,148 @@
+% Xolotl-1-intro
+
+\section{Introduction}
+
+Anonymity systems based on ``onion routing''~\cite{SS03} like Tor or
+I2P are known to be vulnerable to correlation attacks by a passive
+adversary who can observe both endpoints of a
+circuit~\cite{timing-fc2004}, such as a national ISP.  Any attempt to
+defeat correlation attacks must take latency into consideration.
+% TODO: cite https://blog.torproject.org/blog/one-cell-enough
+
+There are several recent proposals like~\cite{Alpenhorn}
+and~\cite{Dissent} that avoid introducing much latency by instead
+introducing vast amounts of cover traffic.  There are several issues
+with this trade off:  
+
+First, if users can tolerate latency comfortably then they should
+use a protocol that does so.  An adversary can extract metadata not
+only from timing the protocol but from timing side channels, even
+user behavior.  Also there is likely a synergy between anonymity from
+latency and cover traffic \cite{??}.
+
+Second, a protocol that scales poorly might favor powerful
+organizations with fixed established anonymity sets, such as hiding
+which executive at a company asked managers to violate some law.
+Instead, we should favor users' whose anonymity needs naturally
+cross organizational boundaries, like volunteer organizations,
+journalists' sources, whistleblowers, protest organizers, etc.
+
+We favor the opposite trade off in which we accept higher latency but
+avoid introducing excessive cover traffic. In effect, we propose to
+sacrifice use cases that require low latency like voice, while
+offering an inexpensive privacy tool that defeats correlation attacks.
+Our target domain includes most text messaging applications and
+e-mail, but excludes large file transfers.
+
+\subsection{Messaging API goals} 
+% COMMENT: This seems more line API goles than network architecture
+
+A central goal for our network architecture is that messaging is 
+{\bf asynchronous} and must work reliably even if sender and receiver
+are never online at the same time.  As a result, we ask that messages
+can be stored for days to months at nodes in the network.  Generally,
+the receiver will select a set of nodes to store his messages and
+select a replication level to achieve the desired level of
+reliability. While the number of replicas can be disclosed to the
+sender, the specific set of replicas is only known to the receiver.
+Replicas also do not know of each other, and even collaborating
+replicas must not be able to detect that they are storing the same
+message for the same receiver.
+
+We assume that the sender initially has a way to securely resolve the
+recipient's address to a set of sender-specific single-use reply
+blocks (SURBs), for example using an out-of-band exchange or using
+name resolution in the GNU Name System~\cite{gns} using a private
+label.  However, once a set of SURBs has been established between
+sender and receiver, the protocol must maintain the connection
+indefinitely, or at least as long as neither sender nor receiver fail
+to be online for weeks or months at a time.  Naturally, either side
+can also choose to sever the link at any time.
+% TODO: SURBs expire too fast for this.  We need semi-public contact
+% points.  GNS would leak metadata if used for this.  So I think 
+% ``mailbox gatway points'' do this better.
+
+For path selection, sender and receiver require the ability to select
+``random'' nodes for routing.  We assume that the network offers a
+Byzantine fault-tolerant random peer sampling mechanism, for example
+using trusted directory servers~\cite{tordir} or using fault-tolerant
+random peer sampling protocols, such as BRAHMS~\cite{brahms}.  Our
+design allows peers to in principle impose further constraints on the
+path selection, for example limiting the set of guard
+nodes~\cite{oneguardisenough}, biasing the selection in favor of
+higher bandwidth routers~\cite{findexample} or selecting nodes for
+persistent replication based on advertised storage capabilities.
+While those choices do matter for privacy, we consider them orthogonal
+and thus outside of the scope of this work.
+% Discuss: I suspect peer sampling could be biased for an epistemic
+% attack on users, so this line sounds like on-going research at
+% present.  We do need to sort it out thought so I'm leaving this
+% right now.
+
+\subsection{Cryptographic challenges}
+
+We desire anonymity properties that improve on Tor in all respects,
+provided our system can achieve similar usage to Tor.  In this vein,
+we want cryptographic properties that seems equivalently strong as well.
+% I donno if I like this "competitive" framing. 
+% Should we mention that Tor might gain post-quantum?
+
+Low latency anonymity tools like Tor achieve {\em forward secrecy}
+by employing an ephemeral key exchange on both servers and clients.
+We face a cryptographic inconvenience that high latency schemes
+like mix networks must ask clients to encrypt to the long term keys
+of mix nodes, meaning they lack conventional {\em forward secrecy}.  
+
+There is a superficial similarity between forward secrecy and
+post-quantum cryptography: As post-quantum public key primitives
+remain young, post-quantum protocols should be analyzed in a hybrid
+setting where even ephemeral keys might be compromised.  In other
+words, there is a chance that either the classical elliptic curve key
+exchange or the post-quantum key exchange might be compromised, but
+the chance of both being broken is judged lower.  We therefore wish
+to produce a scheme that combines the strengths of both classic and
+post-quantum primitives.  However, there are technical obstacles to
+deploying a post-quantum key exchange in a mix network, starting with
+the simple problem that messages tend to be larger
+and computations more expensive.
+
+In this article, we propose Xolotl, a stateful ``ratchet'' based
+solution, inspired by the Axolotl ratchet~\cite{TextSecure}, that
+extends the Sphinx mix net packet format~\cite{Sphinx}.  
+Xolotl provides limited post-quantum protections and forward secrecy
+in exchange for leaking some limited correlating information and
+increased path length.  
+
+Although harmful, this leakage, and ratchet storage costs, provide an
+important parameter for mix network architects:  In any mix network,
+mix node key lifetimes correspond with SURB lifetimes, so anytime
+contacts do not communicate during a key epoch they must reestablish
+connection through a slightly riskier channel.  We believe Xolotl
+provides the flexibility needed to extend SURB lifetimes without
+making mix node keys too juicy of a target for adversaries.
+% George Danezis' fs-mixes~\cite{fs-mix}, or perhaps punctured encryption.
+
+\subsection{Mixing strategy and topology}
+
+We are agnostic to mixing strategy and mix network topology in this
+article. 
+
+A priori, SURBs conflict with some approaches to {\em Stop-N-Go mixes}
+\cite{StopNGo} in which mixes drop packets that fall outside of client
+specified time window.  We expect the network coordination required
+for those timing checks sounds unrealistic regardless. 
+
+We do support both packet delays being client controlled as well as
+client side delay detection.  In particular, there are no conflicts
+between our tweaks and the {\em Poisson mixes} of Loopix \cite{Loopix},
+a recent approach to Stop-N-Go mixes.
+
+We introduce several new {\em commands} that Sphinx packets may give
+to mix nodes.  These may leak additional information about the
+packet's purpose to the node.  We believe a mix network that employs
+a stratified topology provides slightly better anonymity than one
+employing a free route topology, but the free route weakness might
+compound leaks from additional commands.  We therefore recommend a
+stratified network topology with these commands restricted to
+specific strata.  Again these recommendations agree with Loopix.
+

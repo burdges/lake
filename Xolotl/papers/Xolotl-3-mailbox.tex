@@ -1,0 +1,231 @@
+% Xolotl-3-mailbox.tex
+
+\section{Sphinx with mailboxes}
+
+As mentioned in the introduction, we must never assume that users,
+nor any agent they control, is reliably online.  
+% ``It's an asynchronous world.''
+% https://github.com/WhisperSystems/Signal-Android/blob/master/CONTRIBUTING.md
+As a consequence, we must retain messages for an offline recipient
+until their client requests delivery.  
+At present, there are no successful secure messaging protocols
+without this IMAP/POP-like {\em request-and-forward} functionality,
+except arguably off-the-record messaging. 
+
+
+\subsection{Aggregation points}
+
+
+We expect this necessitates that messages destined for the same
+recipient flow into mailboxes at a small number aggregation points
+that process delivery requests.  These aggregation points should
+learn as little as possible about recipients or senders, but the
+recipient should learn the sender's identity from the protocol.
+In~\cite{agl-pond-hmac}, Adam Langely explains that Pond has similar
+requirements and indicates important advantages of delivery tokens
+over more complex schemes, like group signatures~\cite{VLR,BBS}.
+
+We can easily add a ``deliver to mailbox'' command to Sphinx so that
+SURBS can act as a delivery token.  In fact, SURBs provide near
+perfect delivery properties in sense of~\cite{warner-delivery}.
+An aggregation point cannot learn the sender's identity, unless
+colluding with the cross over point and all the mixes in the 
+sender's route to the cross over point.  
+In fact, even the receiver cannot learn more by colluding with
+the aggregation and cross over points.  In addition, our SURB
+hides both the aggregation points and the mailbox from the sender,
+which simplifies the recipient's task if they change aggregation
+points and mailbox identifiers.
+
+However, we must address a hiccup in how SURBs identify themselves
+and senders.
+
+\subsection{Unwinding SURB onion layers}
+
+We noted that a cross over point sees the body, denoted $\delta'$
+above, without any wide block cipher encryption layers.  We have
+chosen our wide block cipher so that its encryption and decryption
+operations provide exactly the same security guarantees and can
+safely be swapped.  This conceptual swap happens at our cross over
+point so that subsequent hops do not recognize themselves as being
+after a cross over point.  They happily apply the decryption
+operation without realizing that it further encrypts the body.
+However, our recipient must somehow {\bf unwind} these layers of
+onion encryption, and to do so efficiently the recipient must have
+a way to identify which of its SURBs was used, so that they
+can select the correct set of keys.
+
+There are two basic schemes for obtaining the key material to
+unwind the encryption applied to $\delta$ from mixes encrypting
+during the SURB hops:
+
+\begin{enumerate}
+ \item The recipient may {\em record} the wide block cipher keys used
+   under a {\it SURB name} $\eta$ derived from the shared secret $s$.
+   This approach has the advantage that it requires no additional
+   space in the header and provides simple authentication for arriving
+   SURBs.
+
+ \item Alternatively, our recipient could construct their SURB using a
+   {\em seed} that they also encode into the ``bottom'' of the SURB
+   itself, so that they may {\em reconstruct} the original SURB and
+   keys.  Encoding a seed provides advantages in multi-device
+   scenarios where all devices of a user can decrypt messages without
+   further communication after sharing some initial key material.
+   However, to reconstruct the SURB from a seed in an evolving mix
+   network does require recipients to record their past knowledge of
+   the mix network, which may eliminate the advantage in multi-device
+   scenarios in cases where peers do not always share the same global
+   view.
+\end{enumerate}
+
+In either scenario, our packet takes a predetermined route to the
+recipient who unwinds $n$ encryptions using information present on
+their disk and either $s$ or their $\beta'$.  Mixes delay
+messages along this route, but so far our recipient cannot change
+the route. 
+
+\subsection{Redirecting messages}
+
+We want SURB to be used to reach the aggregation point because
+this gives us good delivery properties.  We also require the
+aggregation point not learn anything about either the user, or
+the SURB used to reach the aggregation point
+
+In principle, recipients could simply send the aggregation point
+a packet with a flush mailbox command that launched all pending
+packets along whatever remained of their route.  We foresee many
+difficulties with such an approach, including simple route length
+constraints and packet loss due to network churn, mix node key
+lifetime, and clients changing guard nodes, any of which can cause
+paths used in SURBs to become unavailable.
+
+Instead, we propose that SURB directed messages should arrive at
+an aggregation point as the final destination as far as the SURB
+is concerned. The aggregation point then stores  the incoming SURB's
+name $\eta$ derived from $s$ and $\delta'$.
+This should even be done if the aggregation point is the ultimate
+recipient, for example if the user is logged out and thus the
+secret keys for decryption might be unavailable.  
+% Discuss: I'm not do sure about this part : 
+ % This way, the user's desktop may also act as just another
+ % aggregation point if the user then chooses to access his messages
+ % from a mobile device.
+
+Thus, we need a method for our final recipient to retrieve
+$\delta'$ and the corresponding SURB name from the aggregation point.
+
+
+\subsection{SURB logs}
+
+We do not consider private information retrieval (PIR)
+schemes~\cite{pir} because they increase complexity, invoke disparate
+security properties, leak metadata through excessive bandwidth, and do
+not support message deletion.
+% FIXME: citations needed...
+
+There is no way to ``squeeze'' our incoming SURB name $\eta_0$ into
+the body $\delta$ because the body was previously encrypted with a
+wide block cipher and thus cannot be shrunk.
+
+Our recipient could ask the aggregation point to report the waiting
+messages, and then send it separate SURBs assigned to each reported
+SURB name, but this requires an extra round trip in a protocol with
+notable latency. 
+
+Instead, we propose adding a {\it SURB log} $\zeta$ to the header.
+Any regular Sphinx hop encrypts $\zeta$ with more of the stream
+cipher, but does not include it when verifying the MAC $\gamma$.
+An aggregation point that receives fresh SURBs for a nonempty
+mailbox simply places the previous SURB name $\eta_0$ into $\zeta$,
+places $\delta'$ into the body, and populates the remaining fields
+as usual.
+
+For our recipient, there is an incoming SURB name $\eta_1$ that 
+controls unwinding back to the state seen by the aggregation point.
+We unwind $\zeta$ as well so that our recipient learns $\eta_0$ too,
+and may continue unwinding back to the cross over point.
+% FIXME: Pictures, please!
+
+We do not MAC $\zeta$, so any adversary can flip bits arbitrarily
+there.  As $\eta$ is random, if it is large enough then random
+collisions should be impossible, but an aggregation point sees
+well-formed $\zeta$.  An aggregation point could therefore identify
+a message as coming form an incorrect original sender.
+
+For this reason, one should consider the mix network's sender
+identification as an unauthenticated hint that simplifies proper
+authentication in the body, say by supporting Axolotl header
+encryption.  
+
+We weakly authenticate the $\eta_0$ extracted from $\zeta$,
+as being supplied by the aggregation point, because only the client
+knows $\eta_1$ and all the layers of encryption applied to $\eta_0$.  
+We imagine this weak authentication may help identify the source of
+unwanted messages, or a denial of service attack, say by a malicious
+public access point.
+
+\subsection{Deletion policy}
+
+To maximize the chance of delivery and to possibly support the user
+accessing their messages from multiple devices, aggregation points
+should not delete messages until they either need to reclaim the
+storage space or are explicitly told to do so by the recipient.
+However, aggregation points should be careful to avoid wasting two
+SURBs from the same batch on the same message.  A message delivering a
+subsequent batch can then request their deletion to avoid re-delivery.
+
+
+\subsection{Unwinding guards and repeated retargeting}
+
+In Tor, clients rotate circuits every 10 minutes, while holding
+fixed their first hop, called a guard node.  This protects clients
+from attackers seeking to push them onto a malicious guard
+node~\cite{tor-guards}.
+
+In a mix network, packets take much longer routes than tor cells.
+There are nevertheless several reasons clients might concentrate
+their traffic through a few guard nodes.  These guard nodes might
+be service providers who know the client of course.  In this vein,
+mobile devices reduce their bandwidth usage and save battery life
+by consolidating their messages through notification servers, so mix
+clients running on a mobile device might do this as well.
+% TODO: Any referenced on batching or other advantages?
+
+At the same time, an aggregation point could hoard a user's messages
+until the user selects a malicious guard, so users may wish to avoid
+rotating guards too much.  
+
+As a result, any recipient's guard node become a de-facto aggregation
+point, except that the SURB would contain instructions for another hop
+to be taken.  If a user does change the guard, then SURBs used to poll
+messages from aggregation points may leave messages left waiting at
+the old guard, and this may be common due to the mix network's
+high latency.
+
+We noted that aggregation points also need not delete messages until
+told to do so.  Yet, we also envision conversing clients achieving
+lower latency by sharing SURBs that arrive directly without passing
+through long-term storage aggregation points.  Any such messages could
+more easily be left waiting at an old guard.
+
+We can pick these messages up using the same technique of extending
+unwinding with the SURB log $\zeta$ as with aggregation points.  In
+fact, to allow repeated retargeting we allow multiple SURB names in
+$\zeta$, shift $\zeta$ rightward when adding a SURB name $\eta$, and
+shift $\zeta$ leftward when extracting a SURB name during unwinding.
+
+In this scheme, we wind up notifying our previous guard when we
+eventually reconnect to the mix network.  We could avoid this by
+giving our guard SURBs to message a mailbox when we first connected.
+In this scheme, we might store three SURB names in the final $\zeta$
+for a message that was meant to be direct.  We would store more for
+messages that already passed through a mailbox.
+
+% FIXME: Pictures, please! Especially for the iterative retargeting!
+% Having a picture of the complete package format with the
+% multi-\eta \zeta in a network diagram that shows an old
+% guard, a new guard, a crossover and at least one (storage)
+% aggregator (not in this order ;)) would be good.
+
+
