@@ -175,6 +175,30 @@ provides the flexibility needed to extend SURB lifetimes without
 making mix node keys too juicy of a target for adversaries.
 % George Danezis' fs-mixes~\cite{fs-mix}, or perhaps punctured encryption.
 
+\subsection{Mixing strategy and topology}
+
+We are agnostic to mixing strategy and mix network topology in this
+article. 
+
+A priori, SURBs conflict with some approaches to {\em Stop-N-Go mixes}
+\cite{StopNGo} in which mixes drop packets that fall outside of client
+specified time window.  We expect the network coordination required
+for those timing checks sounds unrealistic regardless. 
+
+We do support both packet delays being client controlled as well as
+client side delay detection.  In particular, there are no conflicts
+between our tweaks and the {\em Poisson mixes} of Loopix \cite{Loopix},
+a recent approach to Stop-N-Go mixes.
+
+We introduce several new {\em commands} that Sphinx packets may give
+to mix nodes.  These may leak additional information about the
+packet's purpose to the node.  We believe a mix network that employs
+a stratified topology provides slightly better anonymity than one
+employing a free route topology, but the free route weakness might
+compound leaks from additional commands.  We therefore recommend a
+stratified network topology with these commands restricted to
+specific strata.  Again these recommendations agree with Loopix.
+
 
 \section{Extending Sphinx}
 
@@ -507,23 +531,23 @@ subsequent batch can then request their deletion to avoid re-delivery.
 
 \subsection{Unwinding guards and repeated retargeting}
 
-... back to an aggregation point ...
-
 In Tor, clients rotate circuits every 10 minutes, while holding
 fixed their first hop, called a guard node.  This protects clients
 from attackers seeking to push them onto a malicious guard
 node~\cite{tor-guards}.
 
-% FIXME: discussion below is a bit confusing, needs editing.
-In a mix network, there are reasons clients might concentrate their
-traffic through a few guard nodes, like batching messages to hide
-message count, or saving battery on a mobile device, as notification
-servers do currently.  At the same time, an aggregation point could
-hoard a user's messages until the user selects a malicious guard,
-so users may wish to avoid rotating guards too much.
+In a mix network, packets take much longer routes than tor cells.
+There are nevertheless several reasons clients might concentrate
+their traffic through a few guard nodes.  These guard nodes might
+be service providers who know the client of course.  In this vein,
+mobile devices reduce their bandwidth usage and save battery life
+by consolidating their messages through notification servers, so mix
+clients running on a mobile device might do this as well.
+% TODO: Any referenced on batching or other advantages?
 
-
-
+At the same time, an aggregation point could hoard a user's messages
+until the user selects a malicious guard, so users may wish to avoid
+rotating guards too much.  
 
 As a result, any recipient's guard node become a de-facto aggregation
 point, except that the SURB would contain instructions for another hop
@@ -543,6 +567,13 @@ unwinding with the SURB log $\zeta$ as with aggregation points.  In
 fact, to allow repeated retargeting we allow multiple SURB names in
 $\zeta$, shift $\zeta$ rightward when adding a SURB name $\eta$, and
 shift $\zeta$ leftward when extracting a SURB name during unwinding.
+
+In this scheme, we wind up notifying our previous guard when we
+eventually reconnect to the mix network.  We could avoid this by
+giving our guard SURBs to message a mailbox when we first connected.
+In this scheme, we might store three SURB names in the final $\zeta$
+for a message that was meant to be direct.  We would store more for
+messages that already passed through a mailbox.
 
 % FIXME: Pictures, please! Especially for the iterative retargeting!
 % Having a picture of the complete package format with the
