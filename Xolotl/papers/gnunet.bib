@@ -1,0 +1,783 @@
+@mastersthesis {2017,
+	title = {Implementing Privacy Preserving Auction Protocols},
+	volume = {Master of Science},
+	year = {2017},
+	month = {02/2017},
+	pages = {100},
+	school = {TUM},
+	address = {Munich},
+	abstract = {In this thesis we translate Brandt{\textquoteright}s privacy preserving sealed-bid online auction protocol from RSA to elliptic curve arithmetic and analyze the theoretical and practical benefits. With Brandt{\textquoteright}s protocol, the auction outcome is completely resolved by the bidders and the seller without the need for a trusted third party. Loosing bids are not revealed to anyone. We present libbrandt, our implementation of four algorithms with different outcome and pricing properties, and describe how they can be incorporated in a real-world online auction system. Our performance measurements show a reduction of computation time and prospective bandwidth cost of over 90\% compared to an implementation of the RSA version of the same algorithms. We also evaluate how libbrandt scales in different dimensions and conclude that the system we have presented is promising with respect to an adoption in the real world.},
+	keywords = {auctions, GNUnet, secure multi-party computation},
+	author = {Markus Teich},
+	editor = {Totakura, Sree Harsha and Grothoff, Christian and Felix Brandt}
+}
+@conference {2016,
+	title = {Byzantine Set-Union Consensus using Efficient Set Reconciliation},
+	booktitle = {International Conference on Availability, Reliability and Security (ARES)},
+	year = {2016},
+	month = {6/2016},
+	abstract = {Applications of secure multiparty computation such as certain electronic voting or auction protocols require Byzantine agreement on large sets of elements. Implementations proposed in the literature so far have relied on state machine replication, and reach agreement on each individual set element in sequence.
+
+We introduce set-union consensus, a specialization of Byzantine consensus that reaches agreement over whole sets. This primitive admits an efficient and simple implementation by the composition of Eppstein{\textquoteright}s set reconciliation protocol with Ben-Or{\textquoteright}s ByzConsensus protocol.
+
+A free software implementation of this construction is available in GNUnet. Experimental results indicate that our approach results in an efficient protocol for very large sets, especially in the absence of Byzantine faults. We show the versatility of set-union consensus by using it to implement distributed key  generation, ballot collection and cooperative decryption for an electronic voting protocol implemented in GNUnet.
+},
+	keywords = {byzantine fault tolerance, consensus, GNUnet},
+	author = {Florian Dold and Christian Grothoff}
+}
+@conference {2016,
+	title = {Enabling Secure Web Payments with GNU Taler},
+	booktitle = {6th International Conference on Security, Privacy and Applied Cryptographic Engineering},
+	year = {2016},
+	month = {12/2016},
+	publisher = {Springer},
+	organization = {Springer},
+	address = {Hyderabad},
+	abstract = {GNU Taler is a new electronic online payment system which provides privacy for customers and accountability for merchants. It uses an exchange service to issue digital coins using blind signatures, and is thus not subject to the performance issues that plague Byzantine fault-tolerant consensus-based solutions.
+
+The focus of this paper is addressing the challenges payment systems face in the context of the Web.  We discuss how to address Web-specific challenges, such as handling bookmarks and sharing of links, as well as supporting users that have disabled JavaScript.  Web payment systems must also navigate various constraints imposed by modern Web browser security architecture, such as same-origin policies and the separation between browser extensions and Web pages.  While our analysis focuses on how Taler operates within the security infrastructure provided by the modern Web, the results partially generalize to other payment systems.
+
+We also include the perspective of merchants, as existing systems have often struggled with securing payment information at the merchant{\textquoteright}s side.  Here, challenges include avoiding database transactions for customers that do not actually go through with the purchase, as well as cleanly separating security-critical functions of the payment system from the rest of the Web service.},
+	keywords = {blind signatures, GNUnet, incentives, payments, Taler, web},
+	author = {Jeffrey Burdges and Florian Dold and Christian Grothoff and Marcello Stanisci}
+}
+@mastersthesis {2016,
+	title = {GNUnet und Informationsmacht: Analyse einer P2P-Technologie und ihrer sozialen Wirkung},
+	volume = {Diplominformatiker},
+	year = {2016},
+	month = {04/2016},
+	pages = {103},
+	school = {Humboldt-Universitaet zu Berlin},
+	type = {Diplomarbeit},
+	address = {Berlin},
+	abstract = {This thesis studies the GNUnet project comprising its history, ideas and the P2P network technology. It specifically investigates the question of emancipatory potentials with regard to forms of information power due to a widely deployed new Internet technology and tries to identify essential suspensions of power within the scope of an impact assessment. Moreover, we will see by contrasting the GNUnet project with the critical data protection project, founded on social theory, that both are heavily concerned about the problem of illegitimate and unrestrained information power, giving us additional insights for the assessment. Last but least I{\textquoteright}ll try to present a scheme of how both approaches may interact to realize their goals.
+},
+	keywords = {GNUnet, peer-to-peer},
+	author = {Christian Ricardo K{\"u}hne}
+}
+@conference {2016,
+	title = {Managing and Presenting User Attributes over a Decentralized Secure Name System},
+	booktitle = {Data Privacy Management and Security Assurance - 11th International Workshop, {DPM} 2016 and 5th International Workshop, {QASA} 2016, Heraklion, Crete, Greece, September 26-27, 2016, Proceedings},
+	year = {2016},
+	month = {09/2016},
+	publisher = {Springer},
+	organization = {Springer},
+	address = {Crete, Greece},
+	abstract = {Today, user attributes are managed at centralized identity providers. However, two centralized identity providers dominate digital identity and access management on the web. This is increasingly becoming a privacy problem in times of mass surveillance and data mining for targeted advertisement. Existing systems for attribute sharing or credential presentation either rely on a trusted third party service or require the presentation to be online and synchronous. In this paper we propose a concept that allows the user to manage and share his attributes asynchronously with a requesting party using a secure, decentralized name system.},
+	keywords = {Decentralisation, GNUnet, Identity and Access Management, User Attributes},
+	author = {Martin Schanzenbach and Christian Banse}
+}
+@conference {2016,
+	title = {Privacy-Preserving Abuse Detection in Future Decentralised Online Social Networks},
+	booktitle = {Data Privacy Management (DPM)},
+	year = {2016},
+	month = {09/2016},
+	publisher = {Springer},
+	organization = {Springer},
+	address = {Heraklion, Greece},
+	abstract = {Future online social networks need to not only protect sensitive data of their users, but also protect them from abusive behavior coming from malicious participants in the network. We investigate the use of supervised learning techniques to detect abusive behavior and describe privacy-preserving protocols to compute the feature set required by abuse classification algorithms in a secure and privacy-preserving way.  While our method is not yet fully resilient against a strong adaptive adversary, our evaluation suggests that it will be useful to detect abusive behavior with a minimal impact on privacy.},
+	keywords = {abuse, GNUnet, Privacy preserving, reputation, Social networking},
+	author = {{\'A}lvaro Garc{\'\i}a-Recuero and Jeffrey Burdges and Christian Grothoff}
+}
+@article {2016,
+	title = {Zur Idee herrschaftsfreier kooperativer Internetdienste},
+	journal = {FIfF-Kommunikation},
+	year = {2016},
+	chapter = {46},
+	keywords = {Architecture, GNUnet, Internet},
+	author = {Christian Ricardo K{\"u}hne}
+}
+@mastersthesis {dold2015byzantine,
+	title = {Byzantine Fault Tolerant Set Consensus with Efficient Set Reconciliation},
+	volume = {M.S.},
+	year = {2015},
+	month = {12/2015},
+	pages = {69},
+	school = {Technische Universitaet Muenchen},
+	type = {Master{\textquoteright}s},
+	address = {Muenchen},
+	abstract = {Byzantine consensus is a fundamental and well-studied problem in the area of distributed system. It requires a group of peers to reach agreement on some value, even if a fraction of the peers is controlled by an adversary. This thesis proposes set union consensus, an efficient generalization of Byzantine consensus from single elements to sets. This is practically motivated by Secure Multiparty Computation protocols such as electronic voting, where a large set of elements must be collected and agreed upon. Existing practical implementations of Byzantine consensus are typically based on state machine replication and not well-suited for agreement on sets, since they must process individual agreements on all set elements in sequence. We describe and evaluate our implementation of set union consensus in GNUnet, which is based on a composition of Eppstein set reconciliation protocol with the simple gradecast consensus prococol described by Ben-Or.},
+	keywords = {byzantine consensus, GNUnet, secure multiparty computation, set reconciliation, voting},
+	author = {Florian Dold}
+}
+@mastersthesis {2014,
+	title = {A Secure and Resilient Communication Infrastructure for Decentralized Networking Applications},
+	volume = {PhD},
+	year = {2015},
+	month = {02/2015},
+	pages = {250},
+	school = {Technische Universit{\"a}t M{\"u}nchen},
+	type = {PhD},
+	address = {M{\"u}nchen},
+	abstract = {This thesis provides the design and implementation of a secure and resilient communication infrastructure for decentralized peer-to-peer networks. The proposed communication infrastructure tries to overcome limitations to unrestricted communication on today{\textquoteright}s Internet and has the goal of re-establishing unhindered communication between users. With the GNU name system, we present a fully decentralized, resilient, and privacy-preserving alternative to DNS and existing security infrastructures. },
+	keywords = {Communication, GNU Name System, GNUnet, P2P, resilience},
+	isbn = {3-937201-45-9},
+	doi = {10.2313/NET-2015-02-1},
+	url = {http://nbn-resolving.de/urn/resolver.pl?urn:bvb:91-diss-20150225-1231854-0-7},
+	author = {Matthias Wachs}
+}
+@mastersthesis {2014,
+	title = {An Approach for Home Routers to Securely Erase Sensitive Data},
+	volume = {Bachelor},
+	year = {2014},
+	month = {10/2014},
+	pages = {64},
+	school = {Technische Universit{\"a}t M{\"u}nchen},
+	type = {Bachelor Thesis},
+	address = {Munich},
+	abstract = {Home routers are always-on low power embedded systems and part of the Internet infrastructure. In addition to the basic router functionality, they can be used to operate sensitive personal services, such as for private web and email servers, secure peer-to-peer networking services like GNUnet and Tor, and encrypted network file system services. These services naturally involve cryptographic operations with the cleartext keys being stored in RAM. This makes router devices possible targets to physical attacks by home intruders. Attacks include interception of unprotected data on bus wires, alteration of firmware through exposed JTAG headers, or recovery of cryptographic keys through the cold boot attack.
+
+This thesis presents Panic!, a combination of open hardware design and free software to detect physical integrity attacks and to react by securely erasing cryptographic keys and other sensitive data from memory. To improve auditability and to allow cheap reproduction, the components of Panic! are kept simple in terms of conceptual design and lines of code.
+
+First, the motivation to use home routers for services besides routing and the need to protect their physical integrity is discussed. Second, the idea and functionality of the Panic! system is introduced and the high-level interactions between its components explained. Third, the software components to be run on the router are described. Fourth, the requirements of the measurement circuit are declared and a prototype is presented. Fifth, some characteristics of pressurized environments are discussed and the difficulties for finding adequate containments are explained. Finally, an outlook to tasks left for the future is given.},
+	keywords = {GNUnet, home router, intrusion detection, memory erasure, Panic, physical access},
+	author = {Nicolas Bene{\v s}}
+}
+@conference {2014,
+	title = {Automatic Transport Selection and Resource Allocation for Resilient Communication in Decentralised Networks},
+	booktitle = {14-th IEEE International Conference on Peer-to-Peer Computing},
+	year = {2014},
+	month = {10/2014},
+	address = {London. England},
+	abstract = {Making communication more resilient is a main focus for modern decentralised networks. A current development to increase connectivity between participants and to be resilient against service degradation attempts is to support different communication protocols, and to switch between these protocols in case degradation or censorship are detected. Supporting multiple protocols with different properties and having to share resources for communication with multiple partners creates new challenges with respect to protocol selection and resource allocation to optimally satisfy the applications{\textquoteright} requirements for communication.
+
+This paper presents a novel approach for automatic transport selection and resource allocation with a focus on decentralised networks. Our goal is to evaluate the communication mechanisms available for each communication partner and then allocate resources in line with the requirements of the applications.
+
+We begin by detailing the overall requirements for an algorithm for transport selection and resource allocation, and then compare three different solutions using (1) a heuristic, (2) linear optimisation, and (3) machine learning. To show the suitability and the specific benefits of each approach, we evaluate their performance with respect to usability, scalability and quality of the solution found in relation to application requirements.},
+	keywords = {GNUnet, resource allocation},
+	author = {Matthias Wachs and Fabian Oehlmann and Christian Grothoff}
+}
+@conference {9998,
+	title = {CADET: Confidential Ad-hoc Decentralized End-to-End Transport},
+	booktitle = {Med-Hoc-Net 2014},
+	year = {2014},
+	month = {2014},
+	abstract = {This paper describes CADET, a new transport protocol for confidential and authenticated data transfer in decentralized networks. This transport protocol is designed to operate in restricted-route scenarios such as friend-to-friend or ad-hoc wireless networks.
+We have implemented CADET and evaluated its performance in various network scenarios, compared it to the well-known TCP/IP stack and tested its response to rapidly changing network
+topologies. While our current implementation is still significantly
+slower in high-speed low-latency networks, for typical Internet-usage our system provides much better connectivity and security with comparable performance to TCP/IP.},
+	keywords = {CADET, encryption, GNUnet, routing},
+	author = {Polot, Bartlomiej and Christian Grothoff}
+}
+@conference {2014,
+	title = {A Censorship-Resistant, Privacy-Enhancing and Fully Decentralized Name System},
+	booktitle = {International Conference on Cryptology and Network Security (CANS)},
+	year = {2014},
+	publisher = {Springer Verlag},
+	organization = {Springer Verlag},
+	abstract = {The Domain Name System (DNS) is vital for access to information on the Internet.  This makes it a target for attackers whose aim is to suppress free access to information. This paper introduces the design and implementation of the GNU Name System (GNS), a fully decentralized and censorship-resistant name system.  GNS provides a privacy-enhancing alternative to DNS which preserves the desirable property of memorable names. Due to its design, it can also double as a partial replacement of public key infrastructures, such as X.509.  The design of GNS incorporates the capability to integrate and coexist with DNS.  GNS is based on the principle of a petname system and builds on ideas from the Simple Distributed Security Infrastructure (SDSI), addressing a central issue with the decentralized mapping of secure identifiers to memorable names: namely the impossibility of providing a global, secure and memorable mapping without a trusted authority. GNS uses the transitivity in the SDSI design to replace the trusted root with secure delegation of authority, thus making petnames useful to other users while operating under a very strong adversary model.  In addition to describing the GNS design, we also discuss some of the mechanisms that are needed to smoothly integrate GNS with existing processes and procedures in Web browsers.  Specifically, we show how GNS is able to transparently support many assumptions that the existing HTTP(S) infrastructure makes about globally unique names.
+},
+	keywords = {DNS, GNU Name System, GNUnet, PKI},
+	author = {Matthias Wachs and Martin Schanzenbach and Christian Grothoff}
+}
+@mastersthesis {2014,
+	title = {Control Flow Analysis for Event-Driven Programs},
+	volume = {B.Sc},
+	year = {2014},
+	month = {07/2014},
+	pages = {71},
+	school = {Technical University of Munich},
+	type = {Bachelors},
+	address = {Munich},
+	abstract = {Static analysis is often used to automatically check for common bugs in programs. Compilers already check for some common programming errors and issue warnings; however, they do not do a very deep analysis because this would slow the compilation of the program down. Specialized tools like Coverity or Clang Static Analyzer look at possible runs of a program and track the state of variables in respect to function calls. This information helps to identify possible bugs. In event driven programs like GNUnet callbacks are registered for later execution. Normal static analysis cannot track these function calls. This thesis is an attempt to extend different static analysis tools so that they can handle this case as well. Different solutions were thought of and executed with Coverity and Clang.  This thesis describes the theoretical background of model checking and static analysis, the practical usage of wide spread static analysis tools, and how these tools can be extended in order to improve their usefulness.},
+	keywords = {event-driven, flow control, GNUnet, static analysis},
+	author = {Florian Scheibner}
+}
+@mastersthesis {2014,
+	title = {Cryogenic: Enabling Power-Aware Applications on Linux},
+	volume = {M. Sc.},
+	year = {2014},
+	month = {02/2014},
+	pages = {106},
+	school = {Technische Universitaet Muenchen},
+	type = {Masters},
+	address = {Garching bei Muenchen},
+	abstract = {As a means of reducing power consumption, hardware devices are capable to enter into sleep-states that have low power consumption. Waking up from those states in order to return to work is typically a rather energy-intensive activity. Some existing applications have non-urgent tasks that currently force hardware to wake up needlessly or prevent it from going to sleep. It would be better if such non-urgent activities could be scheduled to execute when the respective devices are active
+to maximize the duration of sleep-states. This requires cooperation between applications and the kernel in order to determine when the execution of a task will not be expensive in terms of power consumption.
+
+This work presents the design and implementation of Cryogenic, a POSIX-compatible API that enables clustering tasks based on the hardware activity state. Specifically, Cryogenic{\textquoteright}s API allows applications to defer their execution until other tasks use the device they want to use. As a result,
+two actions that contribute to reduce the device energy consumption are achieved: reduce the number of hardware wake-ups and maximize the idle periods.
+
+The energy measurements enacted at the end of this thesis demonstrate that, for the specific setup and conditions present during our experimentation, Cryogenic is capable to achieve savings between 1\% and 10\% for a USB WiFi device.
+
+Although we ideally target mobile platforms, Cryogenic has been developed by means a new Linux module that integrates with the existing POSIX event loop system calls. This allows to use Cryogenic on many different platforms as long as they use a GNU/Linux distribution as the main operating system. An evidence of this can be found in this thesis, where we demonstrate the power savings on a single-board computer.
+},
+	keywords = {cooperative, cryogenic, GNUnet, Linux, POSIX, power},
+	author = {Alejandra Morales}
+}
+@mastersthesis {2014,
+	title = {Cryptographically Secure, Distributed Electronic Voting},
+	volume = {B.S.},
+	year = {2014},
+	month = {08/2014},
+	pages = {49},
+	school = {Technische Universitaet Muenchen},
+	type = {Bachelor{\textquoteright}s},
+	address = {Muenchen},
+	abstract = {Elections are a vital tool for decision-making in democratic societies. The past decade has witnessed a handful of attempts to apply modern technology to the election process in order to make it faster and more cost-effective.
+Most of the practical efforts in this area have focused on replacing traditional voting booths with electronic terminals, but did not attempt to apply cryptographic techniques able to guarantee critical properties of elections such as secrecy of ballot and verifiability. While such techniques were extensively researched in the past 30 years, practical implementation of cryptographically secure remote electronic voting schemes are not readily available. All existing implementation we are aware of either exhibit critical security flaws, are proprietary black-box systems or require additional physical assumptions such as a preparatory key ceremony executed by the election officials. The latter makes such systems unusable for purely digital communities.
+This thesis describes the design and implementation of an electronic voting system in GNUnet, a framework for secure and decentralized networking. We provide a short survey of voting schemes and existing implementations. The voting scheme we implemented makes use of threshold cryptography, a technique which requires agreement among a large subset of the election officials to execute certain
+cryptographic operations. Since such protocols have applications outside of electronic voting, we describe their design and implementation in GNUnet separately.
+},
+	keywords = {GNUnet, secure multiparty computation, voting},
+	author = {Florian Dold}
+}
+@mastersthesis {2014,
+	title = {A Decentralized and Autonomous Anomaly Detection Infrastructure for Decentralized Peer-to-Peer Networks},
+	volume = {Master},
+	year = {2014},
+	month = {10/2014},
+	pages = {63},
+	type = {Master},
+	abstract = {In decentralized networks, collecting and analysing information from the network is useful for developers and operators to monitor the behaviour and detect anomalies such as attacks or failures in both the overlay and underlay networks. But realizing such an infrastructure is hard to achieve due to the decentralized nature of the network especially if the anomaly occurs on systems not operated by developers or participants get separated from the collection points. In this thesis a decentralized monitoring infrastructure using a decentralized peer-to-peer network is developed to collect information and detect anomalies in a collaborative way without coordination by and in absence of a centralized infrastructure and report detected incidents to a monitoring infrastructure.
+
+We start by introducing background information about peer-to-peer networks, anomalies and anomaly detection techniques in literature. Then we present some of the related work regarding monitoring decentralized networks, anomaly detection and data aggregation in decentralized networks. Then we perform an analysis of the system objectives, target environment and the desired properties of the system. Then we design the system in terms of the overall structure and its individual components. We follow with details about the system implementation. Lastly, we evaluate the final system implementation against our desired objectives.},
+	keywords = {anomaly, censorship, detection, GNUnet},
+	author = {Omar Tarabai}
+}
+@mastersthesis {2014,
+	title = {Experimental comparison of Byzantine fault tolerant distributed hash tables},
+	volume = {M.S.},
+	year = {2014},
+	month = {09/2014},
+	pages = {42},
+	school = {Saarland University},
+	type = {Masters},
+	address = {Saarbruecken},
+	abstract = {Distributed Hash Tables (DHTs) are a key data structure for construction of a peer to
+peer systems. They provide an efficient way to distribute the storage and retrieval of
+key-data pairs among the participating peers. DHTs should be scalable, robust against
+churn and resilient to attacks. X-Vine is a DHT protocol which offers security against
+Sybil attacks. All communication among peers is performed over social network links,
+with the presumption that a friend can be trusted. This trust can be extended to a
+friend of a friend. It uses the tested Chord Ring topology as an overlay, which has been
+proven to be scalable and robust.
+The aim of the thesis is to experimentally compare two DHTs, R5 N and X-Vine.
+GNUnet is a free software secure peer to peer framework, which uses R 5N . In this
+thesis, we have presented the implementation of X-Vine on GNUnet, and compared the
+performance of R5 N and X-Vine.
+},
+	keywords = {DHT, GNUnet, performance analysis, testbed, X-vine},
+	author = {Supriti Singh}
+}
+@mastersthesis {2014,
+	title = {Improved Kernel-Based Port-Knocking in Linux},
+	volume = {M.S.},
+	year = {2014},
+	month = {08/2014},
+	type = {Master{\textquoteright}s},
+	abstract = {Port scanning is used to discover vulnerable services and launch attacks against network infrastructure. Port knocking is a well-known technique to hide TCP servers from port scanners. This thesis presents the design of TCP Stealth, a socket option to realize new port knocking variant with improved security and usability compared to previous designs.
+
+TCP Stealth replaces the traditional random TCP SQN number with a token that authenticates the client and (optionally) the first bytes of the TCP payload.  Clients and servers can enable TCP Stealth by explicitly setting a socket option or linking against a library that wraps existing network system calls.
+
+This thesis also describes Knock, a free software implementation of TCP Stealth for the Linux kernel and {\tt libknockify}, a shared library that wraps network system calls to activate Knock on GNU/Linux systems, allowing administrators to deploy Knock without recompilation.  Finally, we present experimental results demonstrating that TCP Stealth is compatible with most existing middleboxes on the Internet.},
+	keywords = {GNUnet, Hacienda, Knock, TCP Stealth},
+	author = {Julian Kirsch}
+}
+@conference {2014,
+	title = {The Internet is Broken: Idealistic Ideas for Building a GNU Network},
+	booktitle = {W3C/IAB Workshop on Strengthening the Internet Against Pervasive Monitoring (STRINT)},
+	year = {2014},
+	month = {February},
+	publisher = {W3C/IAB},
+	organization = {W3C/IAB},
+	address = {London, UK},
+	keywords = {GNU Name System, GNUnet, KBR, PKI},
+	author = {Christian Grothoff and Polot, Bartlomiej and Carlo von Loesch}
+}
+@mastersthesis {2014,
+	title = {Machine Learning for Bandwidth Management in Decentralized Networks},
+	volume = {M. Sc.},
+	year = {2014},
+	month = {02/2014},
+	pages = {91},
+	school = {Technische Universitaet Muenchen},
+	type = {Masters},
+	address = {Garching bei Muenchen},
+	abstract = {The successful operation of a peer-to-peer network depends on the resilience of its peer{\textquoteright}s
+communications. On the Internet, direct connections between peers are often limited by restrictions like NATs and traffic filtering. Addressing such problems is particularly pressing for peer-to-peer networks that do not wish to rely on any trusted infrastructure, which might otherwise help the participants establish communication channels. Modern peer-to-peer networks employ various techniques to address the problem of restricted connectivity on the Internet. One interesting development is that various overlay networks now support multiple communication protocols to improve resilience and counteract service degradation.
+
+The support of multiple protocols causes a number of new challenges. A peer should evaluate which protocols fulfill the communication requirements best. Furthermore, limited resources, such as bandwidth, should be distributed among peers and protocols to match application requirements. Existing approaches to this problem of transport selection and resource allocation are rigid: they calculate the solution only from the current state of the
+environment, and do not adapt their strategy based on failures or successes of previous
+allocations.
+
+This thesis explores the feasibility of using machine learning to improve the quality of the transport selection and resource allocation over current approaches. The goal is to improve the solution process by learning selection and allocation strategies from the experience gathered in the course of many iterations of the algorithm. We compare the different approaches in the field of machine learning with respect to their properties and suitability for the problem. Based on this evaluation and an in-depth analysis of the requirements of the underlying problem, the thesis presents a design how reinforcement learning can be used and adapted to the given problem domain.
+
+The design is evaluated with the help of simulation and a realistic implementation in the GNUnet Peer-to-Peer framework. Our experimental results highlight some of the implications of the multitude of implementation choices, key challenges, and possible directions for the use of reinforcement learning in this domain.},
+	keywords = {bandwidth allocation, GNUnet, machine learning},
+	author = {Fabian Oehlmann}
+}
+@mastersthesis {2014,
+	title = {Numerical Stability and Scalability of Secure Private Linear Programming},
+	volume = {B. Sc.},
+	year = {2014},
+	month = {02/2014},
+	pages = {65},
+	school = {Technische Universitaet Muenchen},
+	type = {Bachelor{\textquoteright}s},
+	address = {Garching bei Muenchen},
+	abstract = {Linear programming (LP) has numerous applications in different fields. In some scenarios, e.g. supply chain master planning (SCMP), the goal is solving linear programs involving multiple parties reluctant to sharing their private information. In this case, methods from the area of secure multi-party computation (SMC) can be used. Secure multi-party versions of LP solvers have been known to be impractical due to high communication complexity. To overcome this, solutions based on problem transformation have been put forward.
+
+In this thesis, one such algorithm, proposed by Dreier and Kerschbaum, is discussed, implemented, and evaluated with respect to numerical stability and scalability. Results
+obtained with different parameter sets and different test cases are presented and some problems are exposed. It was found that the algorithm has some unforeseen limitations, particularly when implemented within the bounds of normal primitive data types. Random numbers generated during the protocol have to be extremely small so as to not cause problems with overflows after a series of multiplications. The number of peers participating additionally limits the size of numbers. A positive finding was that results produced when none of the aforementioned problems occur are generally quite accurate. We discuss a few possibilities to overcome some of the problems with an implementation using arbitrary precision numbers.
+},
+	keywords = {GNUnet, linear programming, secure multi-party computation},
+	author = {Raphael Arias}
+}
+@mastersthesis {2013,
+	title = {Design of a Social Messaging System Using Stateful Multicast},
+	volume = {M.Sc.},
+	year = {2013},
+	pages = {76},
+	school = {University of Amsterdam},
+	type = {Master{\textquoteright}s},
+	address = {Amsterdam},
+	abstract = {This work presents the design of a social messaging service for the GNUnet peer-to-peer framework that offers scalability, extensibility, and end-to-end encrypted communication.  The scalability property is achieved through multicast message delivery, while extensibility is made possible by using PSYC (Protocol for SYnchronous Communication), which provides an extensible RPC (Remote Procedure Call) syntax that can evolve over time without having to upgrade the software on all nodes in the network.  Another key feature provided by the PSYC layer are stateful multicast channels, which are used to store e.g. user profiles.  End-to-end encrypted communication is provided by the mesh service of GNUnet, upon which the multicast channels are built.  Pseudonymous users and social places in the system have cryptographical identities --- identified by their public key --- these are mapped to human memorable names using GNS (GNU Name System), where each pseudonym has a zone pointing to its places.
+},
+	keywords = {GNS, GNUnet, PSYC, social networks},
+	author = {Gabor X Toth}
+}
+@conference {2013,
+	title = {On the Feasibility of a Censorship Resistant Decentralized Name System},
+	booktitle = {6th International Symposium on Foundations \&amp; Practice of Security (FPS 2013)},
+	year = {2013},
+	month = {10/2013},
+	publisher = {Springer Verlag},
+	organization = {Springer Verlag},
+	address = {La Rochelle, France},
+	abstract = {A central problem on the Internet today is that key infrastructure for security is concentrated in a few places.  This is particularly true in the areas of naming and public key infrastructure. Secret services and other government organizations can use this fact to block access to information or monitor communications.  One of the most popular and easy to perform techniques is to make information on the Web inaccessible by censoring or manipulating the Domain Name System (DNS).  With the introduction of DNSSEC, the DNS is furthermore posed to become an alternative PKI to the failing X.509 CA system, further cementing the power of those in charge of operating DNS.
+
+This paper maps the design space and gives design requirements for censorship resistant name systems.  We survey the existing range of ideas for the realization of such a system and discuss the challenges these systems have to overcome in practice.  Finally, we present the results from a survey on browser usage, which supports the idea that delegation should be a key ingredient in any censorship resistant name system.
+},
+	keywords = {DNS, GNS, GNU Name System, GNUnet, PKI, SDSI, Zooko{\textquoteright}s Triangle},
+	author = {Matthias Wachs and Martin Schanzenbach and Christian Grothoff}
+}
+@mastersthesis {2013,
+	title = {Large Scale Distributed Evaluation of Peer-to-Peer Protocols},
+	volume = {Master of Science},
+	year = {2013},
+	month = {06/2013},
+	pages = {76},
+	school = {Technische Universitaet Muenchen},
+	type = {Masters },
+	address = {Garching bei Muenchen},
+	abstract = {Evaluations of P2P protocols during the system{\textquoteright}s design and implementation phases are commonly done through simulation and emulation respectively.  While the current state-of-the-art simulation allows evaluations with many millions of peers through the use of abstractions, emulation still lags behind as it involves executing the real implementation at some parts of the system.  This difference in scales can make it hard to relate the evaluations made created with simulation and emulation during the design and implementation phases and can results in a limited evaluation of the implementation, which may cause severe problems after deployment.
+
+In this thesis, we build upon an existing emulator for P2P applications to push the scales offered by emulation towards the limits set by simulation.  Our approach distributes and co-ordinates the emulation across many hosts.  Large deployments are possible by deploying hundreds or thousands of peers on each host.
+
+To address the varying needs of an experimenter and the range of available hardware, we make our approach scalable such that it can easily be adapted to run evaluations on a single machine or a large group of hosts.  Specifically, the system automatically adjusts the number of overlapping operations to the available resources efficiently using a feedback mechanism, thus relieving the experimenter from the hassles of manual tuning.
+
+We specifically target HPC systems like compute clusters and supercomputers and demonstrate how such systems can be used for large scale emulations by evaluating two P2P applications with deployment sizes up to 90k peers on a supercomputer.},
+	keywords = {emulation, GNUnet, large scale testing, protocol evaluation, testbed},
+	author = {Totakura, Sree Harsha}
+}
+@mastersthesis {2013,
+	title = {Monkey - Generating Useful Bug Reports Automatically},
+	volume = {Bachelor},
+	year = {2013},
+	month = {07/2013},
+	pages = {50},
+	school = {Technische Universit{\"a}t M{\"u}nchen},
+	type = {Bachelor Thesis},
+	address = {Munich},
+	abstract = {Automatic crash handlers support software developers in finding bugs and fixing the problems in their code. Most of them behave similarly in providing the developer with a (symbolic) stack trace and a memory dump of the crashed application. This introduces some problems that we try to fix with our proposed automatic bug reporting system called "Monkey".
+
+In this paper we describe the problems that occur when debugging widely distributed systems and how Monkey handles them. First, we describe our Motivation for develop- ing the Monkey system. Afterwards we present the most common existing automatic crash handlers and how they work. Thirdly you will get an overview of the Monkey system and its components. In the fourth chapter we will analyze one report gener- ated by Monkey, evaluate an online experiment we conducted and present some of our finding during the development of the clustering algorithm used to categorize crash reports. Last, we discuss some of Monkeys features and compare them to the existing approaches. Also some ideas for the future development of the Monkey system are presented before we conclude that Monkey{\textquoteright}s approach is promising, but some work is still left to establish Monkey in the open source community.},
+	keywords = {automatic, clustering, debugging, GDB, GNUnet, report, Tor},
+	author = {Markus Teich}
+}
+@mastersthesis {2012,
+	title = {Decentralized Evaluation of Regular Expressions for Capability Discovery in Peer-to-Peer Networks},
+	volume = {M.S.},
+	year = {2012},
+	month = {11/2012},
+	pages = {100},
+	school = {Technische Universitaet Muenchen},
+	type = {Masters},
+	address = {Garching bei Muenchen},
+	abstract = {This thesis presents a novel approach for decentralized evaluation of regular expressions for capability discovery in DHT-based overlays. The system provides support for announcing capabilities expressed as regular expressions and discovering participants offering adequate capabilities.
+
+The idea behind our approach is to convert regular expressions into finite automatons and store the corresponding states and transitions in a DHT. We show how locally constructed DFA are merged in the DHT into an NFA without the knowledge of any NFA already present in the DHT and without the need for any central authority. Furthermore we present options of optimizing the DFA.
+
+There exist several possible applications for this general approach of decentralized regular expression evaluation. However, in this thesis we focus on the application of discovering users that are willing to provide network access using a specified protocol to a particular destination.
+
+We have implemented the system for our proposed approach and conducted a simulation. Moreover we present the results of an emulation of the implemented system in a cluster.
+},
+	keywords = {DFA, distributed hash table, GNUnet, NFA, regular expressions, search},
+	author = {Maximilian Szengel}
+}
+@mastersthesis {2012,
+	title = {Design and Implementation of a Censorship Resistant and Fully Decentralized Name System},
+	volume = {M.Sc.},
+	year = {2012},
+	month = {09/2012},
+	pages = {116},
+	school = {TU Munich},
+	type = {Master{\textquoteright}s},
+	address = {Garching bei Muenchen},
+	abstract = {This thesis presents the design and implementation of the GNU Alternative Domain System (GADS), a decentralized, secure name system providing memorable names for the Internet as an alternative to the Domain Name System (DNS).  The system builds on ideas from Rivest{\textquoteright}s Simple Distributed Security Infrastructure (SDSI) to address a central issue with providing a decentralized mapping of secure identifiers to memorable names: providing a global, secure and memorable mapping is impossible without a trusted authority.  SDSI offers an alternative by linking local name spaces; GADS uses the transitivity provided by the SDSI design to build a decentralized and censorship resistant name system without a trusted root based on secure  delegation of authority.
+
+Additional details need to be considered in order to enable GADS to integrate smoothly with the World Wide Web.  While following links on the Web matches following delegations in GADS, the existing HTTP-based infrastructure makes many assumptions about globally unique names; however, proxies can be used to enable legacy applications to function with GADS.
+
+This work presents the fundamental goals and ideas behind GADS, provides technical details on how GADS has been implemented and discusses deployment issues for using GADS with existing systems.  We discuss how GADS and legacy DNS can interoperate during a transition period and what additional security advantages GADS offers over DNS with Security Extensions (DNSSEC).  Finally, we present the results of a survey into surfing behavior, which suggests that the manual introduction of new direct links in GADS will be infrequent.},
+	keywords = {censorship resistance, decentralized, DNS, GNU Name System, GNUnet},
+	author = {Martin Schanzenbach}
+}
+@conference {2012,
+	title = {Efficient and Secure Decentralized Network Size Estimation},
+	booktitle = {IFIP International Conferences on Networking (Networking 2012)},
+	year = {2012},
+	month = {05/2012},
+	pages = {304--317},
+	publisher = {Springer Verlag},
+	organization = {Springer Verlag},
+	address = {Prague, CZ},
+	abstract = {The size of a Peer-to-Peer (P2P) network is an important parameter for performance tuning of P2P routing algorithms.  This paper introduces and evaluates a new efficient method for participants in an unstructured P2P network to establish the size of the overall network. The presented method is highly efficient, propagating information about the current size of the network to all participants using O(|E|) operations where |E| is the number of edges in the network. Afterwards, all nodes have the same network size estimate, which can be made arbitrarily accurate by averaging results from multiple rounds of the protocol.  Security measures are included which make it prohibitively expensive for a typical active participating adversary to significantly manipulate the estimates.  This paper includes experimental results that demonstrate the viability, efficiency and accuracy of the protocol.
+},
+	keywords = {byzantine fault tolerance, GNUnet, network size estimation, proof of work},
+	url = {http://grothoff.org/christian/rrsize2012.pdf},
+	author = {Nathan S Evans and Polot, Bartlomiej and Christian Grothoff}
+}
+@article {2012,
+	title = {Efficient and Secure Decentralized Network Size Estimation},
+	year = {2012},
+	month = {05/2012},
+	institution = {Technische Universitaet Muenchen},
+	address = {Garching bei Muenchen},
+	abstract = {The size of a Peer-to-Peer (P2P) network is an important parameter for
+performance tuning of P2P routing algorithms.  This paper introduces
+and evaluates a new efficient method for participants in an
+unstructured P2P network to establish the size of the overall network.
+The presented method is highly efficient, propagating information
+about the current size of the network to all participants using
+O(|E|) operations where |E| is the number of edges in the network.
+Afterwards, all nodes have the same network size estimate, which can
+be made arbitrarily accurate by averaging results from multiple rounds
+of the protocol.  Security measures are included which make it
+prohibitively expensive for a typical active participating adversary
+to significantly manipulate the estimates.  This paper includes
+experimental results that demonstrate the viability, efficiency and
+accuracy of the protocol.
+},
+	keywords = {GNUnet, network security, network size estimation, peer-to-peer networking},
+	author = {Nathan S Evans and Polot, Bartlomiej and Christian Grothoff}
+}
+@conference { cset2011evans,
+	title = {Beyond Simulation: Large-Scale Distributed Emulation of P2P Protocols},
+	booktitle = {4th Workshop on Cyber Security Experimentation and Test (CSET 2011)},
+	year = {2011},
+	publisher = {USENIX Association},
+	organization = {USENIX Association},
+	address = {San Francisco, California},
+	abstract = {This paper presents details on the design and implementation of a scalable framework for evaluating peer-to-peer protocols.  Unlike systems based on simulation, emulation-based systems enable the experimenter to obtain data that reflects directly on the concrete implementation in much greater detail.  This paper argues that emulation is a better model for experiments with peer-to-peer protocols since it can provide scalability and high flexibility while eliminating the cost of moving from experimentation to  deployment.  We discuss our unique experience with large-scale emulation using the GNUnet peer-to-peer framework and provide experimental results to support these claims. },
+	keywords = {distributed hash table, emulation, GNUnet, scalability, security analysis},
+	author = {Nathan S Evans and Christian Grothoff}
+}
+@conference { grothoff2011syssec,
+	title = {The Free Secure Network Systems Group: Secure Peer-to-Peer Networking and Beyond},
+	booktitle = {SysSec 2011},
+	year = {2011},
+	address = {Amsterdam, Netherlands},
+	abstract = {This paper introduces the current research and future plans of the Free Secure Network Systems Group at the Technische Universit\&auml;t M\&uuml;nchen.  In particular, we provide some insight into the development process and architecture of the GNUnet P2P framework and the challenges we are currently working on.  },
+	keywords = {anonymity, GNUnet, routing},
+	author = {Christian Grothoff}
+}
+@article {2011,
+	title = {High-speed high-security signatures},
+	journal = {Journal of Cryptographic Engineering},
+	volume = {2},
+	year = {2011},
+	month = {09/2011},
+	pages = {77--89},
+	chapter = {77},
+	keywords = {ECC, Ed25519, EdDSA, GNUnet},
+	url = {http://ed25519.cr.yp.to/papers.html},
+	author = {Daniel J. Bernstein and Niels Duif and Tanja Lange and Peter Schwabe and Bo-Yin Hang}
+}
+@mastersthesis {2011,
+	title = {Methods for Secure Decentralized Routing in Open Networks},
+	volume = {Dr. rer. nat.},
+	year = {2011},
+	month = {08/2011},
+	pages = {234},
+	school = {Technische Universit{\"a}t M{\"u}nchen},
+	address = {Garching bei M{\"u}nchen},
+	abstract = {  The contribution of this thesis is the study and improvement of secure, decentralized, robust routing algorithms for open networks including ad-hoc networks and peer-to-peer (P2P) overlay networks. The main goals for our secure routing algorithm are openness, efficiency, scalability and resilience to various types of attacks. Common P2P routing algorithms trade-off decentralization for security; for instance by choosing whether or not to require a centralized authority to allow peers to join the network. Other algorithms trade scalability for security, for  example employing random search or flooding to prevent certain types of attacks.  Our design attempts to meet our security goals in an open system, while limiting the performance penalties incurred.
+
+  The first step we took towards designing our routing algorithm was an analysis of the routing algorithm in Freenet.  This algorithm is relevant because it achieves efficient (order O(log n)) routing in realistic network topologies in a fully decentralized open network.  However, we demonstrate why their algorithm is not secure, as malicious participants are able to severely disrupt the operation of the network.  The main difficulty with the Freenet routing algorithm is that for performance it relies on information received from untrusted peers.  We also detail a range of proposed solutions, none of which we found to fully fix the problem.
+
+ A related problem for efficient routing in sparsely connected networks is the difficulty in sufficiently populating routing tables.  One way to improve connectivity in P2P overlay networks is by utilizing modern NAT traversal techniques.  We employ a number of standard NAT traversal techniques in our approach, and also developed
+and experimented with a novel method for NAT traversal based on ICMP and UDP hole punching.  Unlike other NAT traversal techniques ours does not require a trusted third party.
+
+Another technique we use in our implementation to help address the connectivity problem in sparse networks is the use of distance vector routing in a small local neighborhood. The distance vector variant used in our system employs onion routing to secure the resulting indirect connections. Materially to this design, we discovered a  serious vulnerability in the Tor protocol which allowed us to use a DoS attack to reduce the anonymity of the users of this extant anonymizing P2P network.  This vulnerability is based on allowing paths of unrestricted length for onion routes through the network. Analyzing Tor and implementing this attack gave us valuable knowledge
+which helped when designing the distance vector routing protocol for our system.
+
+  Finally, we present the design of our new secure randomized routing algorithm that does not suffer from the various problems we discovered in previous designs. Goals for the algorithm include providing efficiency and robustness in the presence of malicious participants for an open, fully decentralized network without trusted authorities. We provide a mathematical analysis of the algorithm itself and have created and deployed an implementation of this algorithm in GNUnet. In this thesis we also provide a detailed overview of a distributed
+emulation framework capable of running a large number of nodes using our full code base as well as some of the challenges encountered in creating and using such a testing framework.  We present extensive experimental results showing that our routing algorithm outperforms the dominant DHT design in target topologies, and performs comparably in other scenarios.
+},
+	keywords = {distributed hash table, Freenet, GNUnet, NAT, R5N, Tor},
+	isbn = {3-937201-26-2},
+	issn = {1868-2642},
+	author = {Nathan S Evans}
+}
+@article {gauger2011lj,
+	title = {Performance Regression Monitoring with Gauger},
+	journal = {LinuxJournal},
+	number = {209},
+	year = {2011},
+	month = {September},
+	chapter = {68},
+	keywords = {Gauger, GNUnet},
+	url = {http://www.linuxjournaldigital.com/linuxjournal/201109$\#$pg68},
+	author = {Polot, Bartlomiej and Christian Grothoff}
+}
+@conference {2011,
+	title = {R5N : Randomized Recursive Routing for Restricted-Route Networks},
+	booktitle = {5th International Conference on Network and System Security (NSS 2011)},
+	year = {2011},
+	month = {09/2011},
+	publisher = {IEEE},
+	organization = {IEEE},
+	address = {Milan, Italy},
+	abstract = {This paper describes a new secure DHT routing algorithm for open,
+decentralized P2P networks operating in a restricted-route environment with malicious participants.  We have implemented our routing algorithm and have evaluated its performance under various topologies and in the presence of malicious peers.  For small-world topologies, our algorithm provides significantly better performance when compared to existing methods. In more densely connected topologies, our performance is better than or on par with other designs.
+},
+	keywords = {distributed hash table, GNUnet, R5N, routing},
+	author = {Nathan S Evans and Christian Grothoff}
+}
+@conference {2011,
+	title = {Scalability \& Paranoia in a Decentralized Social Network},
+	booktitle = {Federated Social Web},
+	year = {2011},
+	month = {06/2011},
+	address = {Berlin, Germany},
+	abstract = {There{\textquoteright}s a lot of buzz out there about "replacing" Facebook with a privacy-enhanced, decentralized, ideally open source something. In this talk we{\textquoteright}ll focus on how much privacy we should plan for (specifically about how we cannot entrust our privacy to modern virtual machine technology) and the often underestimated problem of getting such a monster network to function properly. These issues can be considered together or separately: Even if you{\textquoteright}re not as concerned about privacy as we are, the scalability problem still persists. },
+	keywords = {GNUnet, privacy, social networks},
+	url = {http://secushare.org/2011-FSW-Scalability-Paranoia},
+	author = {Carlo v. Loesch and Gabor X Toth and Mathias Baumann}
+}
+@conference {Eppstein:2011:WDE:2018436.2018462,
+	title = {What{\textquoteright}s the difference?: efficient set reconciliation without prior context},
+	booktitle = {Proceedings of the ACM SIGCOMM 2011 conference},
+	series = {SIGCOMM {\textquoteright}11},
+	year = {2011},
+	pages = {218{\textendash}229},
+	publisher = {ACM},
+	organization = {ACM},
+	address = {New York, NY, USA},
+	keywords = {difference digest, GNUnet, invertible bloom filter, set difference},
+	isbn = {978-1-4503-0797-0},
+	doi = {10.1145/2018436.2018462},
+	url = {http://doi.acm.org/10.1145/2018436.2018462},
+	author = {Eppstein, David and Goodrich, Michael T. and Uyeda, Frank and Varghese, George}
+}
+@mastersthesis {bartsthesis,
+	title = {Adapting Blackhat Approaches to Increase the Resilience of Whitehat Application Scenarios},
+	volume = {M.S.},
+	year = {2010},
+	school = {Technische Universit{\"a}t M{\"u}nchen},
+	type = {masters},
+	address = {M{\"u}nchen},
+	keywords = {Botnet, distributed hash table, GNUnet},
+	author = {Polot, Bartlomiej}
+}
+@conference {2010,
+	title = {Autonomous NAT Traversal},
+	booktitle = {10th IEEE International Conference on Peer-to-Peer Computing (IEEE P2P{\textquoteright}10)},
+	year = {2010},
+	publisher = {IEEE},
+	organization = {IEEE},
+	address = {Delft, The Netherlands},
+	abstract = {Traditional NAT traversal methods require the help of a third party for signalling.  This paper investigates a new autonomous
+method for establishing connections to peers behind NAT.  The proposed method for Autonomous NAT traversal uses fake ICMP messages to initially contact the NATed peer.  This paper presents how the method is supposed to work in theory, discusses some possible variations, introduces various concrete implementations of the proposed approach and evaluates empirical results of a measurement study designed to evaluate the efficacy of the idea in practice.},
+	keywords = {GNUnet, ICMP, NAT, P2P},
+	url = {http://grothoff.org/christian/pwnat.pdf},
+	author = {Andreas  M{\"u}ller and Nathan S Evans and Christian Grothoff and Samy Kamkar}
+}
+@booklet {cryptoeprint:2010:264,
+	title = {Cryptographic Extraction and Key Derivation: The HKDF Scheme},
+	year = {2010},
+	note = {\url{http://eprint.iacr.org/}},
+	abstract = {In spite of the central role of key derivation functions (KDF) in applied cryptography, there has been little formal work addressing the design and analysis of general multi-purpose KDFs. In practice, most KDFs (including those widely standardized) follow ad-hoc approaches that treat cryptographic hash functions as perfectly random functions. In this paper we close some gaps between theory and practice by contributing to the study and engineering of KDFs in several ways. We provide detailed rationale for the design of KDFs based on the extract-then-expand approach; we present the first general and rigorous definition of KDFs and their security which we base on the notion of computational extractors; we specify a concrete fully practical KDF based on the HMAC construction; and we provide an analysis of this construction based on the extraction and pseudorandom properties of HMAC. The resultant KDF design can support a large variety of KDF applications under suitable assumptions on the underlying hash function; particular attention and effort is devoted to minimizing these assumptions as much as possible for each usage scenario.
+
+Beyond the theoretical interest in modeling KDFs, this work is intended to address two important and timely needs of cryptographic applications: (i) providing a single hash-based KDF design that can be standardized for use in multiple and diverse applications, and (ii) providing a conservative, yet efficient, design that exercises much care in the way it utilizes a cryptographic hash function.
+
+(The HMAC-based scheme presented here, named HKDF, is being standardized by the IETF.)},
+	keywords = {GNUnet, HKDF, HMAC, key derivation},
+	url = {http://eprint.iacr.org/2010/264},
+	author = {Hugo Krawczyk}
+}
+@mastersthesis {2010,
+	title = {Developing Peer-to-Peer Web Applications},
+	volume = {M.S.},
+	year = {2010},
+	month = {09/2010},
+	pages = {66},
+	school = {University of Helsinki},
+	type = {Master{\textquoteright}s Thesis},
+	address = {Helsinki},
+	abstract = {As the virtual world grows more complex, finding a standard way for storing data becomes in-
+creasingly important. Ideally, each data item would be brought into the computer system only
+once. References for data items need to be cryptographically verifiable, so the data can maintain
+its identity while being passed around. This way there will be only one copy of the users family
+photo album, while the user can use multiple tools to show or manipulate the album. Copies of
+users data could be stored on some of his family members computer, some of his computers, but
+also at some online services which he uses. When all actors operate over one replicated copy of the
+data, the system automatically avoids a single point of failure. Thus the data will not disappear
+with one computer breaking, or one service provider going out of business. One shared copy also
+makes it possible to delete a piece of data from all systems at once, on users request.
+In our research we tried to find a model that would make data manageable to users, and make
+it possible to have the same data stored at various locations. We studied three systems, Persona,
+Freenet, and GNUnet, that suggest different models for protecting user data. The main application
+areas of the systems studied include securing online social networks, providing anonymous web,
+and preventing censorship in file-sharing. Each of the systems studied store user data on machines
+belonging to third parties. The systems differ in measures they take to protect their users from data
+loss, forged information, censorship, and being monitored. All of the systems use cryptography to
+secure names used for the content, and to protect the data from outsiders.
+Based on the gained knowledge, we built a prototype platform called Peerscape, which stores user
+data in a synchronized, protected database. Data items themselves are protected with cryptography
+against forgery, but not encrypted as the focus has been disseminating the data directly among
+family and friends instead of letting third parties store the information. We turned the synchronizing
+database into peer-to-peer web by revealing its contents through an integrated http server. The
+REST-like http API supports development of applications in javascript.
+
+To evaluate the platform{\textquoteright}s suitability for application development we wrote some simple applica-
+tions, including a public chat room, bittorrent site, and a flower growing game. During our early
+tests we came to the conclusion that using the platform for simple applications works well. As web
+standards develop further, writing applications for the platform should become easier. Any system
+this complex will have its problems, and we are not expecting our platform to replace the existing
+web, but are fairly impressed with the results and consider our work important from the perspective
+of managing user data.
+},
+	keywords = {content centric, ECRS, Freenet, GNUnet, P2P, Peerscape, Persona},
+	author = {Toni Ruottu}
+}
+@conference {2006,
+	title = {Curve25519: new Diffie-Hellman speed records.},
+	booktitle = {PKC},
+	year = {2006},
+	month = {02/2006},
+	keywords = {Curve25519, ECC, ECDH, GNUnet},
+	author = {Daniel J. Bernstein}
+}
+@conference {1524297,
+	title = {Query Forwarding Algorithm Supporting Initiator Anonymity in GNUnet},
+	booktitle = {Parallel and Distributed Systems, 2005. Proceedings. 11th International Conference on},
+	volume = {2},
+	year = {2005},
+	month = {07/2005},
+	pages = {235-239},
+	abstract = {Anonymity in peer-to-peer network means that it is difficult to associate a particular communication with a sender or a recipient. Recently, anonymous peer-to-peer framework, called GNUnet, was developed. A primary feature of GNUnet is resistance to traffic-analysis. However, Kugler analyzed a routing protocol in GNUnet, and pointed out traceability of initiator. In this paper, we propose an alternative routing protocol applicable in GNUnet, which is resistant to Kugler{\textquoteright}s shortcut attacks.},
+	keywords = {anonymity, GNUnet, routing, shortcut},
+	issn = {1521-9097},
+	doi = {10.1109/ICPADS.2005.246},
+	author = {Tatara, Kohei and Hori, Y. and Sakurai, Kouichi}
+}
+@article {2005,
+	title = {A Quick Introduction to Bloom Filters},
+	year = {2005},
+	month = {08/2005},
+	institution = {The GNUnet Project},
+	keywords = {Bloom filter, GNUnet},
+	author = {Christian Grothoff}
+}
+@article { le2005,
+	title = {Reading File Metadata with extract and libextractor},
+	journal = {Linux Journal},
+	volume = {6-2005},
+	year = {2005},
+	month = {June},
+	publisher = {SCC},
+	keywords = {GNUnet, keywords, libextractor, metadata, search},
+	url = {http://www.linuxjournal.com/article/7552},
+	author = {Christian Grothoff}
+}
+@article {2004,
+	title = {Enhancing Web privacy and anonymity in the digital era},
+	journal = {Information Management \& Computer Security},
+	volume = {12},
+	year = {2004},
+	month = {2004},
+	pages = {255--287},
+	type = {survey},
+	abstract = {This paper presents a state-of-the-art review of the Web privacy and anonymity enhancing security mechanisms, tools, applications and services, with respect to their architecture, operational principles and vulnerabilities. Furthermore, to facilitate a detailed comparative analysis, the appropriate parameters have been selected and grouped in classes of comparison criteria, in the form of an integrated comparison framework. The main concern during the design of this framework was to cover the confronted security threats, applied technological issues and users{\textquoteright} demands satisfaction. GNUnet{\textquoteright}s Anonymity Protocol (GAP), Freedom, Hordes, Crowds, Onion Routing, Platform for Privacy Preferences (P3P), TRUSTe, Lucent Personalized Web Assistant (LPWA), and Anonymizer have been reviewed and compared. The comparative review has clearly highlighted that the pros and cons of each system do not coincide, mainly due to the fact that each one exhibits different design goals and thus adopts dissimilar techniques for protecting privacy and anonymity.},
+	keywords = {anonymity, GNUnet, onion routing},
+	author = {Stefanos Gritzalis}
+}
+@conference {K{\"u}gler03ananalysis,
+	title = {An Analysis of GNUnet and the Implications for Anonymous, Censorship-Resistant Networks},
+	booktitle = {Proceedings of the 3rd International Workshop on Privacy Enhancing Technologies (PET 2003},
+	year = {2003},
+	month = {2003},
+	pages = {161{\textendash}176},
+	publisher = {Springer-Verlag},
+	organization = {Springer-Verlag},
+	keywords = {anonymity, GNUnet},
+	author = {Dennis K{\"u}gler}
+}
+@article { ebe2003,
+	title = {An Excess-Based Economic Model for Resource Allocation in Peer-to-Peer Networks},
+	journal = {Wirtschaftsinformatik},
+	volume = {3-2003},
+	year = {2003},
+	month = {June},
+	publisher = {Vieweg-Verlag},
+	abstract = {This paper describes economic aspects of GNUnet, a peer-to-peer framework for anonymous distributed file-sharing.  GNUnet is decentralized; all nodes are equal peers. In particular, there are no trusted entities in the network. This paper describes an economic model to perform resource allocation and defend against malicious
+participants in this context.  The approach presented does not use credentials or payments; rather, it is based on trust.  The design is much like that of a cooperative game in which peers take the role of players. Nodes must cooperate to achieve individual goals.  In such a scenario, it is important to be able to distinguish between nodes exhibiting friendly behavior and those exhibiting malicious behavior.
+
+GNUnet aims to provide anonymity for its users.  Its design
+makes it hard to link a transaction to the node where it originated from.  While anonymity requirements make a global view of the end-points of a transaction infeasible, the local link-to-link messages can be fully authenticated.  Our economic model is based entirely on this local view of the network and takes only local
+decisions.
+},
+	keywords = {anonymity, file-sharing, GNUnet},
+	url = {http://grothoff.org/christian/ebe.pdf},
+	author = {Christian Grothoff}
+}
+@conference { gap,
+	title = {gap - Practical Anonymous Networking},
+	booktitle = {Designing Privacy Enhancing Technologies},
+	year = {2003},
+	pages = {141{\textendash}160},
+	publisher = {Springer-Verlag},
+	organization = {Springer-Verlag},
+	abstract = {This paper describes how anonymity is achieved in GNUnet, a framework for anonymous distributed and secure networking.
+
+The main focus of this work is gap, a simple protocol for anonymous transfer of data which can achieve better anonymity guarantees than many traditional indirection schemes and is additionally more efficient.  gap is based on a new perspective on how to achieve anonymity.  Based on this new perspective it is possible to relax the requirements stated in traditional indirection
+schemes, allowing individual nodes to balance anonymity with efficiency according to their specific needs.},
+	keywords = {anonymity, GNUnet, installation},
+	url = {http://grothoff.org/christian/aff.pdf},
+	author = {Krista Bennett and Christian Grothoff}
+}
+@conference { gnunettransport,
+	title = {A Transport Layer Abstraction for Peer-to-Peer Networks},
+	booktitle = {Proceedings of the 3rd International Symposium on Cluster Computing and the Grid (GRID 2003)},
+	year = {2003},
+	pages = {398{\textendash}403},
+	publisher = {IEEE Computer Society},
+	organization = {IEEE Computer Society},
+	abstract = {The initially unrestricted host-to-host communication model provided by the Internet Protocol has deteriorated due to political and technical changes caused by Internet growth. While this is not a problem for most client-server applications, peer-to-peer networks frequently struggle with peers that are only partially reachable. We describe how a peer-to-peer framework can hide diversity and obstacles in the underlying Internet and provide peer-to-peer applications with abstractions that hide transport specific details. We present the details of an implementation of a transport service based on SMTP. Small-scale benchmarks are used to compare transport services over UDP, TCP, and SMTP.},
+	keywords = {GNUnet, P2P},
+	url = {http://grothoff.org/christian/transport.pdf},
+	author = {Ronaldo A. Ferreira and Christian Grothoff and Paul Ruth}
+}
+@conference {esed,
+	title = {Efficient Sharing of Encrypted Data},
+	booktitle = {Proceedings of ACSIP 2002},
+	year = {2002},
+	pages = {107{\textendash}120},
+	publisher = {Springer-Verlag},
+	organization = {Springer-Verlag},
+	address = {Melbourne, Australia},
+	keywords = {censorship resistance, ECRS, encoding, file-sharing, GNUnet},
+	url = {http://grothoff.org/christian/esed.pdf},
+	author = {Krista Bennett and Christian Grothoff and Tzvetan Horozov and Ioana Patrascu}
+}
+@article {2002,
+	title = {The GNet Whitepaper},
+	year = {2002},
+	month = {06/2002},
+	institution = {Purdue University},
+	type = {Technical report},
+	keywords = {anonymity, economics, encoding, GNUnet, obsolete database},
+	author = {Krista Bennett and Tiberius Stef and Christian Grothoff and Tzvetan Horozov and Ioana Patrascu}
+}
