@@ -1,6 +1,6 @@
 % Xolotl-3-mailbox.tex
 
-\section{Sphinx with mailboxes}
+\section{Mailboxes}
 
 As mentioned in the introduction, we must never assume that users,
 nor any agent they control, is reliably online.  
@@ -14,7 +14,6 @@ except arguably off-the-record messaging.
 
 
 \subsection{Aggregation points}
-
 
 We expect this necessitates that messages destined for the same
 recipient flow into mailboxes at a small number aggregation points
@@ -50,7 +49,7 @@ safely be swapped.  This conceptual swap happens at our cross over
 point so that subsequent hops do not recognize themselves as being
 after a cross over point.  They happily apply the decryption
 operation without realizing that it further encrypts the body.
-However, our recipient must somehow {\bf unwind} these layers of
+However, our recipient must somehow {\em unwind} these layers of
 onion encryption, and to do so efficiently the recipient must have
 a way to identify which of its SURBs was used, so that they
 can select the correct set of keys.
@@ -116,7 +115,7 @@ Thus, we need a method for our final recipient to retrieve
 $\delta'$ and the corresponding SURB name from the aggregation point.
 
 
-\subsection{SURB logs}
+\subsection{SURB logs}\label{subsec:surb_logs}
 
 We do not consider private information retrieval (PIR)
 schemes~\cite{pir} because they increase complexity, invoke disparate
@@ -160,10 +159,11 @@ encryption.
 
 We weakly authenticate the $\eta_0$ extracted from $\zeta$,
 as being supplied by the aggregation point, because only the client
-knows $\eta_1$ and all the layers of encryption applied to $\eta_0$.  
+knows $\eta_1$, and all the layers of encryption applied to $\eta_0$.  
 We imagine this weak authentication may help identify the source of
 unwanted messages, or a denial of service attack, say by a malicious
-public access point.
+contact point.
+
 
 \subsection{Deletion policy}
 

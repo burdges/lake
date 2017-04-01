@@ -65,7 +65,7 @@ Now the packet $(\alpha',\beta',\gamma',\delta')$ is forwarded to $N'$,
  according to whatever mixing rules the protocol specifies.
 
 
-\subsection{Cross over points}
+\subsection{Cross over points}\label{subsec:crossover}
 
 % FIXME: needs a diagram ;-).
 
@@ -126,8 +126,8 @@ we could simply provide an extra wide block cipher key with which
 the sender pre-encrypts $\delta$ before applying its own onion layers.
 We do not assume this because SURBs have a limited lifespan though.  
 If the sender does not posses any SURBs, then they could contact the
-recipient through a public access point, and ask for SURB. 
-These public access points would act like cross over points, except
+recipient through a {\em contact point}, and ask for SURB. 
+These contact points would act like cross over points, except
 that they would supply the SURB themselves from a stash supplied by
 the recipient.
 
