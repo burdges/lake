@@ -2,6 +2,8 @@
 *.bbl
 *.log
 *.blg
+*.bak
+Xolotl/papers/Xolotl.pdf
 Xolotl/papers/Xolotl-HotPETS.pdf
 Xolotl/papers/sig-alternate-hotpets.tar.gz
 
