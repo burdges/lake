@@ -130,19 +130,26 @@ article.
 A priori, SURBs conflict with some approaches to {\em Stop-N-Go mixes}
 \cite{StopNGo} in which mixes drop packets that fall outside of client
 specified time window.  We expect the network coordination required
-for those timing checks sounds unrealistic regardless. 
+for those timing checks to be unrealistic regardless. 
 
 We do support both packet delays being client controlled as well as
-client side delay detection.  In particular, there are no conflicts
-between our tweaks and the {\em Poisson mixes} of Loopix \cite{Loopix},
-a recent approach to Stop-N-Go mixes.
+client side delay detection via heart beat messages.  In particular,
+there are no conflicts between our tweaks and the {\em Poisson mixes}
+of Loopix \cite{Loopix}, a recent approach to Stop-N-Go mixes.
+We implement a novel method for selecting delays that enforces an
+expeonentially distribution with client secretly controling rate
+paramater $\lambda$.  
 
 We introduce several new {\em commands} that Sphinx packets may give
 to mix nodes.  These may leak additional information about the
-packet's purpose to the node.  We believe a mix network that employs
-a stratified topology provides slightly better anonymity than one
-employing a free route topology, but the free route weakness might
-compound leaks from additional commands.  We therefore recommend a
-stratified network topology with these commands restricted to
-specific strata.  Again these recommendations agree with Loopix.
+packet's purpose to the node.  There are theoretical arguments that 
+mix networks with a stratified topology provides slightly better
+anonymity than those with a free route topology.  Also, any weakness
+due to free route might compound leaks from our additional commands. 
+We therefore recommend a stratified network topology with these
+commands restricted to specific strata.  Again these recommendations
+agree with Loopix.  We make no assumption in our implementation that
+rules out a free route topology however.  
+
+
 

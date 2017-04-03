@@ -35,17 +35,16 @@ would be difficult to deploy in practice.
 We could use punctured encryption~\cite{libforwardsec} for our
 mix nodes key, so that mix nodes who correctly puncture their key
 after decrypting a message cannot decrypt the same message again. 
-% TODO: Should I cite an older article on punctured encryption?
-% TODO: Sure. For now we have no page limit ;-).
+% TODO: Cite an older article on punctured encryption.
 As a rule, punctured encryption schemes require $O(n)$ time for
-decryption where $n$ is the number of punctures so far.  There are
-techniques for epoch based puncturing that make $n$ far less than
-the number of packets.  In a mix network, these would require
-deforming the SURB as well. 
+decryption where $n$ is the number of punctures so far.  
 
-Any scheme for deforming SURBs requires a delicate proof of security
-because several mix network packet formats based on malleable key
-material were broken~\cite{Danezis2006}. 
+There are techniques for epoch based puncturing that make $n$ less
+than the number of packets.  In a mix network, these are either
+equivelent to shortening node key lifetimes, or else require
+deforming SURBs.  Any scheme for deforming SURBs requires a delicate
+proof of security because several mix network packet formats based
+on malleable key material were broken~\cite{Danezis2006}. 
 Also, these ideas all require slower pairing-based cryptography that
 would increase our mix node's vulnerability to denial of service attacks. 
 
