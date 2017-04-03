@@ -59,8 +59,8 @@ indefinitely, or at least as long as neither sender nor receiver fail
 to be online for weeks or months at a time.  Naturally, either side
 can also choose to sever the link at any time.
 % TODO: SURBs expire too fast for this.  We need semi-public contact
-% points.  GNS would leak metadata if used for this.  So I think 
-% ``mailbox gatway points'' do this better.
+% points.  GNS would leak metadata if used for this.  
+% I use these instead of GNS in the main body of the text.
 
 For path selection, sender and receiver require the ability to select
 ``random'' nodes for routing.  We assume that the network offers a
@@ -82,10 +82,9 @@ and thus outside of the scope of this work.
 \subsection{Cryptographic challenges}\label{subsec:challenges}
 
 We desire anonymity properties that improve on Tor in all respects,
-provided our system can achieve similar usage to Tor.  In this vein,
-we want cryptographic properties that seems equivalently strong as well.
-% I donno if I like this "competitive" framing. 
-% Should we mention that Tor might gain post-quantum?
+provided our system can achieve a similarly large user base.  In this
+vein, we want cryptographic properties that seems equivalently strong
+as well.
 
 Low latency anonymity tools like Tor achieve {\em forward secrecy}
 by employing an ephemeral key exchange on both servers and clients.
