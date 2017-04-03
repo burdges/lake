@@ -79,7 +79,7 @@ The sender selects the path to the cross over point, so they can be
 anonymous too, even from the recipient.
 % TODO: Citation for cross over points?
 
-A cross over command provides a length $k$ along with new
+A {\tt cross over} command provides a length $k$ along with new
  $\alpha''$ and $\gamma''$ that replace our old ones. 
 We replace $\beta$ with $\beta'' := \beta'[0..k]$, or equivalently
 $\hat\beta[l'..l'+k]$, followed by $L-k$ zero bytes.
@@ -96,7 +96,7 @@ As stated, our recipient has chosen the cross over point $X$,
 supplied the sender with $(X,\alpha'',\beta'[0..k],\gamma'')$,
 and the sender built a route to $X$.  We imagine $\alpha$ to be
 twice the size of $\gamma$ and $\gamma$ to be roughly the length of
-$X$, so the cross over command itself consumes 1.5 hops of $\beta$.
+$X$, so the {\tt cross over} command itself consumes 1.5 hops of $\beta$.
 As the recipient picked $X$, this reduces the sender's maximum route
 length by roughly 2.5 hops, plus any hops in $\beta''$.
 We must bound the length $k$ or else the recipient could prevent
@@ -106,7 +106,7 @@ long SURB attack.
 \smallskip 
 
 We could increase the total route length by one if we added a next
-hop $X''$ to the cross over command, built the tail of $\beta''$
+hop $X''$ to the {\tt cross over} command, built the tail of $\beta''$
 using a stream cipher and sent $(\alpha'',\beta'',\gamma'',\delta')$
 to $X''$. We consider this is wasteful because hops cost vastly more
 than a few bytes in the header.
@@ -131,8 +131,8 @@ These contact points would act like cross over points, except
 that they would supply the SURB themselves from a stash supplied by
 the recipient.
 
-In this unusual scenario, it impacts our mix networks' security
-less if $\delta'$ is only ever seen by the cross over point, thereby
+In this scenario, it impacts our mix networks' security less if
+$\delta'$ is only ever seen by the cross over point, thereby
 simplifying our overall design.   In particular, we might not mind
 if the cross over point observes an ephemeral elliptic curve point
 in $\delta'$, but even tools like Elligator~\cite{elligator} do not
@@ -162,10 +162,12 @@ Second, we could place the SURB into a prefix of $\delta'$ because,
 as noted above, $\delta'$ has been stripped of all onion encryption
 layers created by the sender.  In this approach, a packet supports
 a slightly larger payload if it does not use a SURB and perhaps
-multiple SURBs for multiple recipients.  In the short term, we fear
-that exploiting these options complicates our API however.  Also,
-this scheme complicates the layering of message and mix encryption.
-We can however leave the door open for this approach in future.
+multiple SURBs for multiple recipients, so called garlic encryption.
+In the short term, we fear that exploiting these options complicates
+our API however.  Also, this scheme complicates the layering of
+message and mix encryption.  We shall leave the door open for this
+approach in future though becuase suport for multiple SURBs remains
+an interesting option.
 
 
 % \subsection{Sphinx packet construction}

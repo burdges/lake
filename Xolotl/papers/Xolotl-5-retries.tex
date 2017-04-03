@@ -1,0 +1,121 @@
+% Xolotl-5-retries.tex
+
+\section{Reliability}
+
+We must ensure reliable message delivery even when some mix nodes
+become unavailable.  We should assess nodes' reliability before
+publishing their new routing keys, so that more reliable nodes can
+be placed into more critical network strata, especially the
+aggregation points.
+
+There are however techniques that help address aggregation points
+becoming unavailable, like senders sending duplicate messages,
+ or aggregation points must mirror one another.
+We view mirroring as an interesting approach, but feel it goes far
+beyond the scope of our current project, as mirroring well might
+entail reencryption.  Also, duplicate messages help reliability
+throughout the network.
+
+
+\subsection{ACKs}
+
+...
+
+
+\subsection{Duplicate messages}
+
+...
+%TODO: Anonymity costs of duplicate messages?
+%TODO: Multiple latencies
+
+
+\subsection{Garlic retries}\label{subsec:garlic_retries}
+
+We cannot necessarily much bandwidth available on the channel
+between the client and the mix network.  As an example, Pond
+clients support only about 288 messages per day because they
+wait on average 5 minutes between messages.
+
+We can reduce the need for duplicate messages on this link if
+we tell our cross over point to send them instead, but this requires
+providing  it with multiple SURBs so that retries do no violate
+replay protection.
+
+In \S\ref{subsec:crossover}, we considered storing SURBs inside
+$\delta$, instead of $\beta$, because $\delta$ has no more layers of
+onion encryption from Sphinx after a cross over point decrypts it. 
+As $\delta$ is large, we may encode several SURBs into $\delta$,
+so as to send the same message to multiple recipients, or to send
+the same message to the same recipient multiple times.  
+
+In fact, we can achieve this must more easily than sending to
+multiple recipients because the recipient can supply several SURBs
+with the same cross over point.
+
+These SURBs can have different delays of course, but we can also
+provide retries:  Instead of delivery to an aggregation point being
+the end of our messages' path, we use a {\tt drop off} command that
+delivers the packet to the aggregation point as usual, but also
+sends the packet on to yet another hop.  The SURB executing command
+routes the packet back to the cross over point, where it executes a
+{\tt delete} command that deletes any pending retries.
+
+All this works fine if we use a contact point that supplies holds
+SURBs itself, as in \S\ref{subsec:contact_points}, instead of using
+a cross over point.  In any case, recipients should supply the SURBs
+in groups for {\tt delete} commands to work.
+
+We notes this scheme increases our vulnerability to attacks by the
+cross over point:  At best, this {\tt delete} command reveals
+dangerous information about what nodes were reachable and that our
+message was being sent with redundancy, as opposed to multiple 
+recipients.  Also, it assumes the reliability of both the cross over
+point and any nodes on the path to it.
+%
+We shall discuss situations where this may be acceptable in the next section.
+
+
+\subsection{Email integration}
+
+We have focused on designing an asynchronous messaging architecture
+with extremely strong possible privacy properties, including
+anonymity for both sender and recipient, even from one another, and
+anti-discovery measures for recipients' aggregation points.  
+%
+We consider this distributed architecture preferable overall, but
+we recognize these protections verge on excessive for many users,
+that email is tricky to replace, and that email providers may have
+benevolent political reasons to remain involved.
+
+We may adopt the {\tt drop off} and {\tt delete} commands described
+in \S\ref{subsec:garlic_retries} to integrate our system with email
+providers, while giving senders and recipients anonymity from
+providers, but not from one another.
+
+We now assume the sender knows both the recipient's aggregation point
+and their mailbox name at their aggregation point.  As a result, our
+sender may build SURBs to reach the recipient without the recipient
+supplying them to either the sender or a contact point.  
+In this case, the sender picks the cross over point themselves, 
+likely their own Email provider.
+
+In this case, our recipient cannot already know the layers of
+encryption applied to $\delta$ after the cross over point.  
+We must therefore encode a both a seed and an epoch identifier for
+the list of all mix nodes, so that the SURB can be rederived.
+This should be included in the {\tt drop off} command and placed into
+the SURB log by the recipient's aggregation point.
+
+There is now a risk the recipient's mailbox does not exist. 
+In this case, our {\tt drop off} should specify an alteration to
+either $\delta$ or the SURB log, and the sender should warn their
+cross over point that this alteration means the message was undeliverable.
+
+A priori, there is considerable risk of unwanted messages like SPAM
+under this scheme.  As a result, our cross over point $X$, aka the
+provider, must require authentication by the sender.  
+Recipients must learn the provider when they reconstruct the SURB.  
+If they do not, then message decryption necessarily fails.
+
+
+
