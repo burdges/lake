@@ -20,12 +20,12 @@ recipient flow into mailboxes at a small number aggregation points
 that process delivery requests.  These aggregation points should
 learn as little as possible about recipients or senders, but the
 recipient should learn the sender's identity from the protocol.
-In~\cite{agl-pond-hmac}, Adam Langely explains that Pond has similar
+In~\cite{agl-pond-hmac}, Adam Langley explains that Pond has similar
 requirements and indicates important advantages of delivery tokens
 over more complex schemes, like group signatures~\cite{VLR,BBS}.
 
 We can easily add a ``deliver to mailbox'' command to Sphinx so that
-SURBS can act as a delivery token.  In fact, SURBs provide near
+SURBs can act as a delivery token.  In fact, SURBs provide near
 perfect delivery properties in sense of~\cite{warner-delivery}.
 An aggregation point cannot learn the sender's identity, unless
 colluding with the cross over point and all the mixes in the 

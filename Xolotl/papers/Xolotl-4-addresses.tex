@@ -10,7 +10,7 @@
 We stated in \S\ref{subsec:crossover} that SURBs might be supplied
 by either the sender or the cross over point itself.  We refer to 
 a cross over point that supplies the SURB as a {\em contact point}.
-We divide contact points acording to the issues they address,
+We divide contact points according to the issues they address,
 as determined by how they authorize the sender,
 
 We observed in \S\ref{subsec:challenges}, and shall discuss more in
@@ -28,7 +28,7 @@ authentication credentials to be provided in the command they extract
 from $\beta$.  Recipients must communicate the authentication
 credentials required by their contact points to their senders of course.
 We note that recipients should still provide senders with SURBs so
-that frequent senders do not exaust the SURBs held by contact points,
+that frequent senders do not exhaust the SURBs held by contact points,
 as well as for faster communications with frequent contacts.
 
 We could deploy many different authentication credentials ranging 
@@ -39,10 +39,10 @@ We think VLR group signatures \cite{VLR} provide an interesting
 option for two reasons.  Firstly, SURBs already provide a single-use
 token scheme, so a multi-use scheme complements them nicely.  
 Secondly, distinct group member private keys could be printed onto
-ordinary buisness cards in advance and even the initial message
-identifies the card carrying that member privte key.  Identities
+ordinary business cards in advance and even the initial message
+identifies the card carrying that member private key.  Identities
 can be assigned to these keys after communication is established.  
-Importantly sendrs can be revoked without invalidating all existing
+Importantly senders can be revoked without invalidating all existing
 keys.  We expect VLR group signatures incur notable computational
 overhead for the contact point.  % Worse, this cost grows as more
 % senders get revoked and revokations are surprisingly frequent in
@@ -50,7 +50,7 @@ overhead for the contact point.  % Worse, this cost grows as more
 % TODO: Verify that VLR groups signatures scale badly in revokations
 
 As a rule, contact points are an extremely low bandwidth channel
-since their stuply of SURBs can easily be exausted.  We must not
+since their supply of SURBs can easily be exhausted.  We must not
 reveal any identifying information about the sender to the contact 
 point itself during authentication, but authentication should ideally
 reveal some $\iota$ to the contact point from which the recipient
@@ -63,7 +63,7 @@ $\delta$, but this poses two minor problems:
  Also $\iota$ is large for VLR group signatures.  
 %TODO: Verify that $\iota$ is large for VLR group signatures.
 We could accumulate a log of $\iota$s on the contact point and send
-this log to the recipient when few SURBs reman, but this only
+this log to the recipient when few SURBs remain, but this only
 provides verification after the fact.
 
 %TODO: Talk about if we're implementing VLR group signatures?
@@ -74,23 +74,23 @@ provides verification after the fact.
 
 We do want special contact points called {\em greeting points} that
 do not restrict senders to existing contacts.  A priori, these sound
-vulnerable to denal-of-service attacks, and might suffer from SPAM.
+vulnerable to denial-of-service attacks, and might suffer from SPAM.
 We hope that simply moving the advertised greeting points frequently
 works, so long as existing contacts never need them thanks to other
 contact points.
 
-We need a facility for users to indroduce other users to one another.
-because doing so seems essental for group communication.  If Alice 
+We need a facility for users to introduce other users to one another.
+because doing so seems essential for group communication.  If Alice 
 knows both Bob and Carol then Alice can introduce Bob and Carol by
 providing each with either a SURB if the introduction should happen
 in a timely fashion, or with authentication credentials for each
 others' contact points.  
 
-We require that Alice does not compramise her ability to contact
+We require that Alice does not compromise her ability to contact
 either Bob or Carol by doing the introduction and that Bob and Carol
 can each distinguish the others' messages' from Alice. 
 Alice can share single-use token from Bob and Carol of course.
-In a VLR scheme, Alice creates the dilivery authorization signature
+In a VLR scheme, Alice creates the delivery authorization signature
 that Bob and Carol must use.
 Also, we recall that $\delta$ must be encrypted at the cross over
 point, so Alice can supply Bob and Carol with authentication tokens 
@@ -103,7 +103,6 @@ fully decrypting $\delta$.
 
 \subsection{Provider guards}
 
-We have broadly focussed on strong anonymity properties 
 
 
 

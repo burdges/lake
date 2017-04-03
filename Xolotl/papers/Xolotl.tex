@@ -209,7 +209,7 @@ to share particular ratchet configurations with other nodes.
 If several link keys from the same branch can be shared anonymously,
 then the sharer risks nothing in doing so, assuming pre-image
 resistance for our hash function.  Thus, another way of destroying the
-link between ratched use and user being online would be to share a
+link between ratchet use and user being online would be to share a
 batch of link keys from the same branch with a mix node so that it
 could utilize our ratchet for messages it needed to send anyways.
 However, this assumes mix nodes send numerous messages over the mix
@@ -221,7 +221,7 @@ thus allowing them to create a whole new branch.  It follows that,
 if individual shared link keys can be retrieved anonymously, then
 the recipient of the shared link key risks only that the key fails.
 Thus, this creates a minor problem in the form of denial of service
-attack against the receiver of such a shared ratched.
+attack against the receiver of such a shared ratchet.
 
 In practice, we cannot provide perfect anonymity in either sharing or
 retrieving shared link keys, and retrieving lone link keys sounds
