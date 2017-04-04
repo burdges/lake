@@ -136,7 +136,9 @@ $\delta'$ is only ever seen by the cross over point, thereby
 simplifying our overall design.   In particular, we might not mind
 if the cross over point observes an ephemeral elliptic curve point
 in $\delta'$, but even tools like Elligator~\cite{elligator} do not
-conceal this point from a second hop.
+necessarily conceal this point from a second hop.  We note however
+that including a curve point like this creates a tagging attack
+visible to the cross over point.
 
 In short, if we added this second hop $X''$ to lengthen the route
 then $X''$ might discover its position as the hop after a cross over
@@ -165,9 +167,11 @@ a slightly larger payload if it does not use a SURB and perhaps
 multiple SURBs for multiple recipients, so called garlic encryption.
 In the short term, we fear that exploiting these options complicates
 our API however.  Also, this scheme complicates the layering of
-message and mix encryption.  We shall leave the door open for this
-approach in future though becuase suport for multiple SURBs remains
-an interesting option.
+message and mix encryption.  Worse, there is a tagging attack with
+visibility by the cross over point if one uses this scheme.  We shall
+leave the door open for this approach in future though becuase suport
+for multiple SURBs remains an interesting option, and the cross over
+point might be semi-trusted under some conditions.
 
 
 % \subsection{Sphinx packet construction}
