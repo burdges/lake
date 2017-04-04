@@ -1,0 +1,80 @@
+%% Creator: Inkscape inkscape 0.92.1, www.inkscape.org
+%% PDF/EPS/PS + LaTeX output extension by Johan Engelen, 2010
+%% Accompanies image file 'sphinx2.pdf' (pdf, eps, ps)
+%%
+%% To include the image in your LaTeX document, write
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics{<filename>.pdf}
+%% To scale the image, write
+%%   \def\svgwidth{<desired width>}
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics[width=<desired width>]{<filename>.pdf}
+%%
+%% Images with a different path to the parent latex file can
+%% be accessed with the `import' package (which may need to be
+%% installed) using
+%%   \usepackage{import}
+%% in the preamble, and then including the image with
+%%   \import{<path to file>}{<filename>.pdf_tex}
+%% Alternatively, one can specify
+%%   \graphicspath{{<path to file>/}}
+%% 
+%% For more information, please see info/svg-inkscape on CTAN:
+%%   http://tug.ctan.org/tex-archive/info/svg-inkscape
+%%
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{419.52755906bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.70945946)%
+    \put(0,0){\includegraphics[width=\unitlength,page=1]{sphinx2.pdf}}%
+    \put(0.12427459,0.45840209){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$x$}}}%
+    \put(0.23106147,0.30398905){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$b \alpha$}}}%
+    \put(0.07739257,0.48221519){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{\scriptsize Routing Secret}}}%
+    \put(0.06920681,0.54472457){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{\Large Mix $X$}}}%
+    \put(0.26566485,0.23217768){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Command}}}%
+    \put(0.28501297,0.247805){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Delay }}}%
+    \put(0.33487163,0.66899917){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{\scriptsize Header}}}%
+    \put(0.69141424,0.33180477){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\oplus$}}}%
+    \put(0.82155181,0.43905395){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Decrypt}}}%
+    \put(0.54621289,0.53281803){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Verify}}}%
+    \put(0.50007495,0.52016732){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{\tiny poly}}}%
+    \put(0.55067784,0.51198156){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{MAC}}}%
+    \put(0.49933083,0.50379583){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{\tiny 1305}}}%
+    \put(0.49858665,0.33115088){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\phi$}}}%
+    \put(0.75085671,0.67048749){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{\scriptsize Payload}}}%
+    \put(0.40705506,0.27087397){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$X'$}}}%
+    \put(0.53646397,0.2716181){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\beta'$}}}%
+    \put(0.44921679,0.27310645){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\gamma'$}}}%
+    \put(0.08628093,0.05367362){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Mix $X'$}}}%
+    \put(0.08208721,0.07472043){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Route to}}}%
+    \put(0.29782927,0.44727006){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$s$}}}%
+    \put(0.29256723,0.51357126){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$x \alpha$}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=2]{sphinx2.pdf}}%
+    \put(0.45265476,0.38996003){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\beta$}}}%
+    \put(0.54093371,0.38938806){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$00\cdots0$}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=3]{sphinx2.pdf}}%
+  \end{picture}%
+\endgroup%
