@@ -220,14 +220,17 @@ impl Command {
         }
     }
 
-    /// Length of 
+    /// Length of `Command` on the wire.
+    ///
+    /// Does not include SURB's beta for `CrossOver` command. 
     pub fn length_as_bytes(&self) -> usize {
         self.feed_bytes( |x| { x.iter().map(|y| y.len()).sum() } )
     }
 
-    /// 
-    pub fn prepend_bytes(&self, target: &mut [u8]) -> usize {
-        self.feed_bytes( |x| { prepend_slice_of_slices(target, x) } )
+    /// Prepends our command to slice `beta` by shifting `beta`
+    /// rightward, destroys the trailing elements.
+    pub fn prepend_bytes(&self, beta: &mut [u8]) -> usize {
+        self.feed_bytes( |x| { prepend_slice_of_slices(beta, x) } )
     }
 
     /// Read a command from the beginning of beta.

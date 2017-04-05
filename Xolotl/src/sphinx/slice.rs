@@ -90,7 +90,7 @@ pub fn prepend_iterator<I>(target: &mut [I::Item], prepend: I) -> usize
 
 /// Prepends the contents of a slice of slices `&[&[T]]` to the slice
 /// `target`, shifting `target` rightward.  Destroys the trailing
-/// `shift` elements of `target`.
+/// elements of `target`.
 ///
 /// As `FlatMap` does not `impl TrustedLen`, we do not do 
 /// `prepend_to_slice(target, x.iter().flat_map(|y| *y).map(|z| *z) )`
