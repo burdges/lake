@@ -166,6 +166,9 @@ impl SphinxRouter {
             Command::Transmit { route, gamma } => {
                 // Only transmit needs to mask the SURB log.
                 hop.xor_surb_log(refs.surb_log) ?;
+                // We note that only transmit needs to decrypt the
+                // SURB field, much like the SURB log, if we encoded
+                // the SURB in a seperate field seeprately.
                 // Prepare packet for next hop as usual in Sphinx.
                 *refs.gamma = gamma.0;
                 *refs.alpha = alpha.blind(& hop.blinding()).compress();
