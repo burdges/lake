@@ -156,9 +156,13 @@ We must now however MAC $\epsilon$ like $\beta$ or else any
 node in the sender's route can ``tag'' a message allowing its
 identification by the cross over point $X$.  We also zero
 $\epsilon$ at the cross over point like we zero the trailing
-$L-k$ bytes of $\beta''$ currently.  We think placing the SURB
-into $\beta$ buys us greater flexibility since $\epsilon$ has become
-functionally equivalent to more $\beta$.
+$L-k$ bytes of $\beta''$ currently.  
+
+We descided placing the SURB into $\beta$ buys us greater flexibility
+since $\epsilon$ has become functionally equivalent to more $\beta$.  
+Yet, an encoding using $\epsilon$ would reduce our stream cipher
+output consumption by $|\epsilon|$, or roughly a factor of two,
+on all commands besides the usual transmit command.  
 
 Second, we could place the SURB into a prefix of $\delta'$ because,
 as noted above, $\delta'$ has been stripped of all onion encryption
