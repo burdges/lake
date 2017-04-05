@@ -43,12 +43,12 @@ pub struct SphinxParams {
     /// by a single sub-hop.
     pub max_beta_tail_length: Length,
 
-    /// Length of the SURB itself.
+    /// Maximum length of the SURB.  At most half of `beta_length - 48`.
     ///
     /// Alpha and Gamma are encoded into the "bottom" of beta, and
     /// hence do not contribute here.  This is unlikely to change.
     /// As a result this should not exceed `beta_length`
-    pub surb_length: Length,
+    pub max_surb_beta_length: Length,
 
     /// Length of the SURB log.
     pub surb_log_length: Length,
@@ -64,7 +64,6 @@ impl SphinxParams {
         ALPHA_LENGTH + GAMMA_LENGTH
         + self.beta_length as usize
         + self.surb_log_length as usize
-        + self.surb_length as usize
     }
 
     /// Create a `Box<[u8]>` with the required header length
@@ -79,13 +78,20 @@ impl SphinxParams {
     /// of subspices for the various header components.  You may mutate
     /// these freely so that after the borrow ends the original slice
     /// contains the new header. 
+    /// 
     pub fn slice_header<'a>(&'static self, mut header: &'a mut [u8])
       -> SphinxResult<HeaderRefs<'a>>
     {
-        if self.surb_length > self.beta_length {
-            return Err( SphinxError::BadLength("SURB is longer than Beta",
-                self.surb_length-self.beta_length) );
+        // Prevent configurations that support long SURB attacks.
+        if 2*self.max_surb_beta_length > self.beta_length - ALPHA_LENGTH + GAMMA_LENGTH {
+            return Err( SphinxError::BadLength("Maximum SURB is so long that it degrades sender security",
+                self.max_surb_beta_length) );
         }
+        if self.max_surb_beta_length > MAX_SURB_BETA_LENGTH as Length {
+            return Err( SphinxError::BadLength("Maximum SURB length exceeds encoding",
+                self.max_surb_beta_length) );
+        }
+
         let orig_len = header.len();
         if orig_len < self.header_length() {
             return Err( SphinxError::BadLength("Header is too short",orig_len) );
@@ -96,7 +102,6 @@ impl SphinxParams {
             gamma: reserve_fixed_mut!(&mut header,GAMMA_LENGTH),
             beta: reserve_mut(&mut header,self.beta_length as usize),
             surb_log: reserve_mut(&mut header,self.surb_log_length as usize),
-            surb: reserve_mut(&mut header,self.surb_length as usize),
         };
         if header.len() > 0 {
             return Err( SphinxError::BadLength("Header is too long",orig_len) );
@@ -134,7 +139,7 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
     protocol_name: "Invalid Sphinx!",
     beta_length: 0,
     max_beta_tail_length: 0,
-    surb_length: 0,
+    max_surb_beta_length: 0,
     surb_log_length: 0,
     body_lengths: &[0]
 };
@@ -147,6 +152,7 @@ pub enum Command {
     CrossOver {
         alpha: AlphaBytes,
         gamma: Gamma,
+        surb_beta_length: usize,
     },
 
     /// Advance and integrate a ratchet state
@@ -173,7 +179,12 @@ pub enum Command {
 
     /// Arrival of a message for a local application.
     ArrivalDirect { },
+
+    // Drop Off { },
+    // Delete { },
 }
+
+pub const MAX_SURB_BETA_LENGTH : usize = 0x1000;
 
 impl Command {
     /// Feed the closure a series of byte arrays that give our wire
@@ -188,16 +199,24 @@ impl Command {
         match *self {
             Ratchet { twig, gamma } => 
                 f(&[ &[0x00u8; 1], & twig.to_bytes(), &gamma.0 ]),
-            Transmit { route, gamma } =>
-                f(&[ &[0x80u8; 1], &route.0, &gamma.0 ]),
+            Transmit { route, gamma } => {
+                f(&[ &[0x80u8; 1], &route.0, &gamma.0 ])
+            },
             Deliver { mailbox } =>
                 f(&[ &[0x60u8; 1], &mailbox.0 ]),
-            CrossOver { alpha, gamma } =>
-                f(&[ &[0x40u8; 1], &alpha, &gamma.0 ]),
+            CrossOver { alpha, gamma, surb_beta_length } => {
+                debug_assert!(surb_beta_length < MAX_SURB_BETA_LENGTH);
+                debug_assert!(MAX_SURB_BETA_LENGTH <= 0x1000);
+                let h = (surb_beta_length >> 8) as u8;
+                let l = (surb_beta_length & 0xFF) as u8;
+                f(&[ &[0x40u8 | h, l], &alpha, &gamma.0 ])
+            },
             ArrivalSURB { } => 
                 f(&[ &[0x50u8; 1] ]),
             ArrivalDirect { } =>
                 f(&[ &[0x70u8; 1] ]),
+            // Drop Off
+            // Delete
         }
     }
 
@@ -218,8 +237,8 @@ impl Command {
         // We consider only the high four bits for now because
         // we might tweak TwigId, MailboxName, and RoutingName
         // to shave off one byte eventually.
-        let b0 = reserve_fixed!(&mut beta,1)[0] & 0xF0;
-        let command = match b0 {
+        let b0 = reserve_fixed!(&mut beta,1)[0];
+        let command = match b0 & 0xF0 {
             // Ratchet if the two high bits are clear.
             0x00..0x30 => Ratchet {
                 twig: TwigId::from_bytes(reserve_fixed!(&mut beta,TWIG_ID_LENGTH)),
@@ -235,12 +254,17 @@ impl Command {
                 mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
             },
             0x40 => CrossOver {
+                surb_beta_length: (
+                    (((b0 & 0x0F) as u16) << 8) | (reserve_fixed!(&mut beta,1)[0] as u16)
+                ) as usize,
                 alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
             // Arivals are encoded with the low bit set.
             0x50 => ArrivalSURB { },
             0x70 => ArrivalDirect { },
+            // Drop Off
+            // Delete
             c => { return Err( SphinxError::BadPacket("Unknown command",c as u64)); },
         };
         Ok((command, beta_len-beta.len()))
@@ -301,7 +325,6 @@ pub struct HeaderRefs<'a> {
     pub gamma: &'a mut GammaBytes,
     pub beta:  &'a mut [u8],
     pub surb_log: &'a mut [u8],
-    pub surb:  &'a mut [u8],
 }
 
 impl<'a> HeaderRefs<'a> {
@@ -310,24 +333,22 @@ impl<'a> HeaderRefs<'a> {
     pub fn gamma(&'a self) -> &'a GammaBytes { self.gamma }
     pub fn beta(&'a self) -> &'a [u8] { self.beta }
     pub fn surb_log(&'a self) -> &'a [u8] { self.surb_log }
-    pub fn surb(&'a self) -> &'a [u8]  { self.surb }
 
     pub fn alpha_mut(&'a mut self) -> &'a mut AlphaBytes { self.alpha }
     pub fn gamma_mut(&'a mut self) -> &'a mut GammaBytes { self.gamma }
     pub fn beta_mut(&'a mut self) -> &'a mut [u8] { self.beta }
     pub fn surb_log_mut(&'a mut self) -> &'a mut [u8] { self.surb_log }
-    pub fn surb_mut(&'a mut self) -> &'a mut [u8]  { self.surb }
 */
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
     /// calling `SphinxHop::verify_gamma` with the provided fields.
     pub fn verify_gamma(&self, hop: &SphinxHop) -> SphinxResult<()> {
-        hop.verify_gamma(self.beta, self.surb, &Gamma(*self.gamma))
+        hop.verify_gamma(self.beta, &Gamma(*self.gamma))
     }
 
     /// Compute gamma from Beta and the SURB.  Probably not useful.
     pub fn create_gamma(&self, hop: &SphinxHop) -> SphinxResult<Gamma> {
-        hop.create_gamma(self.beta, self.surb) // .map(|x| { x.0 })
+        hop.create_gamma(self.beta) // .map(|x| { x.0 })
     }
 
     /// Prepend a `PacketName` to the SURB log.
@@ -359,21 +380,6 @@ impl<'a> HeaderRefs<'a> {
         for i in eaten..length { self.beta[i-eaten] = self.beta[i];  }
         hop.set_beta_tail(&mut self.beta[length-eaten..length]) ?;  // InternalError
         Ok(command)
-    }
-
-    /// Copy the SURB to beta, zeroing the tail of beta if beta is 
-    /// is longer.  Zeroing the tail of beta is safe because this
-    /// only gets called during cross over and the new beta gets
-    /// encrypted.  If this assuption changes, then we must fill 
-    /// beta using a new stream cipher.  We must fill beta with data
-    /// known by the SURB creator regardless, like zeros.
-    pub fn copy_surb_to_beta(&mut self) {
-        // Avoid these debug_asserts with HideMut above?
-        debug_assert_eq!(self.surb.len(),self.params.surb_length);
-        debug_assert_eq!(self.beta.len(),self.params.beta_length);
-        let l = ::std::cmp::min(self.surb.len(),self.beta.len());
-        self.beta[..l].copy_from_slice(self.surb);
-        for i in self.beta[l..].iter_mut() { *i = 0; }
     }
 }
 

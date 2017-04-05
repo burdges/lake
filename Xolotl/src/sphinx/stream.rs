@@ -135,7 +135,6 @@ struct Chunks {
     beta: Range<usize>,
     beta_tail: Range<usize>,
     surb_log: Range<usize>,
-    surb: Range<usize>,
     lioness_key: Range<usize>,
     blinding: Range<usize>,
     packet_name: Range<usize>,
@@ -158,7 +157,6 @@ impl SphinxParams {
                 beta:  reserve(self.beta_length as usize,true),
                 beta_tail:  reserve(self.max_beta_tail_length as usize,false),
                 surb_log:  reserve(self.surb_log_length as usize,true),
-                surb:  reserve(self.surb_length as usize,true),
                 lioness_key:  reserve(BODY_CIPHER_KEY_SIZE,true),
                 blinding:  reserve(64,true),
                 packet_name:  reserve(64,true),
@@ -225,13 +223,10 @@ impl SphinxHop {
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
     ///
     /// Does not verify the lengths of Beta or the SURB.
-    pub fn create_gamma(&self, beta: &[u8], surb: &[u8]) -> SphinxResult<Gamma> {
-         if beta.len() != self.params.beta_length as usize {
-             return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
-         }
-         if surb.len() != self.params.surb_length as usize {
-             return Err( SphinxError::InternalError("SURB has the incorrect length for MAC!") );
-         }
+    pub fn create_gamma(&self, beta: &[u8]) -> SphinxResult<Gamma> {
+        if beta.len() != self.params.beta_length as usize {
+            return Err( SphinxError::InternalError("Beta has the incorrect length for MAC!") );
+        }
 
         // According to the current API gamma_out lies in a buffer supplied
         // by our caller, so no need for games to zero it here.
@@ -240,7 +235,6 @@ impl SphinxHop {
         let mut poly = Poly1305::new(&self.gamma_key.0);
         // let mut poly = ClearOnDrop::new(&mut poly);
         poly.input(beta);
-        poly.input(surb);
         poly.raw_result(&mut gamma_out.0);
         poly.reset();
         Ok(gamma_out)
@@ -250,9 +244,9 @@ impl SphinxHop {
     ///
     /// Returns an InvalidMac error if the check fails.  Does not
     /// verify the lengths of Beta or the SURB.
-    pub fn verify_gamma(&self, beta: &[u8], surb: &[u8], gamma_given: &Gamma)
+    pub fn verify_gamma(&self, beta: &[u8], gamma_given: &Gamma)
       -> SphinxResult<()> {
-        let gamma_found = self.create_gamma(beta, surb) ?;  // InternalError
+        let gamma_found = self.create_gamma(beta) ?;  // InternalError
         // TODO: let gamma_found = ClearOnDrop::new(&gamma_found);
         if ! ::consistenttime::ct_u8_slice_eq(&gamma_given.0, &gamma_found.0) {
             Err( SphinxError::InvalidMac(self.replay_code.error_packet_id()) )
@@ -330,15 +324,6 @@ impl SphinxHop {
         }
         self.stream.seek_to(self.chunks.surb_log.start as u64).unwrap();
         self.stream.xor_read(surb_log).unwrap();
-        Ok(())
-    }
-
-    pub fn xor_surb(&mut self, surb: &mut [u8]) -> SphinxResult<()> {
-        if surb.len() != self.params.surb_length as usize {
-            return Err( SphinxError::InternalError("SURB has incorrect length!") );
-        }
-        self.stream.seek_to(self.chunks.surb.start as u64).unwrap();
-        self.stream.xor_read(surb).unwrap();
         Ok(())
     }
 }

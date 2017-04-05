@@ -116,7 +116,6 @@ impl SphinxRouter {
         // we're unwinding an arriving SURB anyways.
         // TODO: Should we better authenticate that SURB were created by us?
         if let Command::ArrivalSURB { } = command {
-            // hop.xor_surb(refs.surb) ?;
             // hop.xor_surb_log(refs.surb_log) ?;
             // hop.body_cipher().decrypt(body) ?;  // InternalError 
             return self.surbs.unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body);
@@ -131,20 +130,22 @@ impl SphinxRouter {
 
             // We cross over to running the SURB by moving the SURB
             // into postion and recursing. 
-            Command::CrossOver { alpha, gamma } => {
+            Command::CrossOver { surb_beta_length, alpha, gamma } => {
                 if already_crossed_over {
                     return Err( SphinxError::BadPacket("Tried two crossover subhops.",0) );
+                }
+                if surb_beta_length > self.params.max_surb_beta_length {
+                    return Err( SphinxError::BadPacket("Long SURB attack dropped.",surb_beta_length as u64) );
                 }
                 // Put SURB in control of packet.
                 *refs.alpha = alpha;
                 *refs.gamma = gamma.0;
-                refs.copy_surb_to_beta();
-                // We must zero the SURB feld so that our SURB's gammas
-                // cover values known by its creator.  We might improve
-                // SURB unwinding by zeroing the SURB log field too. 
-                // These two fields are safe to zero now because they 
-                // will immediately be encrypted.
-                for i in refs.surb.iter_mut() { *i = 0; }
+                // We must zero the tail of beta beyond surb_beta_length so
+                // that our SURB's gammas cover values known by its creator.
+                // We might improve SURB unwinding by zeroing the SURB log 
+                // field too.  These two fields are both safe to zero now
+                // because they will immediately be encrypted.
+                for i in refs.beta[surb_beta_length..].iter_mut() { *i = 0; }
                 for i in refs.surb_log.iter_mut() { *i = 0; }
                 // Process the local SURB hop.
                 return self.do_crypto(refs,body);
@@ -163,8 +164,7 @@ impl SphinxRouter {
             // types or smaybe interior mutability depneding upon how
             // this code evolves. 
             Command::Transmit { route, gamma } => {
-                // Only transmit need to mask the SURB.
-                hop.xor_surb(refs.surb) ?;
+                // Only transmit needs to mask the SURB log.
                 hop.xor_surb_log(refs.surb_log) ?;
                 // Prepare packet for next hop as usual in Sphinx.
                 *refs.gamma = gamma.0;
