@@ -15,6 +15,7 @@
 #![feature(trusted_len)]
 #![feature(box_syntax)]
 #![feature(associated_consts)]
+#![feature(inclusive_range_syntax)]
 #![feature(exclusive_range_pattern)]
 // #![feature(conservative_impl_trait)]
 

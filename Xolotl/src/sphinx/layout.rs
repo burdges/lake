@@ -145,6 +145,10 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
 };
 
 
+pub type LatencySeed = u8;
+
+pub const MAX_LATENCY_SEED : u8 = 127;
+
 /// Commands to mix network nodes embedded in beta.
 #[derive(Debug, Clone, Copy)]
 pub enum Command {
@@ -165,6 +169,7 @@ pub enum Command {
     Transmit {
         route: RoutingName,
         gamma: Gamma,
+        latency_seed: LatencySeed,
     },
 
     /// Deliver message to the specified mailbox, roughly equivelent
@@ -199,8 +204,9 @@ impl Command {
         match *self {
             Ratchet { twig, gamma } => 
                 f(&[ &[0x00u8; 1], & twig.to_bytes(), &gamma.0 ]),
-            Transmit { route, gamma } => {
-                f(&[ &[0x80u8; 1], &route.0, &gamma.0 ])
+            Transmit { route, gamma, latency_seed } => {
+                debug_assert!(latency_seed < MAX_LATENCY_SEED);
+                f(&[ &[0x80u8 | latency_seed; 1], &route.0, &gamma.0 ])
             },
             Deliver { mailbox } =>
                 f(&[ &[0x60u8; 1], &mailbox.0 ]),
@@ -273,7 +279,34 @@ impl Command {
         Ok((command, beta_len-beta.len()))
     }
 
+    /// Produce a random sequence of latency seeds that fit into.
+    /// a the command.
+    ///
+    /// Uses [Robert Floyd's algorithm](http://fermatslibrary.com/s/a-sample-of-brilliance)
+    /// to minimize calls to the random number generator.
+    pub fn latency_seeds<R: rand::Rng>(rng: &mut R, trials: u8)
+      -> SphinxResult<Box<[LatencySeed]>> 
+    {
+        if trials > MAX_LATENCY_SEED {
+            return Err( SphinxError::InternalError("Too many trials for encoding") );
+        }
+        // Unnecesarily heavy usage of random number generator
+        //   rand::sample(rng, 0..127, trials)
+        // Switch to this eventually :
+        //   rand::combination(rng, 0..127, trials)
+        // see https://github.com/rust-lang-nursery/rand/pull/144
+        let mut s = Vec::with_capacity(trials);
+        let n = MAX_LATENCY_SEED+1;
+        let m = trials;
+        // Robert Floyd's algorithm
+        for j in n-m+1...n {
+            let t = rng.gen_range(0,j);
+            s.push( if s.contains(t) { j-1 } else { t } );
+        }
+        s.into_boxed_slice()
+    }
 }
+
 
 /// Reads a `PacketName` from the SURB log and trims the SURB log
 /// to removing it.  Used in SURB unwinding.
