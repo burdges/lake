@@ -135,20 +135,21 @@ We do support both packet delays being client controlled as well as
 client side delay detection via heart beat messages.  In particular,
 there are no conflicts between our tweaks and the {\em Poisson mixes}
 of Loopix \cite{Loopix}, a recent approach to Stop-N-Go mixes.
-We implement a novel method for selecting delays that enforces an
-expeonentially distribution with client secretly controling rate
-paramater $\lambda$.  
+We adopt methods for selecting delays that enforce an expeonential
+distribution with client secretly influencing the rate paramater
+$\lambda$, which incidentally lets us support mixing strategies not
+controlled by the clients without packet format changes.
 
 We introduce several new {\em commands} that Sphinx packets may give
 to mix nodes.  These may leak additional information about the
 packet's purpose to the node.  There are theoretical arguments that 
 mix networks with a stratified topology provides slightly better
-anonymity than those with a free route topology.  Also, any weakness
-due to free route might compound leaks from our additional commands. 
-We therefore recommend a stratified network topology with these
-commands restricted to specific strata.  Again these recommendations
-agree with Loopix.  We make no assumption in our implementation that
-rules out a free route topology however.  
+anonymity than those with a free route topology.  
+Also, any weakness due to free route might compound leaks from our
+additional commands.  We therefore tentatively recommend a stratified
+network topology with these commands restricted to specific strata.  
+Again these recommendations agree with Loopix.  We make no assumption
+in our implementation that rules out a free route topology however.  
 
 
 
