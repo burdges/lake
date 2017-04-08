@@ -19,8 +19,8 @@ use super::error::*;
 use super::slice::*;
 
 
-/// We use `usize` for indexing, like all Rust programs, but we specify
-/// a dramatically smaller type for user specified indexes.
+/// We use `usize` for indexing, like all Rust programs, but we may
+/// specify a smaller type for user specified indexes.
 pub type Length = usize;
 
 
@@ -52,6 +52,8 @@ pub struct SphinxParams {
 
     /// Length of the SURB log.
     pub surb_log_length: Length,
+
+    pub delay_lambda: f64,
 
     /// Approved message body lengths
     pub body_lengths: &'static [Length],
@@ -141,6 +143,7 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
     max_beta_tail_length: 0,
     max_surb_beta_length: 0,
     surb_log_length: 0,
+    delay_lambda: 1.0,
     body_lengths: &[0]
 };
 

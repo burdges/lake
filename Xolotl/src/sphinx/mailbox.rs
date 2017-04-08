@@ -126,6 +126,7 @@ pub type MailboxStore = PacketMapMap<MailboxName,Mailbox>;
 
 pub struct OutgoingPacket {
     pub route: keys::RoutingName,
+    pub time: ::std::time::SystemTime,
     pub header: Box<[u8]>,
     pub body: Box<[u8]>
 }

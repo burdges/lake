@@ -35,6 +35,7 @@ pub enum Action {
     Transmit {
         /// Next hop
         route: keys::RoutingName,
+        time: ::std::time::SystemTime,
     },
 
     /// Arrival of a message for some local application.
@@ -172,7 +173,7 @@ impl SphinxRouter {
                 // Prepare packet for next hop as usual in Sphinx.
                 *refs.gamma = gamma.0;
                 *refs.alpha = alpha.blind(& hop.blinding()).compress();
-                Action::Transmit { route }
+                Action::Transmit { route, time: hop.time() }
             },
 
             // We box the SURB log because we must store it for pickup
@@ -199,8 +200,8 @@ impl SphinxRouter {
             self.do_crypto(refs,body.borrow_mut()) ? 
         };
         match action {
-            Action::Transmit { route } =>
-                self.outgoing.enqueue(route, packet, OutgoingPacket { route, header, body } ),
+            Action::Transmit { route, time } =>
+                self.outgoing.enqueue(route, packet, OutgoingPacket { route, time, header, body } ),
             Action::Deliver { mailbox, surb_log } =>
                 self.mailboxes.enqueue(mailbox, packet, MailboxPacket { surb_log, body } ),
             Action::Arrival { metadata } => {

@@ -137,7 +137,7 @@ struct Chunks {
     surb_log: Range<usize>,
     lioness_key: Range<usize>,
     blinding: Range<usize>,
-    packet_name: Range<usize>,
+    delay: Range<usize>,
 }
 
 impl SphinxParams {
@@ -159,7 +159,7 @@ impl SphinxParams {
                 surb_log:  reserve(self.surb_log_length as usize,true),
                 lioness_key:  reserve(BODY_CIPHER_KEY_SIZE,true),
                 blinding:  reserve(64,true),
-                packet_name:  reserve(64,true),
+                delay:  reserve(64,true), // Actually 32
             }
         }; // let chunks
         // We check that the maximum key stream length is not exceeded
@@ -325,6 +325,30 @@ impl SphinxHop {
         self.stream.seek_to(self.chunks.surb_log.start as u64).unwrap();
         self.stream.xor_read(surb_log).unwrap();
         Ok(())
+    }
+
+    pub fn time(&mut self) -> ::std::time::SystemTime {
+        use rand::{ChaChaRng, SeedableRng}; // Rng, Rand
+        let mut rng = {
+            let mut s = [0u32; 8];
+            fn as_bytes_mut(t: &mut [u32; 8]) -> &mut [u8; 32] {
+                unsafe { ::std::mem::transmute(t) }
+            }
+            self.stream.seek_to(self.chunks.delay.start as u64).unwrap();
+            self.stream.xor_read(as_bytes_mut(&mut s)).unwrap();
+            for i in s.iter_mut() { *i = u32::from_le(*i); }
+            ChaChaRng::from_seed(&s)
+        };
+
+        use rand::distributions::{Exp, IndependentSample};
+        let exp = Exp::new(self.params.delay_lambda);
+        let delay = exp.ind_sample(&mut rng);
+        debug_assert!( delay.is_finite() && delay.is_sign_positive() );
+
+        use std::time::{Duration,SystemTime}; // Instant
+        let delay = Duration::from_secs( delay.round() as u64 );
+        // let delay = Duration::new( delay.trunc() as u64, (1000*delay.fract()).round() as u32);
+        SystemTime::now() + delay
     }
 }
 
