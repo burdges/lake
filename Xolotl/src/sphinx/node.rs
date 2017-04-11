@@ -73,6 +73,9 @@ impl SphinxRouter {
     /// ownership of the header and/or body.
     fn do_crypto(&self, mut refs: HeaderRefs, body: &mut [u8])
       -> SphinxResult<(PacketName,Action)> {
+        // Try SURB unwinding based on alpha contents
+        // .. self.surbs.try_unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body); ..
+
         // Compute shared secret from the Diffie-Helman key exchange.
         let alpha = curve::Point::decompress(refs.alpha) ?;  // BadAlpha
         let ss = alpha.key_exchange(&self.routing_secret.secret);
@@ -129,8 +132,9 @@ impl SphinxRouter {
             Command::ArrivalSURB { } => unreachable!(),
             Command::Ratchet {..} => unreachable!(),
 
-            // We cross over to running the SURB by moving the SURB
-            // into postion and recursing. 
+            // We cross over to running a SURB embedded in beta by
+            // moving the SURB into postion, zeroing the tail, and
+            // recursing. 
             Command::CrossOver { surb_beta_length, alpha, gamma } => {
                 if already_crossed_over {
                     return Err( SphinxError::BadPacket("Tried two crossover subhops.",0) );
@@ -150,6 +154,16 @@ impl SphinxRouter {
                 for i in refs.surb_log.iter_mut() { *i = 0; }
                 // Process the local SURB hop.
                 return self.do_crypto(refs,body);
+            },
+
+            // We cross over to running a SURB embedded in beta by
+            // moving the SURB into postion, zeroing the tail, and
+            // recursing. 
+            Command::Contact { } => {
+                unimplemented!()
+            },
+            Command::Greeting { } => {
+                unimplemented!()
             },
 
             // We mutate all `refs.*` in place, along with body, so

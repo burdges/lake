@@ -4,6 +4,7 @@
 //!
 //! ...
 
+use std::borrow::{Borrow,BorrowMut};
 use std::iter::{Iterator};  // IntoIterator, TrustedLen, ExactSizeIterator
 
 
@@ -13,7 +14,7 @@ use super::*; // {PacketName,PACKET_NAME_LENGTH};
 use super::curve::{AlphaBytes,ALPHA_LENGTH};
 use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH};
 use super::stream::{SphinxHop};
-pub use super::keys::{RoutingName,ROUTING_NAME_LENGTH};
+pub use super::keys::{RoutingName,ROUTING_NAME_LENGTH,ValidityPeriod};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::error::*;
 use super::slice::*;
@@ -151,11 +152,10 @@ pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
 /// Commands to mix network nodes embedded in beta.
 #[derive(Debug, Clone, Copy)]
 pub enum Command {
-    /// Crossover from header to SURB
-    CrossOver {
-        alpha: AlphaBytes,
+    /// Transmit packet to another mix network node
+    Transmit {
+        route: RoutingName,
         gamma: Gamma,
-        surb_beta_length: usize,
     },
 
     /// Advance and integrate a ratchet state
@@ -164,10 +164,19 @@ pub enum Command {
         gamma: Gamma,
     },
 
-    /// Transmit packet to another mix network node
-    Transmit {
-        route: RoutingName,
+    /// Crossover with SURB in beta
+    CrossOver {
+        alpha: AlphaBytes,
         gamma: Gamma,
+        surb_beta_length: usize,
+    },
+
+    /// Crossover with SURB stored on node
+    Contact {
+        // unimplemented!()
+    },
+    Greeting {
+        // unimplemented!()
     },
 
     /// Deliver message to the specified mailbox, roughly equivelent
@@ -183,7 +192,7 @@ pub enum Command {
     /// Arrival of a message for a local application.
     ArrivalDirect { },
 
-    // Drop Off { },
+    // DropOff { },
     // Delete { },
 }
 
@@ -200,13 +209,11 @@ impl Command {
       where F: FnOnce(&[&[u8]]) -> R {
         use self::Command::*;
         match *self {
-            Ratchet { twig, gamma } => 
-                f(&[ &[0x00u8; 1], & twig.to_bytes(), &gamma.0 ]),
             Transmit { route, gamma } => {
                 f(&[ &[0x80u8; 1], &route.0, &gamma.0 ])
             },
-            Deliver { mailbox } =>
-                f(&[ &[0x60u8; 1], &mailbox.0 ]),
+            Ratchet { twig, gamma } => 
+                f(&[ &[0x00u8; 1], & twig.to_bytes(), &gamma.0 ]),
             CrossOver { alpha, gamma, surb_beta_length } => {
                 debug_assert!(surb_beta_length < MAX_SURB_BETA_LENGTH);
                 debug_assert!(MAX_SURB_BETA_LENGTH <= 0x1000);
@@ -214,11 +221,17 @@ impl Command {
                 let l = (surb_beta_length & 0xFF) as u8;
                 f(&[ &[0x40u8 | h, l], &alpha, &gamma.0 ])
             },
+            Contact { } => 
+                f(&[ &[0x60u8; 1], unimplemented!() ]),
+            Greeting { } => 
+                f(&[ &[0x61u8; 1], unimplemented!() ]),
+            Deliver { mailbox } =>
+                f(&[ &[0x50u8; 1], &mailbox.0 ]),
+            // DropOff
             ArrivalSURB { } => 
-                f(&[ &[0x50u8; 1] ]),
-            ArrivalDirect { } =>
                 f(&[ &[0x70u8; 1] ]),
-            // Drop Off
+            ArrivalDirect { } =>
+                f(&[ &[0x71u8; 1] ]),
             // Delete
         }
     }
@@ -237,40 +250,57 @@ impl Command {
     }
 
     /// Read a command from the beginning of beta.
+    ///
+    /// We only return the SURBs length and do not seperate it
+    /// because this only gets called from `peal_beta` which leaves
+    /// the SURB in place.
     fn parse(mut beta: &[u8]) -> SphinxResult<(Command,usize)> {
         use self::Command::*;
         let beta_len = beta.len();
-        // We consider only the high four bits for now because
-        // we might tweak TwigId, MailboxName, and RoutingName
-        // to shave off one byte eventually.
+        // We could tweak RoutingName or TwigId to shave off one byte
+        // eventually, but sounds like premature optimization now.
         let b0 = reserve_fixed!(&mut beta,1)[0];
-        let command = match b0 & 0xF0 {
-            // Ratchet if the two high bits are clear.
-            0x00..0x30 => Ratchet {
-                twig: TwigId::from_bytes(reserve_fixed!(&mut beta,TWIG_ID_LENGTH)),
-                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
-            },
+        let command = match b0 {
             // Transmit if the high bit is set.
-            0x80..0xF0  => Transmit {
+            0x80..0xFF => Transmit {
                 route: RoutingName(*reserve_fixed!(&mut beta,ROUTING_NAME_LENGTH)),
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
-            // Deliver, CrossOver, or Arival if 0x08 is clear while 0x04 is set.
-            0x60 => Deliver {
-                mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
+            // Ratchet if the two high bits are clear.
+            0x00..0x3F => Ratchet {
+                twig: TwigId::from_bytes(reserve_fixed!(&mut beta,TWIG_ID_LENGTH)),
+                gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
-            0x40 => CrossOver {
+            // Anything else has the form 0b01??_????
+            // CrossOver from Beta if 0b0100_????
+            0x40..0x4F => CrossOver {
                 surb_beta_length: (
                     (((b0 & 0x0F) as u16) << 8) | (reserve_fixed!(&mut beta,1)[0] as u16)
                 ) as usize,
                 alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
-            // Arivals are encoded with the low bit set.
-            0x50 => ArrivalSURB { },
-            0x70 => ArrivalDirect { },
-            // Drop Off
-            // Delete
+            // Authenticated cross overs have the form 0b0110_????
+            0x60 => Contact {
+                // unimplemented!()
+            },
+            0x61 => Greeting {
+                // unimplemented!()
+            },
+            0x62..0x6F => { return Err( SphinxError::BadPacket("Unknown authenticated cross over command",b0 as u64)); },
+            // Deliveries have form 0b0110_????
+            0x50 => Deliver {
+                mailbox: MailboxName(*reserve_fixed!(&mut beta,MAILBOX_NAME_LENGTH)),
+            },
+            // 0x51 => DropOff { 
+            // },
+            0x51..0x5F => { return Err( SphinxError::BadPacket("Unknown deliver command",b0 as u64)); },
+            // Arivals have the form 0b0111_????
+            0x70 => ArrivalSURB { },
+            0x71 => ArrivalDirect { },
+            // 0x7F => Delete {
+            // },
+            0x72..0x7F => { return Err( SphinxError::BadPacket("Unknown arrival command",b0 as u64)); },
             c => { return Err( SphinxError::BadPacket("Unknown command",c as u64)); },
         };
         Ok((command, beta_len-beta.len()))
@@ -380,6 +410,9 @@ impl<'a> HeaderRefs<'a> {
             return Err( SphinxError::InternalError("Ate too much Beta!") );
         }
 
+        // We could reduce our calls to ChaCha by partially processing
+        // commands here, like zeroing beta's during cross over, or 
+        // ignoring beta entirely for delivery commands. 
         let length = self.beta.len();
         debug_assert_eq!(length, self.params.beta_length as usize);
         // let beta = &mut refs.beta[..length];
@@ -438,5 +471,69 @@ impl<'a> IntoIterator for HeaderRefs<'a> {
     }
 }
 */
+
+
+/// Unsent full or partial Sphinx headers, including SURBs.
+///
+/// TODO: Avoid one needless allocation by using DSTs.  We could
+/// eliminate the extra allocation by using `Box::<T>::into_raw()`
+/// and `Box::<U>::from_raw` along with a cast `*T as *U` and the
+/// endianness conversion, except that our `T` and `U` are `[u8]`
+/// and `PreHeader` with `Box<[u8]>` replaced by `[u8]`, which are
+/// unsized, so this being careful.
+pub struct PreHeader {
+    pub validity: ValidityPeriod,
+    pub route: RoutingName,
+    pub alpha: AlphaBytes,
+    pub gamma: Gamma,
+    pub beta: Box<[u8]>
+}
+
+impl PreHeader {
+    /// Encode a SURB for storage or transmission
+    pub fn encode_SURB(self) -> Box<[u8]> {
+        let mut v = Vec::with_capacity(
+            16 + ROUTING_NAME_LENGTH + ALPHA_LENGTH + GAMMA_LENGTH + self.beta.len()
+        );
+        v.extend_from_slice( & self.validity.to_bytes() );
+        v.extend_from_slice( &self.route.0 );
+        v.extend_from_slice( &self.alpha );
+        v.extend_from_slice( &self.gamma.0 );
+        v.extend_from_slice( self.beta.borrow() );
+        v.into_boxed_slice()
+    }
+
+    /// Encode a SURB from storage or transmission.
+    pub fn decode_SURB(mut surb: &[u8]) -> PreHeader {
+        PreHeader {
+            route: RoutingName(*reserve_fixed!(&mut surb, ROUTING_NAME_LENGTH)),
+            validity: ValidityPeriod::from_bytes(reserve_fixed!(&mut surb, 16)),
+            alpha: *reserve_fixed!(&mut surb, ALPHA_LENGTH),
+            gamma: Gamma(*reserve_fixed!(&mut surb, GAMMA_LENGTH)),
+            beta: surb.to_owned().into_boxed_slice(),
+        }
+    }
+}
+
+use rand::Rng;
+
+impl SphinxParams {
+    pub fn encode_header<R: Rng>(&'static self, rng: &mut Rng, preheader: PreHeader) -> Box<[u8]> {
+        let mut h = self.boxed_zeroed_header();
+        {
+            let mut refs = self.slice_header(h.borrow_mut()).unwrap();
+            *refs.alpha = preheader.alpha;
+            *refs.gamma = preheader.gamma.0;
+            refs.beta.copy_from_slice(preheader.beta.borrow());
+            rng.fill_bytes(refs.surb_log);
+            // argument: seed: &[u8; 32]
+            // use chacha::ChaCha as ChaCha20;
+            // use keystream::{KeyStream};
+            // let mut chacha = ChaCha20::new_chacha20(seed, &[0u8; 8]);
+            // self.stream.xor_read(refs.surb_log).unwrap();
+        }
+        h
+    }
+}
 
 
