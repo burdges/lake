@@ -101,10 +101,14 @@ likely their own Email provider.
 
 In this case, our recipient cannot already know the layers of
 encryption applied to $\delta$ after the cross over point.  
-We must therefore encode a both a seed and an epoch identifier for
-the list of all mix nodes, so that the SURB can be rederived.
-This should be included in the {\tt drop off} command and placed into
-the SURB log by the recipient's aggregation point.
+We must therefore encode the cross over point's routing key, a seed,
+and an epoch identifier for the list of all mix nodes.  From this,
+the recipient can rederive the SURB by first rederiving the route
+and then computing the usual key exchanges.  A sender encrypts this
+information to the final recipient and includes that encrypted
+message in the {\tt drop off} command.  A recipient's aggregation
+point places this encrypted message into the SURB log when executing
+{\tt drop off} command.
 
 There is now a risk the recipient's mailbox does not exist. 
 In this case, our {\tt drop off} should specify an alteration to
