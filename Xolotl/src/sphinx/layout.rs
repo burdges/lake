@@ -21,119 +21,6 @@ use super::error::*;
 use super::slice::*;
 
 
-/// We use `usize` for indexing, like all Rust programs, but we may
-/// specify a smaller type for user specified indexes.
-pub type Length = usize;
-
-
-/// Sphinx paramaters
-///
-/// We require a `&'static SphinxParams` when used because the
-/// protocol specification should be compiled into the binary.
-///
-/// In some cases, there could be minor performance hits if some
-/// of these are not multiples of the ChaCha blocksize of 64 byte.
-pub trait Params: Sized {
-    /// Unique version identifier for the protocol
-    const PROTOCOL_NAME: &'static str;
-
-    /// Length of the routing information block `Beta`.
-    const BETA_LENGTH: Length;
-
-    /// Maximal amount of routing infomrmation in `Beta` consued
-    /// by a single sub-hop.
-    const MAX_BETA_TAIL_LENGTH: Length;
-
-    /// Maximum length of the SURB.  At most half of `BETA_LENGTH - 48`.
-    ///
-    /// Alpha and Gamma are encoded into the "bottom" of beta, and
-    /// hence do not contribute here.  This is unlikely to change.
-    /// As a result this should not exceed `BETA_LENGTH`
-    const MAX_SURB_BETA_LENGTH: Length;
-
-    /// Length of the SURB log.
-    const SURB_LOG_LENGTH: Length;
-
-    /// Approved message body lengths
-    const BODY_LENGTHS: &'static [Length];
-
-    /// Rate paramater lambda for the exponential distribution of
-    /// from which we sample the senders' sugested delays in 
-    /// `Stream::delay`.
-    const DELAY_LAMBDA: f64;
-
-    /// Sphinx header length
-    #[inline(always)]
-    fn header_length() -> usize {
-        ALPHA_LENGTH + GAMMA_LENGTH
-        + Self::BETA_LENGTH as usize
-        + Self::SURB_LOG_LENGTH as usize
-    }
-
-    /// Returns an error if the body length is not approved by the paramaters.
-    fn check_body_length(body_length: usize) -> SphinxResult<()> {
-        if Self::BODY_LENGTHS.len() == 0 {
-            if body_length == 0 {
-                Ok(())  // All body lengths are zero if no body lengths were specified
-            } else {
-                Err( SphinxError::BadLength("Nonempty body with no body lengths specified", body_length) )
-            }
-        } else if Self::BODY_LENGTHS.contains(&body_length) {
-            Ok(())
-        } else {
-            Err( SphinxError::BadLength("Unapproaved body length",body_length) )
-        }
-    }
-}
-
-/*
-pub struct ParamsEtc<P: Params>(PhantomData<P>);
-impl<P> Params for ParamsEtc<P> where P: Params, PhantomData<P>: 'static  {
-    const PROTOCOL_NAME: &'static str
-     = P::PROTOCOL_NAME;
-    const BETA_LENGTH: Length
-     = P::BETA_LENGTH;
-    const MAX_BETA_TAIL_LENGTH: Length
-     = P::MAX_BETA_TAIL_LENGTH;
-    const MAX_SURB_BETA_LENGTH: Length
-     = P::MAX_SURB_BETA_LENGTH;
-    const SURB_LOG_LENGTH: Length
-     = P::SURB_LOG_LENGTH;
-    const BODY_LENGTHS: &'static [Length]
-     = P::BODY_LENGTHS;
-    const DELAY_LAMBDA: f64
-     = P::DELAY_LAMBDA;
-}
-*/
-
-/// Just a helper trait to provide inherent methods on types
-/// satisfying `Params`.
-pub trait ImplParams: Params {
-    fn boxed_zeroed_header() -> Box<[u8]>;
-    fn boxed_zeroed_body(i: usize) -> Box<[u8]>;
-}
-
-impl<P> ImplParams for P where P: Params {
-    /// Create a `Box<[u8]>` with the required header length
-    /// and containing zeros.
-    fn boxed_zeroed_header() -> Box<[u8]> {
-        let l = P::header_length();
-        let mut v = Vec::with_capacity(l);
-        for _ in 0..l { v.push(0); }
-        v.into_boxed_slice()
-    }
-
-    /// Create a `Box<[u8]>` with the requested body length
-    /// from `SphinxParams::BODY_LENGTHS` and containing zeros.
-    fn boxed_zeroed_body(i: usize) -> Box<[u8]> {
-        let length = P::BODY_LENGTHS[i];
-        let mut v = Vec::with_capacity(length);
-        for _ in 0..length { v.push(0); }
-        v.into_boxed_slice()
-    }
-}
-
-
 /// Commands to mix network nodes embedded in beta.
 #[derive(Debug, Clone, Copy)]
 pub enum Command {
@@ -302,6 +189,119 @@ impl Command {
 /// assumed by `HeaderRef`.
 pub fn read_n_trim_surb_log(surb_log: &mut &[u8]) -> PacketName {
     PacketName(*reserve_fixed!(surb_log,PACKET_NAME_LENGTH))
+}
+
+
+/// We use `usize` for indexing, like all Rust programs, but we may
+/// specify a smaller type for user specified indexes.
+pub type Length = usize;
+
+
+/// Sphinx paramaters
+///
+/// We require a `&'static SphinxParams` when used because the
+/// protocol specification should be compiled into the binary.
+///
+/// In some cases, there could be minor performance hits if some
+/// of these are not multiples of the ChaCha blocksize of 64 byte.
+pub trait Params: Sized {
+    /// Unique version identifier for the protocol
+    const PROTOCOL_NAME: &'static str;
+
+    /// Length of the routing information block `Beta`.
+    const BETA_LENGTH: Length;
+
+    /// Maximal amount of routing infomrmation in `Beta` consued
+    /// by a single sub-hop.
+    const MAX_BETA_TAIL_LENGTH: Length;
+
+    /// Maximum length of the SURB.  At most half of `BETA_LENGTH - 48`.
+    ///
+    /// Alpha and Gamma are encoded into the "bottom" of beta, and
+    /// hence do not contribute here.  This is unlikely to change.
+    /// As a result this should not exceed `BETA_LENGTH`
+    const MAX_SURB_BETA_LENGTH: Length;
+
+    /// Length of the SURB log.
+    const SURB_LOG_LENGTH: Length;
+
+    /// Approved message body lengths
+    const BODY_LENGTHS: &'static [Length];
+
+    /// Rate paramater lambda for the exponential distribution of
+    /// from which we sample the senders' sugested delays in 
+    /// `Stream::delay`.
+    const DELAY_LAMBDA: f64;
+
+    /// Sphinx header length
+    #[inline(always)]
+    fn header_length() -> usize {
+        ALPHA_LENGTH + GAMMA_LENGTH
+        + Self::BETA_LENGTH as usize
+        + Self::SURB_LOG_LENGTH as usize
+    }
+
+    /// Returns an error if the body length is not approved by the paramaters.
+    fn check_body_length(body_length: usize) -> SphinxResult<()> {
+        if Self::BODY_LENGTHS.len() == 0 {
+            if body_length == 0 {
+                Ok(())  // All body lengths are zero if no body lengths were specified
+            } else {
+                Err( SphinxError::BadLength("Nonempty body with no body lengths specified", body_length) )
+            }
+        } else if Self::BODY_LENGTHS.contains(&body_length) {
+            Ok(())
+        } else {
+            Err( SphinxError::BadLength("Unapproaved body length",body_length) )
+        }
+    }
+}
+
+/*
+pub struct ParamsEtc<P: Params>(PhantomData<P>);
+impl<P> Params for ParamsEtc<P> where P: Params, PhantomData<P>: 'static  {
+    const PROTOCOL_NAME: &'static str
+     = P::PROTOCOL_NAME;
+    const BETA_LENGTH: Length
+     = P::BETA_LENGTH;
+    const MAX_BETA_TAIL_LENGTH: Length
+     = P::MAX_BETA_TAIL_LENGTH;
+    const MAX_SURB_BETA_LENGTH: Length
+     = P::MAX_SURB_BETA_LENGTH;
+    const SURB_LOG_LENGTH: Length
+     = P::SURB_LOG_LENGTH;
+    const BODY_LENGTHS: &'static [Length]
+     = P::BODY_LENGTHS;
+    const DELAY_LAMBDA: f64
+     = P::DELAY_LAMBDA;
+}
+*/
+
+/// Just a helper trait to provide inherent methods on types
+/// satisfying `Params`.
+pub trait ImplParams: Params {
+    fn boxed_zeroed_header() -> Box<[u8]>;
+    fn boxed_zeroed_body(i: usize) -> Box<[u8]>;
+}
+
+impl<P> ImplParams for P where P: Params {
+    /// Create a `Box<[u8]>` with the required header length
+    /// and containing zeros.
+    fn boxed_zeroed_header() -> Box<[u8]> {
+        let l = P::header_length();
+        let mut v = Vec::with_capacity(l);
+        for _ in 0..l { v.push(0); }
+        v.into_boxed_slice()
+    }
+
+    /// Create a `Box<[u8]>` with the requested body length
+    /// from `SphinxParams::BODY_LENGTHS` and containing zeros.
+    fn boxed_zeroed_body(i: usize) -> Box<[u8]> {
+        let length = P::BODY_LENGTHS[i];
+        let mut v = Vec::with_capacity(length);
+        for _ in 0..length { v.push(0); }
+        v.into_boxed_slice()
+    }
 }
 
 
