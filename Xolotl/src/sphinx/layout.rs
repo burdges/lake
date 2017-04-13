@@ -86,6 +86,25 @@ pub trait Params: Sized {
     }
 }
 
+/*
+pub struct ParamsEtc<P: Params>(PhantomData<P>);
+impl<P> Params for ParamsEtc<P> where P: Params, PhantomData<P>: 'static  {
+    const PROTOCOL_NAME: &'static str
+     = P::PROTOCOL_NAME;
+    const BETA_LENGTH: Length
+     = P::BETA_LENGTH;
+    const MAX_BETA_TAIL_LENGTH: Length
+     = P::MAX_BETA_TAIL_LENGTH;
+    const MAX_SURB_BETA_LENGTH: Length
+     = P::MAX_SURB_BETA_LENGTH;
+    const SURB_LOG_LENGTH: Length
+     = P::SURB_LOG_LENGTH;
+    const BODY_LENGTHS: &'static [Length]
+     = P::BODY_LENGTHS;
+    const DELAY_LAMBDA: f64
+     = P::DELAY_LAMBDA;
+}
+*/
 
 /// Just a helper trait to provide inherent methods on types
 /// satisfying `Params`.
@@ -112,7 +131,6 @@ impl<P> ImplParams for P where P: Params {
         for _ in 0..length { v.push(0); }
         v.into_boxed_slice()
     }
-
 }
 
 
