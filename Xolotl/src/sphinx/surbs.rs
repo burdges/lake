@@ -5,14 +5,14 @@
 //! ...
 
 use std::collections::HashMap;
-use std::hash::Hash; // Hasher
+// use std::hash::Hash; // Hasher
 use std::sync::{RwLock}; // Arc, RwLockReadGuard, RwLockWriteGuard
 use std::iter::Iterator;
 use std::marker::PhantomData;
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
-use super::stream::{SphinxKey,HeaderCipher};
+// use super::stream::{HeaderCipher};
 use super::node::Action;
 use super::error::*;
 use super::slice::*;
@@ -111,7 +111,7 @@ impl<P: Params> SURBStore<P> {
                     // to add all at once? 
                 }
                 // TODO: Use protocol specified in the delivery surb
-                let mut hop = SphinxKey::<P> {
+                let mut hop = stream::SphinxKey::<P> {
                     params: PhantomData,
                     chacha_nonce: surb.chacha_nonce,
                     chacha_key: surb.chacha_key,

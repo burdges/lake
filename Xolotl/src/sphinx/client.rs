@@ -9,6 +9,8 @@ use std::marker::PhantomData;
 
 use ratchet::{BranchId,BRANCH_ID_LENGTH,TwigId,TWIG_ID_LENGTH};
 
+pub use super::keys::{RoutingName};  // ROUTING_NAME_LENGTH,ValidityPeriod
+use super::*;
 
 
 /// ...

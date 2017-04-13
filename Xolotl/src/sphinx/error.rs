@@ -13,7 +13,7 @@ use std::fmt;
 
 
 use super::PacketName;
-use super::replay::*;
+use super::replay::{ReplayCode};
 use ratchet::error::RatchetError;
 
 /// `ErrorPacketId` is a `ReplayCode` in testing and empty otherwise.

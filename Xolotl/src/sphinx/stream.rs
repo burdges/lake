@@ -30,11 +30,11 @@ impl<'a> From<KeystreamError> for SphinxError {
     }
 }
 
-use super::*;
 use super::layout::{Params};
 use super::body::{BodyCipher,BODY_CIPHER_KEY_SIZE};
 use super::replay::*;
 use super::error::*;
+use super::*;
 
 
 // /// Sphinx onion encrypted routing information

@@ -11,14 +11,13 @@ use std::marker::PhantomData;
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
-use super::*; // {PacketName,PACKET_NAME_LENGTH};
 use super::curve::{AlphaBytes,ALPHA_LENGTH};
 use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH,HeaderCipher};
-use super::stream::{};
 pub use super::keys::{RoutingName,ROUTING_NAME_LENGTH,ValidityPeriod};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::error::*;
 use super::slice::*;
+use super::*; // {PacketName,PACKET_NAME_LENGTH};
 
 
 /// Commands to mix network nodes embedded in beta.
@@ -294,8 +293,7 @@ impl<P: Params> ImplParams for P {
         // Just for debugging convenience we check all lengths
         // instead of only the one we need.
         for l in P::BODY_LENGTHS {
-            use super::body::BodyCipher;
-            BodyCipher::<P>::compatable_length(*l) ?;
+            body::BodyCipher::<P>::compatable_length(*l) ?;
         }
         if P::BODY_LENGTHS.len() == 0 {
             if body_length == 0 {
