@@ -510,7 +510,7 @@ pub struct PreHeader {
 
 impl PreHeader {
     /// Encode a SURB for storage or transmission
-    pub fn encode_SURB(self) -> Box<[u8]> {
+    pub fn encode_surb(self) -> Box<[u8]> {
         let mut v = Vec::with_capacity(
             16 + ROUTING_NAME_LENGTH + ALPHA_LENGTH + GAMMA_LENGTH + self.beta.len()
         );
@@ -523,7 +523,7 @@ impl PreHeader {
     }
 
     /// Encode a SURB from storage or transmission.
-    pub fn decode_SURB(mut surb: &[u8]) -> PreHeader {
+    pub fn decode_surb(mut surb: &[u8]) -> PreHeader {
         PreHeader {
             route: RoutingName(*reserve_fixed!(&mut surb, ROUTING_NAME_LENGTH)),
             validity: ValidityPeriod::from_bytes(reserve_fixed!(&mut surb, 16)),
