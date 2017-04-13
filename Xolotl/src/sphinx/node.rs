@@ -69,7 +69,7 @@ struct SphinxRouter<P: Params> {
 }
 
 
-impl<P> SphinxRouter<P> where P: Params {
+impl<P: Params> SphinxRouter<P> {
     /// Invokes ratchet and cross over functionality itself, but
     /// must return an `Action` for functionality that requires
     /// ownership of the header and/or body.

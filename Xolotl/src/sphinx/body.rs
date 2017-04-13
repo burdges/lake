@@ -22,7 +22,7 @@ pub struct BodyCipher<P: Params> {
     pub cipher: LionessDefault
 }
 
-impl<P> BodyCipher<P> where P: Params {
+impl<P: Params> BodyCipher<P> {
     pub const KEY_SIZE: usize = 4*64;
 
     pub fn check_body_length(&self, body_length: usize) -> SphinxResult<()> {

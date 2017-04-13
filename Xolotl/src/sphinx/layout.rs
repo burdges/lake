@@ -284,7 +284,7 @@ pub trait ImplParams: Params {
     fn boxed_zeroed_body(i: usize) -> Box<[u8]>;
 }
 
-impl<P> ImplParams for P where P: Params {
+impl<P: Params> ImplParams for P {
     /// Create a `Box<[u8]>` with the required header length
     /// and containing zeros.
     fn boxed_zeroed_header() -> Box<[u8]> {
@@ -339,7 +339,7 @@ impl<'a,T> DerefMut for HideMut<'a,T> where T: ?Sized {
 /// As a result, any caller could invalidate our requirement that 
 /// slices be contiguous.  If desired, this could be prevented using
 /// the `HideMut` struct above.  See http://stackoverflow.com/a/42376165/667457
-pub struct HeaderRefs<'a,P: Params> {
+pub struct HeaderRefs<'a,P> where P: Params {
     params: PhantomData<P>,
     pub alpha: &'a mut AlphaBytes,
     pub gamma: &'a mut GammaBytes,

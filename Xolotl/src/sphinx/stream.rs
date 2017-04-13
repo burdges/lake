@@ -67,7 +67,7 @@ pub struct SphinxKey<P: Params> {
     pub chacha_key: [u8; 32],
 }
 
-impl<P> SphinxKey<P> where P: Params {
+impl<P: Params> SphinxKey<P> {
     /// Derive the key material for our IETF Chacha20 stream cipher.
     pub fn new_kdf(ss: &SphinxSecret, rn: &keys::RoutingName) -> SphinxKey<P> {
         use crypto::digest::Digest;
@@ -189,7 +189,7 @@ pub struct SphinxHop<P: Params> {
 // Declare a `SphinxHop` initalized after `ClearOnDrop` zeros it so
 // that it may be dropped normally.  Requirs that `Drop::drop` does 
 // nothing interesting.
-impl<P> ::clear_on_drop::clear::InitializableFromZeroed for SphinxHop<P> where P: Params {
+impl<P: Params> ::clear_on_drop::clear::InitializableFromZeroed for SphinxHop<P> {
     unsafe fn initialize(hop: *mut SphinxHop<P>) {
     }
 }
@@ -197,17 +197,17 @@ impl<P> ::clear_on_drop::clear::InitializableFromZeroed for SphinxHop<P> where P
 // We implement `Drop::drop` so that `SphinxHop` cannot be copy.
 // `InitializableFromZeroed::initialize` leaves it invalid, so
 // `Drop::drop` must not do anything interesting.
-impl<P> Drop for SphinxHop<P> where P: Params {
+impl<P: Params> Drop for SphinxHop<P> {
     fn drop(&mut self) { }
 }
 
-impl<P> fmt::Debug for SphinxHop<P> where P: Params {
+impl<P: Params> fmt::Debug for SphinxHop<P> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "SphinxHop {{ {:?}, .. }}", self.replay_code.error_packet_id())
     }
 }
 
-impl<P> SphinxHop<P> where P: Params {
+impl<P: Params> SphinxHop<P> {
     // TODO: Can we abstract the lengths checks?  Operate on a pair
     // `(LayoutRefs,SphinxHop)` perhaps?
 
