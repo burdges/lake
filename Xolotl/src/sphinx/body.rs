@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 
 use lioness::{LionessDefault,LionessError,RAW_KEY_SIZE};
 
-use super::layout::{Params};
+use super::layout::{Params,ImplParams};
 use super::error::*;
 
 /// Portion of header key stream to reserve for the Lioness key
@@ -26,11 +26,10 @@ impl<P: Params> BodyCipher<P> {
     pub const KEY_SIZE: usize = 4*64;
 
     pub fn compatable_length(body_length: usize) -> SphinxResult<()> {
-        if body_length < 32 && body_length > 0 {
-            return Err( SphinxError::BadLength(
-              "Nonzero body length under 32 bytes!", body_length
-            ) );
-        }
+        if body_length >= 32 || body_length == 0 { return Ok(()); }
+        return Err( SphinxError::BadLength(
+          "Nonzero body length under 32 bytes!", body_length
+        ) );
     }
 
     pub fn encrypt(&self, body: &mut [u8]) -> SphinxResult<()> {

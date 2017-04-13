@@ -318,7 +318,7 @@ impl<P: Params> HeaderCipher<P> {
         Ok(())
     }
 
-    /// Sender's sugested delay for this packet
+    /// Sender's sugested delay for this packet.
     pub fn delay(&mut self) -> ::std::time::Duration {
         use rand::{ChaChaRng, SeedableRng}; // Rng, Rand
         let mut rng = {

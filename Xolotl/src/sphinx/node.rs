@@ -15,7 +15,7 @@ pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
 pub use ratchet::State as RatchetState;
 
 use super::stream::{SphinxKey};  // HeaderCipher
-use super::layout::{Params,HeaderRefs,Command};
+use super::layout::{Params,ImplParams,HeaderRefs,Command};
 use super::mailbox::*;
 use super::slice::*;
 use super::error::*;

@@ -93,7 +93,7 @@ impl Activity {
 }
 
 
-struct Activities<'a, : Params> {
+struct Activities<'a,P: Params> {
     params: PhantomData<P>,
 
     activities: &'a [Activity],

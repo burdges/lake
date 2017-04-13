@@ -294,7 +294,8 @@ impl<P: Params> ImplParams for P {
         // Just for debugging convenience we check all lengths
         // instead of only the one we need.
         for l in P::BODY_LENGTHS {
-            BodyCipher::compatable_length(*l) ?;
+            use super::body::BodyCipher;
+            BodyCipher::<P>::compatable_length(*l) ?;
         }
         if P::BODY_LENGTHS.len() == 0 {
             if body_length == 0 {
