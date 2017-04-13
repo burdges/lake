@@ -100,13 +100,13 @@ impl<P: Params> SphinxKey<P> {
     /// instance, which includes some mixing, and using chacha for the
     /// replay code and gamma key.  We descided to use SHA3's SHAKE256
     /// mode so that we have more and different mixing.
-    pub fn hop(&self) -> SphinxResult<SphinxHop<P>> {
+    pub fn header_cipher(&self) -> SphinxResult<HeaderCipher<P>> {
         let mut chacha = ChaCha20::new_ietf(&self.chacha_key, &self.chacha_nonce);
         let mut r = &mut [0u8; HOP_EATS];
         chacha.xor_read(r).unwrap();  // No KeystreamError::EndReached here.
         let (packet_name,replay_code,gamma_key) = array_refs![r,16,16,32];
 
-        Ok( SphinxHop {
+        Ok( HeaderCipher {
             params: PhantomData,
             chunks: StreamChunks::make::<P>() ?,
             packet_name: PacketName(*packet_name),
@@ -121,7 +121,7 @@ impl<P: Params> SphinxKey<P> {
 const HOP_EATS : usize = 64;
 
 /// Allocation of cipher ranges for the IETF ChaCha20 inside
-/// `SphinxHop` to various keys and stream cipher roles needed
+/// `HeaderCipher` to various keys and stream cipher roles needed
 /// to process a header.
 struct StreamChunks {
     beta: Range<usize>,
@@ -167,7 +167,7 @@ impl StreamChunks {
 /// Semetric cryptography for a single Sphinx sub-hop, usually
 /// meaning the whole hop.
 ///
-pub struct SphinxHop<P: Params> {
+pub struct HeaderCipher<P: Params> {
     params: PhantomData<P>,
 
     /// XChaCha20 Stream cipher used when processing the header
@@ -186,30 +186,30 @@ pub struct SphinxHop<P: Params> {
     gamma_key: GammaKey,
 }
 
-// Declare a `SphinxHop` initalized after `ClearOnDrop` zeros it so
+// Declare a `HeaderCipher` initalized after `ClearOnDrop` zeros it so
 // that it may be dropped normally.  Requirs that `Drop::drop` does 
 // nothing interesting.
-impl<P: Params> ::clear_on_drop::clear::InitializableFromZeroed for SphinxHop<P> {
-    unsafe fn initialize(hop: *mut SphinxHop<P>) {
+impl<P: Params> ::clear_on_drop::clear::InitializableFromZeroed for HeaderCipher<P> {
+    unsafe fn initialize(hop: *mut HeaderCipher<P>) {
     }
 }
 
-// We implement `Drop::drop` so that `SphinxHop` cannot be copy.
+// We implement `Drop::drop` so that `HeaderCipher` cannot be copy.
 // `InitializableFromZeroed::initialize` leaves it invalid, so
 // `Drop::drop` must not do anything interesting.
-impl<P: Params> Drop for SphinxHop<P> {
+impl<P: Params> Drop for HeaderCipher<P> {
     fn drop(&mut self) { }
 }
 
-impl<P: Params> fmt::Debug for SphinxHop<P> {
+impl<P: Params> fmt::Debug for HeaderCipher<P> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "SphinxHop {{ {:?}, .. }}", self.replay_code.error_packet_id())
+        write!(f, "HeaderCipher {{ {:?}, .. }}", self.replay_code.error_packet_id())
     }
 }
 
-impl<P: Params> SphinxHop<P> {
+impl<P: Params> HeaderCipher<P> {
     // TODO: Can we abstract the lengths checks?  Operate on a pair
-    // `(LayoutRefs,SphinxHop)` perhaps?
+    // `(LayoutRefs,HeaderCipher)` perhaps?
 
     /// Compute the poly1305 MAC `Gamma` using the key found in a Sphinx key exchange.
     ///

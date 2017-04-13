@@ -13,8 +13,8 @@ pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
 use super::*; // {PacketName,PACKET_NAME_LENGTH};
 use super::curve::{AlphaBytes,ALPHA_LENGTH};
-use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH};
-use super::stream::{SphinxHop};
+use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH,HeaderCipher};
+use super::stream::{};
 pub use super::keys::{RoutingName,ROUTING_NAME_LENGTH,ValidityPeriod};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::error::*;
@@ -240,21 +240,6 @@ pub trait Params: Sized {
         + Self::BETA_LENGTH as usize
         + Self::SURB_LOG_LENGTH as usize
     }
-
-    /// Returns an error if the body length is not approved by the paramaters.
-    fn check_body_length(body_length: usize) -> SphinxResult<()> {
-        if Self::BODY_LENGTHS.len() == 0 {
-            if body_length == 0 {
-                Ok(())  // All body lengths are zero if no body lengths were specified
-            } else {
-                Err( SphinxError::BadLength("Nonempty body with no body lengths specified", body_length) )
-            }
-        } else if Self::BODY_LENGTHS.contains(&body_length) {
-            Ok(())
-        } else {
-            Err( SphinxError::BadLength("Unapproaved body length",body_length) )
-        }
-    }
 }
 
 /*
@@ -282,6 +267,7 @@ impl<P> Params for ParamsEtc<P> where P: Params, PhantomData<P>: 'static  {
 pub trait ImplParams: Params {
     fn boxed_zeroed_header() -> Box<[u8]>;
     fn boxed_zeroed_body(i: usize) -> Box<[u8]>;
+    fn check_body_length(body_length: usize) -> SphinxResult<()>;
 }
 
 impl<P: Params> ImplParams for P {
@@ -301,6 +287,26 @@ impl<P: Params> ImplParams for P {
         let mut v = Vec::with_capacity(length);
         for _ in 0..length { v.push(0); }
         v.into_boxed_slice()
+    }
+
+    /// Returns an error if the body length is not approved by the paramaters.
+    fn check_body_length(body_length: usize) -> SphinxResult<()> {
+        // Just for debugging convenience we check all lengths
+        // instead of only the one we need.
+        for l in P::BODY_LENGTHS {
+            BodyCipher::compatable_length(*l) ?;
+        }
+        if P::BODY_LENGTHS.len() == 0 {
+            if body_length == 0 {
+                Ok(())  // All body lengths are zero if no body lengths were specified
+            } else {
+                Err( SphinxError::BadLength("Nonempty body with no body lengths specified", body_length) )
+            }
+        } else if P::BODY_LENGTHS.contains(&body_length) {
+            Ok(())
+        } else {
+            Err( SphinxError::BadLength("Unapproaved body length",body_length) )
+        }
     }
 }
 
@@ -396,13 +402,13 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
 
 
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
-    /// calling `SphinxHop::verify_gamma` with the provided fields.
-    pub fn verify_gamma(&self, hop: &SphinxHop<P>) -> SphinxResult<()> {
+    /// calling `HeaderCipher::verify_gamma` with the provided fields.
+    pub fn verify_gamma(&self, hop: &HeaderCipher<P>) -> SphinxResult<()> {
         hop.verify_gamma(self.beta, &Gamma(*self.gamma))
     }
 
     /// Compute gamma from Beta and the SURB.  Probably not useful.
-    pub fn create_gamma(&self, hop: &SphinxHop<P>) -> SphinxResult<Gamma> {
+    pub fn create_gamma(&self, hop: &HeaderCipher<P>) -> SphinxResult<Gamma> {
         hop.create_gamma(self.beta) // .map(|x| { x.0 })
     }
 
@@ -421,7 +427,7 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
     /// Decrypt beta, read a command from an initial segment of beta,
     /// shift beta forward by the command's length, and pad the tail
     /// of beta.
-    pub fn peal_beta(&mut self, hop: &mut SphinxHop<P>) -> SphinxResult<Command> {
+    pub fn peal_beta(&mut self, hop: &mut HeaderCipher<P>) -> SphinxResult<Command> {
         hop.xor_beta(self.beta, false) ?;  // InternalError
 
         let (command, eaten) = Command::parse(self.beta) ?;  // BadPacket: Unknown Command

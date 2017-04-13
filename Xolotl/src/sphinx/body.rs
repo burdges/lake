@@ -25,15 +25,12 @@ pub struct BodyCipher<P: Params> {
 impl<P: Params> BodyCipher<P> {
     pub const KEY_SIZE: usize = 4*64;
 
-    pub fn check_body_length(&self, body_length: usize) -> SphinxResult<()> {
-        // Just for debugging convenience we check all lengths
-        // instead of only the one we need.
-        for i in P::BODY_LENGTHS {
-            if *i < 32 && *i > 0 {
-                return Err( SphinxError::InternalError("Body length under 32 bytes!") );
-            }
+    pub fn compatable_length(body_length: usize) -> SphinxResult<()> {
+        if body_length < 32 && body_length > 0 {
+            return Err( SphinxError::BadLength(
+              "Nonzero body length under 32 bytes!", body_length
+            ) );
         }
-        P::check_body_length(body_length)
     }
 
     pub fn encrypt(&self, body: &mut [u8]) -> SphinxResult<()> {
@@ -50,7 +47,8 @@ impl<P: Params> BodyCipher<P> {
 }
 
 /// We could call `.unwrap()` above to avoid this because
-/// `BodyCipher::check_body_length` has a more complete error test,
+/// `BodyCipher::compatable_length` has a more complete error test,
+/// and gets called by `ImplParams::check_body_length`
 /// but doing so would not simplify the internal API and maybe
 /// keeping it simplifies switching to HHFHFH whenever that appers.
 impl<'a> From<LionessError> for SphinxError {

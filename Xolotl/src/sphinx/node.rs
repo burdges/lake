@@ -14,7 +14,7 @@ use std::marker::PhantomData;
 pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
 pub use ratchet::State as RatchetState;
 
-use super::stream::{SphinxKey};  // SphinxHop
+use super::stream::{SphinxKey};  // HeaderCipher
 use super::layout::{Params,HeaderRefs,Command};
 use super::mailbox::*;
 use super::slice::*;
@@ -84,7 +84,7 @@ impl<P: Params> SphinxRouter<P> {
 
         // Initalize the stream cipher
         let mut key = SphinxKey::<P>::new_kdf(&ss, &self.routing_secret.name);
-        let mut hop = key.hop() ?;  // InternalError: ChaCha stream exceeded
+        let mut hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
 
         // Abort if our MAC gamma fails to verify
         refs.verify_gamma(&hop) ?;  // InvalidMac
@@ -100,7 +100,7 @@ impl<P: Params> SphinxRouter<P> {
             let TwigId(branch_id, twig_idx) = twig;
             let mut advance = AdvanceNode::new(&self.ratchet, &branch_id) ?;  // RatchetError
             key.chacha_key = (advance.clicks(&ss, twig_idx) ?).0;  // RatchetError
-            hop = key.hop() ?;  // InternalError: ChaCha stream exceeded
+            hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
             *refs.gamma = gamma.0;
             if let Err(e) = refs.verify_gamma(&hop) {
                 advance.abandon().unwrap();  // RatchetError ??

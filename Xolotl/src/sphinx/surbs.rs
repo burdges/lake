@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
-use super::stream::{SphinxKey,SphinxHop};
+use super::stream::{SphinxKey,HeaderCipher};
 use super::node::Action;
 use super::error::*;
 use super::slice::*;
@@ -115,7 +115,7 @@ impl<P: Params> SURBStore<P> {
                     params: PhantomData,
                     chacha_nonce: surb.chacha_nonce,
                     chacha_key: surb.chacha_key,
-                }.hop() ?;  // InternalError: ChaCha stream exceeded
+                }.header_cipher() ?;  // InternalError: ChaCha stream exceeded
                 hop.xor_surb_log(surb_log) ?;  // InternalError
                 hop.body_cipher().encrypt(body) ?;  // InternalError
             }
