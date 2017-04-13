@@ -8,8 +8,11 @@ use std::sync::Arc; // RwLock, RwLockReadGuard, RwLockWriteGuard
 use std::marker::PhantomData;
 
 use ratchet::{BranchId,BRANCH_ID_LENGTH,TwigId,TWIG_ID_LENGTH};
+pub use ratchet::State as RatchetState;
 
 pub use super::keys::{RoutingName};  // ROUTING_NAME_LENGTH,ValidityPeriod
+pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
+pub use super::layout::{PreHeader};
 use super::*;
 
 
@@ -18,32 +21,32 @@ use super::*;
 /// ... specifies either the next hop, final delivery 
 enum Activity {
     Sphinx {
-        route: keys::RoutingName,
+        route: RoutingName,
     },
     Ratchet {
-        route: keys::RoutingName,
+        route: RoutingName,
         branch: BranchId,
     },
     FromCrossOver {
-        route: keys::RoutingName,
+        route: RoutingName,
     },
 
     // Final activities
 
     /// Embed SURB into beta and use at the crossover point is specifies
     CrossOverBeta {
-        surb: Header
+        surb: PreHeader
     },
 
     /// Consume a SURB at the contact point specified
     CrossOverContact {
-        route: keys::RoutingName,
+        route: RoutingName,
         // id
     },
 
     /// Consume a SURB at the greeting point specified
     CrossOverGreeting {
-        route: keys::RoutingName,
+        route: RoutingName,
         // id
     },
 
@@ -68,11 +71,12 @@ impl Activity {
     ///
     /// 
     pub fn is_initial(act: &Activity) -> bool {
-        match act {
-            FromCrossOver {} => true,
-            Sphinx {} | Ratchet {} => true,
-            UseSURB {} | UseContact => false,
-            Deliver {} | ArrivalSURB {} | ArrivalDirect {} => false,
+        use self::Activity::*;
+        match *act {
+            FromCrossOver {..} => true,
+            Sphinx {..} | Ratchet {..} => true,
+            CrossOverBeta {..} | CrossOverContact {..} | CrossOverGreeting {..} => false,
+            Deliver {..} | ArrivalSURB {} | ArrivalDirect {} => false,
             // Delete {} | DropOff {} => false,
         }
     }
@@ -82,11 +86,12 @@ impl Activity {
     /// Packets will be processed correctly without a valid final,
     /// but they likely do nothing except move ratchets. 
     pub fn is_final(act: &Activity) -> bool {
-        match act {
-            FromCrossOver {} => false,
-            Sphinx {} | Ratchet {} => false,
-            UseSURB {} | UseContact {} => true,
-            Deliver {} | ArrivalSURB {} | ArrivalDirect {} => true,
+        use self::Activity::*;
+        match *act {
+            FromCrossOver {..} => false,
+            Sphinx {..} | Ratchet {..} => false,
+            CrossOverBeta {..} | CrossOverContact {..} | CrossOverGreeting {..} => true,
+            Deliver {..} | ArrivalSURB {} | ArrivalDirect {} => true,
             // Delete {} => true
             // DropOff {} => false,
         }

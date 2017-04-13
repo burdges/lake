@@ -9,6 +9,7 @@ mod stream;
 mod body;
 mod replay;
 mod node;
+mod client;
 mod keys;
 mod mailbox;
 mod error;
