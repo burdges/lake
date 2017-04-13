@@ -4,9 +4,11 @@
 //!
 //! ...
 
-pub use ratchet::{BranchId,BRANCH_ID_LENGTH,TwigId,TWIG_ID_LENGTH};
-
 use std::sync::Arc; // RwLock, RwLockReadGuard, RwLockWriteGuard
+use std::marker::PhantomData;
+
+use ratchet::{BranchId,BRANCH_ID_LENGTH,TwigId,TWIG_ID_LENGTH};
+
 
 
 /// ...
@@ -91,8 +93,8 @@ impl Activity {
 }
 
 
-struct Activities<'a> {
-    params: &'static SphinxParams,
+struct Activities<'a, : Params> {
+    params: PhantomData<P>,
 
     activities: &'a [Activity],
 

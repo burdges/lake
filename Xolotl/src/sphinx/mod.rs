@@ -20,7 +20,7 @@ mod layout;
 mod surbs;
 
 
-pub use self::layout::SphinxParams;
+pub use self::layout::Params;
 
 
 /// Secret supplied by the Diffie-Hellman key exchange in Sphinx. 

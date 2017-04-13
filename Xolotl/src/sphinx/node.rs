@@ -6,14 +6,16 @@
 
 use std::borrow::{BorrowMut}; // Borrow
 use std::sync::{Arc}; // RwLock
+use std::marker::PhantomData;
+
 
 // pub ed25519_dalek::ed25519;
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
 pub use ratchet::State as RatchetState;
 
-// use super::stream::{SphinxKey,SphinxHop};
-use super::layout::{SphinxParams,HeaderRefs,Command};
+use super::stream::{SphinxKey};  // SphinxHop
+use super::layout::{Params,HeaderRefs,Command};
 use super::mailbox::*;
 use super::slice::*;
 use super::error::*;
@@ -50,8 +52,8 @@ pub enum Action {
 }
 
 
-struct SphinxRouter {
-    params: &'static SphinxParams,
+struct SphinxRouter<P: Params> {
+    params: PhantomData<P>,
 
     // routing_public: keys::RoutingPublic,
     routing_secret: keys::RoutingSecret,
@@ -62,16 +64,16 @@ struct SphinxRouter {
     mailboxes: MailboxStore,
     arrivals: ArrivingStore,
 
-    surbs: Arc<surbs::SURBStore>,
+    surbs: Arc<surbs::SURBStore<P>>,
     ratchet: Arc<RatchetState>,
 }
 
 
-impl SphinxRouter {
+impl<P> SphinxRouter<P> where P: Params {
     /// Invokes ratchet and cross over functionality itself, but
     /// must return an `Action` for functionality that requires
     /// ownership of the header and/or body.
-    fn do_crypto(&self, mut refs: HeaderRefs, body: &mut [u8])
+    fn do_crypto(&self, mut refs: HeaderRefs<P>, body: &mut [u8])
       -> SphinxResult<(PacketName,Action)> {
         // Try SURB unwinding based on alpha contents
         // .. self.surbs.try_unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body); ..
@@ -81,7 +83,7 @@ impl SphinxRouter {
         let ss = alpha.key_exchange(&self.routing_secret.secret);
 
         // Initalize the stream cipher
-        let mut key = self.params.sphinx_kdf(&ss, &self.routing_secret.name);
+        let mut key = SphinxKey::<P>::new_kdf(&ss, &self.routing_secret.name);
         let mut hop = key.hop() ?;  // InternalError: ChaCha stream exceeded
 
         // Abort if our MAC gamma fails to verify
@@ -139,7 +141,7 @@ impl SphinxRouter {
                 if already_crossed_over {
                     return Err( SphinxError::BadPacket("Tried two crossover subhops.",0) );
                 }
-                if surb_beta_length > self.params.max_surb_beta_length {
+                if surb_beta_length > P::MAX_SURB_BETA_LENGTH {
                     return Err( SphinxError::BadPacket("Long SURB attack dropped.",surb_beta_length as u64) );
                 }
                 // Put SURB in control of packet.
@@ -171,7 +173,7 @@ impl SphinxRouter {
             // header and queues the now mutated header and body.
             // As a result, we require that both the original header 
             // and SURB use the same protocol version as specified 
-            // by `self.params`.
+            // by `P::PROTOCOL_NAME`.
             //
             // Also, we must never change the referant of any of our 
             // references in `refs`, even though `refs` must itself 
@@ -187,7 +189,8 @@ impl SphinxRouter {
                 // Prepare packet for next hop as usual in Sphinx.
                 *refs.gamma = gamma.0;
                 *refs.alpha = alpha.blind(& hop.blinding()).compress();
-                Action::Transmit { route, time: hop.time() }
+                let time = ::std::time::SystemTime::now() + hop.delay();
+                Action::Transmit { route, time }
             },
 
             // We box the SURB log because we must store it for pickup
@@ -205,12 +208,12 @@ impl SphinxRouter {
     pub fn process(&self, mut header: Box<[u8]>, mut body: Box<[u8]>)
       -> SphinxResult<()>
     {
-        assert!(self.params.max_beta_tail_length < self.params.beta_length);
+        assert!(P::MAX_BETA_TAIL_LENGTH < P::BETA_LENGTH);
         // assert lengths ...
 
-        self.params.check_body_length(body.len()) ?; // BadLength
+        P::check_body_length(body.len()) ?; // BadLength
         let (packet, action) = {
-            let refs = self.params.slice_header(header.borrow_mut()) ?;  // BadLength
+            let refs = HeaderRefs::<P>::new_sliced(header.borrow_mut()) ?;  // BadLength
             self.do_crypto(refs,body.borrow_mut()) ? 
         };
         match action {

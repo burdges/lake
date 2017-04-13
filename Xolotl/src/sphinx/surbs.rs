@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::hash::Hash; // Hasher
 use std::sync::{RwLock}; // Arc, RwLockReadGuard, RwLockWriteGuard
 use std::iter::Iterator;
+use std::marker::PhantomData;
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
@@ -53,16 +54,14 @@ struct DeliverySURB {
 // pub type RwMap<K,V> = RwLock<HashMap<K,V,HasherState>>;
 use super::mailbox::RwMap;
 
-pub struct SURBStore {
-    /// Sphinx `'static` runtime paramaters 
-    params: &'static SphinxParams,
-
+pub struct SURBStore<P: Params> {
+    params: PhantomData<P>,
     arrivals: RwMap<PacketName,ArrivalSURB>,
     deliverys: RwMap<PacketName,DeliverySURB>,
 }
 
 
-impl SURBStore {
+impl<P: Params> SURBStore<P> {
     // pub new() -> SURBStore {
     //     ;
     // }
@@ -112,8 +111,8 @@ impl SURBStore {
                     // to add all at once? 
                 }
                 // TODO: Use protocol specified in the delivery surb
-                let mut hop = SphinxKey {
-                    params: self.params,
+                let mut hop = SphinxKey::<P> {
+                    params: PhantomData,
                     chacha_nonce: surb.chacha_nonce,
                     chacha_key: surb.chacha_key,
                 }.hop() ?;  // InternalError: ChaCha stream exceeded

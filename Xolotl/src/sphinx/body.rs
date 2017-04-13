@@ -4,9 +4,11 @@
 //!
 //! ...
 
+use std::marker::PhantomData;
+
 use lioness::{LionessDefault,LionessError,RAW_KEY_SIZE};
 
-use super::layout::{SphinxParams};
+use super::layout::{Params};
 use super::error::*;
 
 /// Portion of header key stream to reserve for the Lioness key
@@ -15,33 +17,33 @@ use super::error::*;
 /// constants do not work in constant expressions yet.  :(
 pub const BODY_CIPHER_KEY_SIZE: usize = RAW_KEY_SIZE;
 
-pub struct BodyCipher {
-    pub params: &'static SphinxParams,
+pub struct BodyCipher<P: Params> {
+    pub params: PhantomData<P>,
     pub cipher: LionessDefault
 }
 
-impl BodyCipher {
+impl<P> BodyCipher<P> where P: Params {
     pub const KEY_SIZE: usize = 4*64;
 
     pub fn check_body_length(&self, body_length: usize) -> SphinxResult<()> {
         // Just for debugging convenience we check all lengths
         // instead of only the one we need.
-        for i in self.params.body_lengths {
+        for i in P::BODY_LENGTHS {
             if *i < 32 && *i > 0 {
                 return Err( SphinxError::InternalError("Body length under 32 bytes!") );
             }
         }
-        self.params.check_body_length(body_length)
+        P::check_body_length(body_length)
     }
 
     pub fn encrypt(&self, body: &mut [u8]) -> SphinxResult<()> {
-        self.check_body_length(body.len()) ?;
+        P::check_body_length(body.len()) ?;
         if body.len() > 0 { return Ok(()); }
         Ok(self.cipher.encrypt(body) ?)
     }
 
     pub fn decrypt(&self, body: &mut [u8]) -> SphinxResult<()> {
-        self.check_body_length(body.len()) ?;
+        P::check_body_length(body.len()) ?;
         if body.len() == 0 { return Ok(()); }
         Ok(self.cipher.decrypt(body) ?)
     }

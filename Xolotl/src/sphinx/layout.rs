@@ -6,6 +6,7 @@
 
 use std::borrow::{Borrow,BorrowMut};
 use std::iter::{Iterator};  // IntoIterator, TrustedLen, ExactSizeIterator
+use std::marker::PhantomData;
 
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
@@ -25,128 +26,94 @@ use super::slice::*;
 pub type Length = usize;
 
 
-/// Sphinx `'static` runtime paramaters 
+/// Sphinx paramaters
 ///
 /// We require a `&'static SphinxParams` when used because the
 /// protocol specification should be compiled into the binary.
 ///
 /// In some cases, there could be minor performance hits if some
 /// of these are not multiples of the ChaCha blocksize of 64 byte.
-#[derive(Debug)] // Clone, Copy
-pub struct SphinxParams {
+pub trait Params: Sized {
     /// Unique version identifier for the protocol
-    pub protocol_name: &'static str,
+    const PROTOCOL_NAME: &'static str;
 
     /// Length of the routing information block `Beta`.
-    pub beta_length: Length,
+    const BETA_LENGTH: Length;
 
     /// Maximal amount of routing infomrmation in `Beta` consued
     /// by a single sub-hop.
-    pub max_beta_tail_length: Length,
+    const MAX_BETA_TAIL_LENGTH: Length;
 
-    /// Maximum length of the SURB.  At most half of `beta_length - 48`.
+    /// Maximum length of the SURB.  At most half of `BETA_LENGTH - 48`.
     ///
     /// Alpha and Gamma are encoded into the "bottom" of beta, and
     /// hence do not contribute here.  This is unlikely to change.
-    /// As a result this should not exceed `beta_length`
-    pub max_surb_beta_length: Length,
+    /// As a result this should not exceed `BETA_LENGTH`
+    const MAX_SURB_BETA_LENGTH: Length;
 
     /// Length of the SURB log.
-    pub surb_log_length: Length,
-
-    pub delay_lambda: f64,
+    const SURB_LOG_LENGTH: Length;
 
     /// Approved message body lengths
-    pub body_lengths: &'static [Length],
-}
+    const BODY_LENGTHS: &'static [Length];
 
-impl SphinxParams {
+    /// Rate paramater lambda for the exponential distribution of
+    /// from which we sample the senders' sugested delays in 
+    /// `Stream::delay`.
+    const DELAY_LAMBDA: f64;
+
     /// Sphinx header length
     #[inline(always)]
-    pub fn header_length(&self) -> usize {
+    fn header_length() -> usize {
         ALPHA_LENGTH + GAMMA_LENGTH
-        + self.beta_length as usize
-        + self.surb_log_length as usize
-    }
-
-    /// Create a `Box<[u8]>` with the required header length
-    /// and containing zeros.
-    pub fn boxed_zeroed_header(&self) -> Box<[u8]> {
-        let mut v = Vec::with_capacity(self.header_length());
-        for _ in 0..self.header_length() { v.push(0); }
-        v.into_boxed_slice()
-    }
-
-    /// Borrow a mutable slice `&mut [u8]` as a `HeaderRefs` consisting.
-    /// of subspices for the various header components.  You may mutate
-    /// these freely so that after the borrow ends the original slice
-    /// contains the new header. 
-    /// 
-    pub fn slice_header<'a>(&'static self, mut header: &'a mut [u8])
-      -> SphinxResult<HeaderRefs<'a>>
-    {
-        // Prevent configurations that support long SURB attacks.
-        if 2*self.max_surb_beta_length > self.beta_length - ALPHA_LENGTH + GAMMA_LENGTH {
-            return Err( SphinxError::BadLength("Maximum SURB is so long that it degrades sender security",
-                self.max_surb_beta_length) );
-        }
-        if self.max_surb_beta_length > MAX_SURB_BETA_LENGTH as Length {
-            return Err( SphinxError::BadLength("Maximum SURB length exceeds encoding",
-                self.max_surb_beta_length) );
-        }
-
-        let orig_len = header.len();
-        if orig_len < self.header_length() {
-            return Err( SphinxError::BadLength("Header is too short",orig_len) );
-        }
-        let hr = HeaderRefs {
-            params: self,
-            alpha: reserve_fixed_mut!(&mut header,ALPHA_LENGTH),
-            gamma: reserve_fixed_mut!(&mut header,GAMMA_LENGTH),
-            beta: reserve_mut(&mut header,self.beta_length as usize),
-            surb_log: reserve_mut(&mut header,self.surb_log_length as usize),
-        };
-        if header.len() > 0 {
-            return Err( SphinxError::BadLength("Header is too long",orig_len) );
-        }
-        Ok(hr)
+        + Self::BETA_LENGTH as usize
+        + Self::SURB_LOG_LENGTH as usize
     }
 
     /// Returns an error if the body length is not approved by the paramaters.
-    pub fn check_body_length(&self, body_length: usize) -> SphinxResult<()> {
-        if self.body_lengths.len() == 0 {
+    fn check_body_length(body_length: usize) -> SphinxResult<()> {
+        if Self::BODY_LENGTHS.len() == 0 {
             if body_length == 0 {
                 Ok(())  // All body lengths are zero if no body lengths were specified
             } else {
                 Err( SphinxError::BadLength("Nonempty body with no body lengths specified", body_length) )
             }
-        } else if self.body_lengths.contains(&body_length) {
+        } else if Self::BODY_LENGTHS.contains(&body_length) {
             Ok(())
         } else {
             Err( SphinxError::BadLength("Unapproaved body length",body_length) )
         }
     }
+}
+
+
+/// Just a helper trait to provide inherent methods on types
+/// satisfying `Params`.
+pub trait ImplParams: Params {
+    fn boxed_zeroed_header() -> Box<[u8]>;
+    fn boxed_zeroed_body(i: usize) -> Box<[u8]>;
+}
+
+impl<P> ImplParams for P where P: Params {
+    /// Create a `Box<[u8]>` with the required header length
+    /// and containing zeros.
+    fn boxed_zeroed_header() -> Box<[u8]> {
+        let l = P::header_length();
+        let mut v = Vec::with_capacity(l);
+        for _ in 0..l { v.push(0); }
+        v.into_boxed_slice()
+    }
 
     /// Create a `Box<[u8]>` with the requested body length
-    /// from `SphinxParams::body_lengths` and containing zeros.
-    pub fn boxed_zeroed_body(&self, i: usize) -> Box<[u8]> {
-        let length = self.body_lengths[i];
+    /// from `SphinxParams::BODY_LENGTHS` and containing zeros.
+    fn boxed_zeroed_body(i: usize) -> Box<[u8]> {
+        let length = P::BODY_LENGTHS[i];
         let mut v = Vec::with_capacity(length);
         for _ in 0..length { v.push(0); }
         v.into_boxed_slice()
     }
 
 }
-
-pub const INVALID_SPHINX_PARAMS : &'static SphinxParams = &SphinxParams {
-    protocol_name: "Invalid Sphinx!",
-    beta_length: 0,
-    max_beta_tail_length: 0,
-    max_surb_beta_length: 0,
-    surb_log_length: 0,
-    delay_lambda: 1.0,
-    body_lengths: &[0]
-};
 
 
 /// Commands to mix network nodes embedded in beta.
@@ -194,6 +161,7 @@ pub enum Command {
 
     // DropOff { },
     // Delete { },
+    // Dummy { },
 }
 
 pub const MAX_SURB_BETA_LENGTH : usize = 0x1000;
@@ -340,9 +308,9 @@ impl<'a,T> DerefMut for HideMut<'a,T> where T: ?Sized {
 
 /// A Sphinx header structured by individual components. 
 ///
-/// Create by applying `slice_header` to `&mut [u8]` slice of the
+/// Create by applying `new_sliced` to `&mut [u8]` slice of the
 /// correct length, like that created by `boxed_zeroed_header`.
-/// We check all lengths in `slice_header` so that methods and
+/// We check all lengths in `new_sliced` so that methods and
 /// functions using `HeaderRefs` may assume all header lengths to
 /// be correct, and even that the slices are contiguious.
 ///
@@ -353,17 +321,15 @@ impl<'a,T> DerefMut for HideMut<'a,T> where T: ?Sized {
 /// As a result, any caller could invalidate our requirement that 
 /// slices be contiguous.  If desired, this could be prevented using
 /// the `HideMut` struct above.  See http://stackoverflow.com/a/42376165/667457
-pub struct HeaderRefs<'a> {
-    /// Sphinx `'static` runtime paramaters 
-    pub params: &'static SphinxParams,
-
+pub struct HeaderRefs<'a,P: Params> {
+    params: PhantomData<P>,
     pub alpha: &'a mut AlphaBytes,
     pub gamma: &'a mut GammaBytes,
     pub beta:  &'a mut [u8],
     pub surb_log: &'a mut [u8],
 }
 
-impl<'a> HeaderRefs<'a> {
+impl<'a,P> HeaderRefs<'a,P> where P: Params {
 /*
     pub fn alpha(&'a self) -> &'a AlphaBytes { self.alpha }
     pub fn gamma(&'a self) -> &'a GammaBytes { self.gamma }
@@ -376,14 +342,49 @@ impl<'a> HeaderRefs<'a> {
     pub fn surb_log_mut(&'a mut self) -> &'a mut [u8] { self.surb_log }
 */
 
+    /// Borrow a mutable slice `&mut [u8]` as a `HeaderRefs` consisting.
+    /// of subspices for the various header components.  You may mutate
+    /// these freely so that after the borrow ends the original slice
+    /// contains the new header. 
+    ///
+    pub fn new_sliced<'s>(mut header: &'s mut [u8]) -> SphinxResult<HeaderRefs<'s,P>>
+    {
+        // Prevent configurations that support long SURB attacks.
+        if 2*P::MAX_SURB_BETA_LENGTH > P::BETA_LENGTH - ALPHA_LENGTH + GAMMA_LENGTH {
+            return Err( SphinxError::BadLength("Maximum SURB is so long that it degrades sender security",
+                P::MAX_SURB_BETA_LENGTH) );
+        }
+        if P::MAX_SURB_BETA_LENGTH > MAX_SURB_BETA_LENGTH as Length {
+            return Err( SphinxError::BadLength("Maximum SURB length exceeds encoding",
+                P::MAX_SURB_BETA_LENGTH) );
+        }
+
+        let orig_len = header.len();
+        if orig_len < P::header_length() {
+            return Err( SphinxError::BadLength("Header is too short",orig_len) );
+        }
+        let hr = HeaderRefs {
+            params: PhantomData,
+            alpha: reserve_fixed_mut!(&mut header,ALPHA_LENGTH),
+            gamma: reserve_fixed_mut!(&mut header,GAMMA_LENGTH),
+            beta: reserve_mut(&mut header,P::BETA_LENGTH as usize),
+            surb_log: reserve_mut(&mut header,P::SURB_LOG_LENGTH as usize),
+        };
+        if header.len() > 0 {
+            return Err( SphinxError::BadLength("Header is too long",orig_len) );
+        }
+        Ok(hr)
+    }
+
+
     /// Verify the poly1305 MAC `Gamma` given in a Sphinx packet by
     /// calling `SphinxHop::verify_gamma` with the provided fields.
-    pub fn verify_gamma(&self, hop: &SphinxHop) -> SphinxResult<()> {
+    pub fn verify_gamma(&self, hop: &SphinxHop<P>) -> SphinxResult<()> {
         hop.verify_gamma(self.beta, &Gamma(*self.gamma))
     }
 
     /// Compute gamma from Beta and the SURB.  Probably not useful.
-    pub fn create_gamma(&self, hop: &SphinxHop) -> SphinxResult<Gamma> {
+    pub fn create_gamma(&self, hop: &SphinxHop<P>) -> SphinxResult<Gamma> {
         hop.create_gamma(self.beta) // .map(|x| { x.0 })
     }
 
@@ -402,11 +403,11 @@ impl<'a> HeaderRefs<'a> {
     /// Decrypt beta, read a command from an initial segment of beta,
     /// shift beta forward by the command's length, and pad the tail
     /// of beta.
-    pub fn peal_beta(&mut self, hop: &mut SphinxHop) -> SphinxResult<Command> {
+    pub fn peal_beta(&mut self, hop: &mut SphinxHop<P>) -> SphinxResult<Command> {
         hop.xor_beta(self.beta, false) ?;  // InternalError
 
         let (command, eaten) = Command::parse(self.beta) ?;  // BadPacket: Unknown Command
-        if eaten > self.params.max_beta_tail_length as usize {
+        if eaten > P::MAX_BETA_TAIL_LENGTH as usize {
             return Err( SphinxError::InternalError("Ate too much Beta!") );
         }
 
@@ -414,7 +415,7 @@ impl<'a> HeaderRefs<'a> {
         // commands here, like zeroing beta's during cross over, or 
         // ignoring beta entirely for delivery commands. 
         let length = self.beta.len();
-        debug_assert_eq!(length, self.params.beta_length as usize);
+        debug_assert_eq!(length, P::BETA_LENGTH as usize);
         // let beta = &mut refs.beta[..length];
         for i in eaten..length { self.beta[i-eaten] = self.beta[i];  }
         hop.set_beta_tail(&mut self.beta[length-eaten..length]) ?;  // InternalError
@@ -428,12 +429,12 @@ impl<'a> HeaderRefs<'a> {
 
 /*
 
-pub struct HeaderIter<'a> {
+pub struct HeaderIter<'a,P: Params> {
     offset: usize,
     header_refs: HeaderRefs<'a>,
 }
 
-impl<'a> Iterator for HeaderIter<'a> {
+impl<'a,P: Params> Iterator for HeaderIter<'a,P> {
     type Item=u8;
 
     fn next(&mut self) -> Option<u8> {
@@ -443,27 +444,27 @@ impl<'a> Iterator for HeaderIter<'a> {
         i -= ALPHA_LENGTH;
         if i < GAMMA_LENGTH { return Some(self.gamma[i]) }
         i -= GAMMA_LENGTH;
-        if i < self.params.beta_length as usize { return Some(self.beta[i]) }
-        i -= self.params.beta_length as usize;
-        if i < self.params.surb_log_length as usize { return Some(self.surb_log[i]) }
-        i -= self.params.surb_log_length as usize;
-        if i < self.params.surb_length as usize { return Some(self.surb[i]) }
-        i -= self.params.surb_length as usize;
+        if i < P::BETA_LENGTH as usize { return Some(self.beta[i]) }
+        i -= P::BETA_LENGTH as usize;
+        if i < P::SURB_LOG_LENGTH as usize { return Some(self.surb_log[i]) }
+        i -= P::SURB_LOG_LENGTH as usize;
+        if i < P::surb_length as usize { return Some(self.surb[i]) }
+        i -= P::surb_length as usize;
         self.offset -= 1;  None
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let l = self.params.header_length();
+        let l = P::header_length();
         (l, Some(l))
     }
 }
 
-impl<'a> Iterator ExactSizeIterator for HeaderIter<'a> {
-    fn len(&self) -> usize { self.params.header_length() }
+impl<'a, P: Params> Iterator ExactSizeIterator for HeaderIter<'a> {
+    fn len(&self) -> usize { P::header_length() }
     // fn is_empty(&self) -> bool { false }
 }
 
-impl<'a> IntoIterator for HeaderRefs<'a> {
+impl<'a, P: Params> IntoIterator for HeaderRefs<'a,P> {
     type Item=u8;
     type IntoIter = HeaderIter<'a>;
     fn into_iter(self) -> HeaderIter<'a> {
@@ -517,23 +518,21 @@ impl PreHeader {
 
 use rand::Rng;
 
-impl SphinxParams {
-    pub fn encode_header<R: Rng>(&'static self, rng: &mut Rng, preheader: PreHeader) -> Box<[u8]> {
-        let mut h = self.boxed_zeroed_header();
-        {
-            let mut refs = self.slice_header(h.borrow_mut()).unwrap();
-            *refs.alpha = preheader.alpha;
-            *refs.gamma = preheader.gamma.0;
-            refs.beta.copy_from_slice(preheader.beta.borrow());
-            rng.fill_bytes(refs.surb_log);
-            // argument: seed: &[u8; 32]
-            // use chacha::ChaCha as ChaCha20;
-            // use keystream::{KeyStream};
-            // let mut chacha = ChaCha20::new_chacha20(seed, &[0u8; 8]);
-            // self.stream.xor_read(refs.surb_log).unwrap();
-        }
-        h
+pub fn encode_header<P: Params,R: Rng>(rng: &mut Rng, preheader: PreHeader) -> Box<[u8]> {
+    let mut h = P::boxed_zeroed_header();
+    {
+        let mut refs = HeaderRefs::<P>::new_sliced(h.borrow_mut()).unwrap();
+        *refs.alpha = preheader.alpha;
+        *refs.gamma = preheader.gamma.0;
+        refs.beta.copy_from_slice(preheader.beta.borrow());
+        rng.fill_bytes(refs.surb_log);
+        // argument: seed: &[u8; 32]
+        // use chacha::ChaCha as ChaCha20;
+        // use keystream::{KeyStream};
+        // let mut chacha = ChaCha20::new_chacha20(seed, &[0u8; 8]);
+        // self.stream.xor_read(refs.surb_log).unwrap();
     }
+    h
 }
 
 
