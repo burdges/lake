@@ -41,25 +41,52 @@ impl CommandData for Vec<u8> {
 }
 
 
+/// Representation for `Gamma` that might currently be unknown.
+pub trait CommandGamma {
+    fn data(&self) -> &[u8; GAMMA_LENGTH];
+}
+
+/// We must know `Gamma`
+impl CommandGamma for Gamma {
+    fn data(&self) -> &[u8; GAMMA_LENGTH] { &self.0 }
+}
+
+/// We prepare `beta` with an unknown value for `Gamma` which
+/// we measure as `[0u8; GAMMA_LENGTH]` to give a correct length.
+impl CommandGamma for () {
+    fn data(&self) -> &[u8; GAMMA_LENGTH] {
+        static INVALID_GAMMA: &[u8; GAMMA_LENGTH] = &[0u8; GAMMA_LENGTH];
+        INVALID_GAMMA
+    }
+}
+
+
+/// Actual `Command` type produced when decoding `beta`.
+pub type CommandNode = Command<Gamma,usize>;
+
+/// Preliminay `Command` types used when encoding `beta`.
+pub type PreCommand<G> = Command<G,Vec<u8>>;
+
+
 /// Commands to mix network nodes embedded in beta.
 #[derive(Debug)] // Clone, Copy
-pub enum Command<D: CommandData> {
+pub enum Command<G: CommandGamma,D: CommandData> {
     /// Transmit packet to another mix network node
     Transmit {
         route: RoutingName,
-        gamma: Gamma,
+        gamma: G,
     },
 
     /// Advance and integrate a ratchet state
     Ratchet {
         twig: TwigId,
-        gamma: Gamma,
+        gamma: G,
     },
 
     /// Crossover with SURB in beta
     CrossOver {
         alpha: AlphaBytes,
-        gamma: Gamma,
+        gamma: G,
         surb_beta: D,
     },
 
@@ -91,7 +118,7 @@ pub enum Command<D: CommandData> {
 
 pub const MAX_SURB_BETA_LENGTH : usize = 0x1000;
 
-impl<D: CommandData> Command<D> {
+impl<G: CommandGamma,D: CommandData> Command<G,D> {
     /// Feed the closure a series of byte arrays that give our wire
     /// representation. 
     ///
@@ -102,18 +129,18 @@ impl<D: CommandData> Command<D> {
       where F: FnOnce(&[&[u8]]) -> R {
         use self::Command::*;
         match *self {
-            Transmit { route, gamma } => {
-                f(&[ &[0x80u8; 1], &route.0, &gamma.0 ])
+            Transmit { route, ref gamma } => {
+                f(&[ &[0x80u8; 1], &route.0, gamma.data() ])
             },
-            Ratchet { twig, gamma } => 
-                f(&[ &[0x00u8; 1], & twig.to_bytes(), &gamma.0 ]),
-            CrossOver { alpha, gamma, ref surb_beta } => {
+            Ratchet { twig, ref gamma } => 
+                f(&[ &[0x00u8; 1], & twig.to_bytes(), gamma.data() ]),
+            CrossOver { alpha, ref gamma, ref surb_beta } => {
                 let surb_beta_length = surb_beta.length();
                 debug_assert!(surb_beta_length < MAX_SURB_BETA_LENGTH);
                 debug_assert!(MAX_SURB_BETA_LENGTH <= 0x1000);
                 let h = (surb_beta_length >> 8) as u8;
                 let l = (surb_beta_length & 0xFF) as u8;
-                f(&[ &[0x40u8 | h, l], &alpha, &gamma.0, surb_beta.data() ])
+                f(&[ &[0x40u8 | h, l], &alpha, gamma.data(), surb_beta.data() ])
             },
             Contact { } => 
                 f(&[ &[0x60u8; 1], unimplemented!() ]),
@@ -144,13 +171,13 @@ impl<D: CommandData> Command<D> {
     }
 }
 
-impl Command<usize> {
+impl CommandNode {
     /// Read a command from the beginning of beta.
     ///
     /// We only return the SURBs length and do not seperate it
     /// because this only gets called from `peal_beta` which leaves
     /// the SURB in place.
-    fn parse(mut beta: &[u8]) -> SphinxResult<(Command<usize>,usize)> {
+    fn parse(mut beta: &[u8]) -> SphinxResult<(CommandNode,usize)> {
         use self::Command::*;
         let beta_len = beta.len();
         // We could tweak RoutingName or TwigId to shave off one byte
@@ -443,14 +470,17 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
     }
 
     /// Prepend a command to beta for creating beta.
-    pub fn prepend_to_beta<D: CommandData>(&mut self, cmd: &Command<D>) -> usize {
+    ///
+    /// TODO: Remove as this should never be used.
+    pub fn prepend_to_beta<G,D>(&mut self, cmd: &Command<G,D>) -> usize
+      where G: CommandGamma, D: CommandData {
         cmd.prepend_bytes(self.beta)
     }
 
     /// Decrypt beta, read a command from an initial segment of beta,
     /// shift beta forward by the command's length, and pad the tail
     /// of beta.
-    pub fn peal_beta(&mut self, hop: &mut HeaderCipher<P>) -> SphinxResult<Command<usize>> {
+    pub fn peal_beta(&mut self, hop: &mut HeaderCipher<P>) -> SphinxResult<CommandNode> {
         hop.xor_beta(self.beta, false) ?;  // InternalError
 
         let (command, eaten) = Command::parse(self.beta) ?;  // BadPacket: Unknown Command

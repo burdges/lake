@@ -135,12 +135,10 @@ impl<P: Params> Router<P> {
             // We cross over to running a SURB embedded in beta by
             // moving the SURB into postion, zeroing the tail, and
             // recursing. 
-            Command::CrossOver { surb_beta, alpha, gamma } => {
+            Command::CrossOver { surb_beta: surb_beta_length, alpha, gamma } => {
                 if already_crossed_over {
                     return Err( SphinxError::BadPacket("Tried two crossover subhops.",0) );
                 }
-                use super::layout::CommandData;
-                let surb_beta_length = surb_beta.length();
                 if surb_beta_length > P::MAX_SURB_BETA_LENGTH {
                     return Err( SphinxError::BadPacket("Long SURB attack dropped.",surb_beta_length as u64) );
                 }

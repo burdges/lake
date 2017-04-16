@@ -102,9 +102,60 @@ impl Activity {
         }
     }
 
-    pub fn<F> commands(f: F)
-      where F: FnOnce(&[u8]) -> R {
-        ;
+    pub fn<F> feed_commands(&self, f: F)
+      where F: FnMut(Command<Vec<u8>,()>) -> R {
+        let gamma = ();
+        match *self {
+            Sphinx { route } => {
+                f(Transmit { route, gamma }),
+            },
+
+            Ratchet { route, branch } => {
+        route: RoutingName,
+        branch: BranchId,
+            },
+    FromCrossOver {
+        route: RoutingName,
+    },
+
+    // DropOff { },
+
+    // Final activities
+
+    Dummy { },
+
+    /// Embed SURB into beta and use at the crossover point specified
+    CrossOver {
+        surb: PreHeader
+    },
+
+    /// Consume a SURB at the contact point specified
+    Contact {
+        route: RoutingName,
+        // id
+    },
+
+    /// Consume a SURB at the greeting point specified
+    Greeting {
+        route: RoutingName,
+        // id
+    },
+
+    /// Deliver message to the specified mailbox, roughly equivelent
+    /// to transmition to a non-existant mix network node.
+    Deliver {
+        mailbox: MailboxName,
+    },
+
+    /// Arrival of a SURB we created and archived.
+    ArrivalSURB { },
+
+    /// Arrival of a message for a local application.
+    ArrivalDirect { },
+
+    // Delete { },
+
+        }
     }
 }
 
@@ -192,8 +243,8 @@ struct Client<P: Params> {
     ratchet: Arc<RatchetState>,
 }
 
-*/
 
+*/
 
 
 
