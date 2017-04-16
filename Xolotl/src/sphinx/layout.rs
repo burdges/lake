@@ -20,9 +20,30 @@ use super::slice::*;
 use super::*; // {PacketName,PACKET_NAME_LENGTH};
 
 
+/// Representation for any unsized extra data of a `Command`.
+pub trait CommandData {
+    fn length(&self) -> usize;
+    fn data(&self) -> &[u8];
+}
+
+/// We leave any extra data for a command in beta when parsing
+/// during mix node operation, so it requires only a length `usize`.
+impl CommandData for usize {
+    fn length(&self) -> usize { *self }
+    fn data(&self) -> &[u8] { &[] }  // panic??
+}
+
+/// We hold unsized extra data as a `Vec[u8]` inside the `Command` 
+/// when building headers on the client.
+impl CommandData for Vec<u8> {
+    fn length(&self) -> usize { self.len() }
+    fn data(&self) -> &[u8] { self }
+}
+
+
 /// Commands to mix network nodes embedded in beta.
-#[derive(Debug, Clone, Copy)]
-pub enum Command {
+#[derive(Debug)] // Clone, Copy
+pub enum Command<D: CommandData> {
     /// Transmit packet to another mix network node
     Transmit {
         route: RoutingName,
@@ -39,7 +60,7 @@ pub enum Command {
     CrossOver {
         alpha: AlphaBytes,
         gamma: Gamma,
-        surb_beta_length: usize,
+        surb_beta: D,
     },
 
     /// Crossover with SURB stored on node
@@ -70,7 +91,7 @@ pub enum Command {
 
 pub const MAX_SURB_BETA_LENGTH : usize = 0x1000;
 
-impl Command {
+impl<D: CommandData> Command<D> {
     /// Feed the closure a series of byte arrays that give our wire
     /// representation. 
     ///
@@ -86,12 +107,13 @@ impl Command {
             },
             Ratchet { twig, gamma } => 
                 f(&[ &[0x00u8; 1], & twig.to_bytes(), &gamma.0 ]),
-            CrossOver { alpha, gamma, surb_beta_length } => {
+            CrossOver { alpha, gamma, ref surb_beta } => {
+                let surb_beta_length = surb_beta.length();
                 debug_assert!(surb_beta_length < MAX_SURB_BETA_LENGTH);
                 debug_assert!(MAX_SURB_BETA_LENGTH <= 0x1000);
                 let h = (surb_beta_length >> 8) as u8;
                 let l = (surb_beta_length & 0xFF) as u8;
-                f(&[ &[0x40u8 | h, l], &alpha, &gamma.0 ])
+                f(&[ &[0x40u8 | h, l], &alpha, &gamma.0, surb_beta.data() ])
             },
             Contact { } => 
                 f(&[ &[0x60u8; 1], unimplemented!() ]),
@@ -120,13 +142,15 @@ impl Command {
     pub fn prepend_bytes(&self, beta: &mut [u8]) -> usize {
         self.feed_bytes( |x| { prepend_slice_of_slices(beta, x) } )
     }
+}
 
+impl Command<usize> {
     /// Read a command from the beginning of beta.
     ///
     /// We only return the SURBs length and do not seperate it
     /// because this only gets called from `peal_beta` which leaves
     /// the SURB in place.
-    fn parse(mut beta: &[u8]) -> SphinxResult<(Command,usize)> {
+    fn parse(mut beta: &[u8]) -> SphinxResult<(Command<usize>,usize)> {
         use self::Command::*;
         let beta_len = beta.len();
         // We could tweak RoutingName or TwigId to shave off one byte
@@ -146,7 +170,7 @@ impl Command {
             // Anything else has the form 0b01??_????
             // CrossOver from Beta if 0b0100_????
             0x40..0x4F => CrossOver {
-                surb_beta_length: (
+                surb_beta: (
                     (((b0 & 0x0F) as u16) << 8) | (reserve_fixed!(&mut beta,1)[0] as u16)
                 ) as usize,
                 alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
@@ -419,14 +443,14 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
     }
 
     /// Prepend a command to beta for creating beta.
-    pub fn prepend_to_beta(&mut self, cmd: &Command) -> usize {
+    pub fn prepend_to_beta<D: CommandData>(&mut self, cmd: &Command<D>) -> usize {
         cmd.prepend_bytes(self.beta)
     }
 
     /// Decrypt beta, read a command from an initial segment of beta,
     /// shift beta forward by the command's length, and pad the tail
     /// of beta.
-    pub fn peal_beta(&mut self, hop: &mut HeaderCipher<P>) -> SphinxResult<Command> {
+    pub fn peal_beta(&mut self, hop: &mut HeaderCipher<P>) -> SphinxResult<Command<usize>> {
         hop.xor_beta(self.beta, false) ?;  // InternalError
 
         let (command, eaten) = Command::parse(self.beta) ?;  // BadPacket: Unknown Command

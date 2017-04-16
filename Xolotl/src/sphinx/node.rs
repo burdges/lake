@@ -51,12 +51,11 @@ pub enum Action {
 }
 
 
-struct SphinxRouter<P: Params> {
+struct Router<P: Params> {
     params: PhantomData<P>,
 
     // routing_public: keys::RoutingPublic,
     routing_secret: keys::RoutingSecret,
-
     replayer: replay::ReplayFilterStore,
 
     outgoing: OutgoingStore,
@@ -68,7 +67,7 @@ struct SphinxRouter<P: Params> {
 }
 
 
-impl<P: Params> SphinxRouter<P> {
+impl<P: Params> Router<P> {
     /// Invokes ratchet and cross over functionality itself, but
     /// must return an `Action` for functionality that requires
     /// ownership of the header and/or body.
@@ -136,10 +135,12 @@ impl<P: Params> SphinxRouter<P> {
             // We cross over to running a SURB embedded in beta by
             // moving the SURB into postion, zeroing the tail, and
             // recursing. 
-            Command::CrossOver { surb_beta_length, alpha, gamma } => {
+            Command::CrossOver { surb_beta, alpha, gamma } => {
                 if already_crossed_over {
                     return Err( SphinxError::BadPacket("Tried two crossover subhops.",0) );
                 }
+                use super::layout::CommandData;
+                let surb_beta_length = surb_beta.length();
                 if surb_beta_length > P::MAX_SURB_BETA_LENGTH {
                     return Err( SphinxError::BadPacket("Long SURB attack dropped.",surb_beta_length as u64) );
                 }
