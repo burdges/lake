@@ -21,6 +21,7 @@
 
 use std::ops::Range;
 use std::time::{Duration,SystemTime,UNIX_EPOCH};
+use std::collections::HashMap;
 
 use rand::{Rng, Rand};
 
@@ -101,9 +102,11 @@ impl ValidityPeriod {
 
 pub const ROUTING_NAME_LENGTH : usize = 16;
 
+pub type RoutingNameBytes = [u8; ROUTING_NAME_LENGTH];
+
 /// Identifies a particular node and its routing key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct RoutingName(pub [u8; ROUTING_NAME_LENGTH]);
+pub struct RoutingName(pub RoutingNameBytes);
 
 /// Routing public key certificate
 #[derive(Clone, Debug)]  // Copy
@@ -197,16 +200,31 @@ impl RoutingSecret {
 }
 
 
+/// Identifies a particular node without specifying a routing key.
+pub type IssuerPublicKey = ed25519::PublicKey;
+
 /// 
 #[derive(Clone, Debug)]  // Copy
-pub struct IssuerPublic {
+pub struct IssuerPublicKeyInfo {
     pub validity: ValidityPeriod,
-    pub public: ed25519::PublicKey,
     pub signature: ed25519::Signature,
 }
 
-// impl IssuerPublic {
-// }
+fn issuer_signable(pk: &IssuerPublicKey, validity: &ValidityPeriod) -> [u8; 16+32] {
+    let mut b = [0u8; 16+32];
+    {
+        let (validity,public) = mut_array_refs![&mut b,16,32];
+        *validity = self.validity.to_bytes();
+        *public = self.public.to_bytes();
+    }
+    b
+}
+
+impl IssuerPublicKeyInfo {
+    pub fn verify(&self, pk: &IssuerPublicKey) -> bool {
+        pk.verify(& issuer_signable(pk,&self.validity),&self.signature)
+    }
+}
 
 /// 
 #[derive(Debug)]  // Clone, Copy
@@ -226,19 +244,12 @@ impl IssuerSecret {
         }
     }
 
-    pub fn public(&self) -> IssuerPublic {
-        let mut b = [0u8; 16+32];
-        {
-        let (validity,public) = mut_array_refs![&mut b,16,32];
-        *validity = self.validity.to_bytes();
-        *public = self.public.to_bytes();
-        }
-        let signature = self.secret.sign(&b[..ROUTING_SECRET_LENGTH-64]);
-        IssuerPublic {
+    pub fn public(&self) -> (IssuerPublicKey,IssuerPublicKeyInfo) {
+        let signature = self.secret.sign(& issuer_signable(&self.public,&self.validity));
+        (pk, IssuerPublicKeyInfo {
             validity: self.validity.clone(),
-            public: self.public,
             signature: signature,
-        }
+        })
     }
 
     pub fn issue<R: Rng>(&self, rng: &mut R, validity: ValidityPeriod)
@@ -259,7 +270,88 @@ impl IssuerSecret {
         s.name = p.name();
         (s.name,p,s)
     }
+}
 
+
+/// Access records for issuer and routing keys.
+/// 
+/// TODO: Add target validity to all these
+trait Concensus {
+    /// Returns the routing public key record associated to a given
+    /// routing name.
+    ///
+    /// Use `routing_by_routing` when using a SURB.  If you use this
+    /// the hop before the cross over point may learn their position.
+    fn routing_named(&self, routing_name: &RoutingName)
+      -> SphinxResult<&RoutingPublic>;
+
+    /// Choose a random issuer from the entire network.
+    ///
+    /// Almost impossible to use correctly because poor routing key
+    /// validity period may expose epistemic information.
+    fn issuer_choice(&self, rng: &mut Rng)
+      -> SphinxResult<(IssuerPublicKey,&IssuerPublicKeyInfo)>;
+
+    /// Choose a random routing key from the entire network
+    ///
+    /// TODO: Selects for maximal remaining validity?
+    fn routing_choice(&self, rng: &mut Rng)
+      -> SphinxResult<(RoutingName,&RoutingPublic)>;
+
+    /// Fetch a routing key for some particular issuer
+    ///
+    /// TODO: Selects for maximal remaining validity?
+    fn routing_by_issuer(&self, rng: &mut Rng, issuer: &IssuerPublicKey)
+      -> SphinxResult<(RoutingName,&RoutingPublic)>;
+
+    /// Fetch a routing key with substancial validity period remaining.
+    ///
+    /// TODO: Selects for maximal remaining validity?
+    fn routing_by_routing(&self, rng: &mut Rng, routing_name: &RoutingName)
+      -> SphinxResult<(RoutingName,&RoutingPublic)> 
+    {
+        let r = self.routing_named(routing_name) ?;
+        self.routing_by_issuer(rng, &r.issuer)
+    }
+}
+
+struct ConcensusMaps {
+    issuer_keys: HashMap<IssuerPublicKey,IssuerPublicKeyInfo>,
+    routing_by_name: HashMap<RoutingName,RoutingPublic>,
+    routing_by_issuer: HashMap<IssuerPublicKey,Vec<(ValidityPeriod,RoutingName)>>,
+};
+
+impl Concensus for ConcensusMaps {
+    fn routing_named(&self, routing_name: &RoutingName)
+      -> SphinxResult<&RoutingPublic>
+    {
+        self.routing_by_name.get(routing_name)
+          .ok_or( SphinxError::ConcensusLacking("No RoutingPublic for given RoutingName.") )
+    }
+
+    fn issuer_choice(&self, rng: &mut Rng)
+      -> SphinxResult<(IssuerPublicKey,&IssuerPublicKeyInfo)>
+    {
+        unimplemented!();
+    }
+
+    fn routing_choice(&self, rng: &mut Rng)
+      -> SphinxResult<(RoutingName,&RoutingPublic)>
+    {
+        unimplemented!();
+    }
+
+    fn routing_by_issuer(&self, rng: &mut Rng, issuer: &IssuerPublicKey)
+      -> SphinxResult<(RoutingName,&RoutingPublic)>
+    {
+        let v = self.routing_by_issuer.get(issuer)
+          .ok_or( SphinxError::ConcensusLacking("No routing keys for given issuer.") ) ?;
+        if v.len() == 0 {
+            return Err( SphinxError::ConcensusLacking("No routing keys for given issuer.") ) 
+        }
+        let v = v.sort_by_key(|r| r.0.end);
+        Ok( v.last().1 )
+    }
 }
 
 

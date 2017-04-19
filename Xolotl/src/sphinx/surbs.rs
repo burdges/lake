@@ -27,7 +27,7 @@ pub const MAX_SURB_METADATA : usize = 8;
 pub struct Metadata(pub u64);
 
 
-pub struct SURBHop {
+pub struct SURBHopKey {
     /// IETF ChaCha20 12 byte nonce 
     pub chacha_nonce: [u8; 12],
 
@@ -48,7 +48,7 @@ pub struct ProtocolName;
 struct DeliverySURB {
     protocol: ProtocolName,
     meta: Metadata,
-    hops: Vec<SURBHop>,
+    hops: Vec<SURBHopKey>,
 }
 
 // pub type RwMap<K,V> = RwLock<HashMap<K,V,HasherState>>;
@@ -103,8 +103,8 @@ impl<P: Params> SURBStore<P> {
                 if let Some(s) = deliverys.remove(&packet_name) { s } else { break; }
             };
             metadata.push(meta);
-            for surb in hops.iter().rev() {
-                if let Some(berry_twig) = surb.berry_twig {
+            for key in hops.iter().rev() {
+                if let Some(berry_twig) = key.berry_twig {
                     unimplemented!();
                     // TODO: Should we write to the data base here, taking
                     // and releasing locks frequently?  Or return the list
@@ -113,8 +113,8 @@ impl<P: Params> SURBStore<P> {
                 // TODO: Use protocol specified in the delivery surb
                 let mut hop = stream::SphinxKey::<P> {
                     params: PhantomData,
-                    chacha_nonce: surb.chacha_nonce,
-                    chacha_key: surb.chacha_key,
+                    chacha_nonce: key.chacha_nonce,
+                    chacha_key: key.chacha_key,
                 }.header_cipher() ?;  // InternalError: ChaCha stream exceeded
                 hop.xor_surb_log(surb_log) ?;  // InternalError
                 hop.body_cipher().encrypt(body) ?;  // InternalError

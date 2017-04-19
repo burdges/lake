@@ -16,165 +16,15 @@ pub use super::layout::{PreHeader};
 use super::*;
 
 
-/// ...
-///
-/// ... specifies either the next hop, final delivery 
-pub enum Activity {
-    Sphinx {
-        route: RoutingName,
-    },
-    Ratchet {
-        route: RoutingName,
-        branch: BranchId,
-    },
-    FromCrossOver {
-        route: RoutingName,
-    },
 
-    // DropOff { },
+struct Scaffold<'a,R: Rng,P: Params> {
+    rng: &'a mut R,
 
-    // Final activities
-
-    Dummy { },
-
-    /// Embed SURB into beta and use at the crossover point specified
-    CrossOver {
-        surb: PreHeader
-    },
-
-    /// Consume a SURB at the contact point specified
-    Contact {
-        route: RoutingName,
-        // id
-    },
-
-    /// Consume a SURB at the greeting point specified
-    Greeting {
-        route: RoutingName,
-        // id
-    },
-
-    /// Deliver message to the specified mailbox, roughly equivelent
-    /// to transmition to a non-existant mix network node.
-    Deliver {
-        mailbox: MailboxName,
-    },
-
-    /// Arrival of a SURB we created and archived.
-    ArrivalSURB { },
-
-    /// Arrival of a message for a local application.
-    ArrivalDirect { },
-
-    // Delete { },
-}
-
-/*
-
-impl Activity {
-    /// Are we allowed as the initial `Activity` in route building?
-    ///
-    ///
-    pub fn is_initial(&self) -> bool {
-        use self::Activity::*;
-        match *self {
-            FromCrossOver {..} => true,
-            Sphinx {..} | Ratchet {..} => true,
-            CrossOverBeta {..} | CrossOverContact {..} | CrossOverGreeting {..} => false,
-            Deliver {..} | ArrivalSURB {} | ArrivalDirect {} => false,
-            // Delete {} | DropOff {} => false,
-        }
-    }
-
-    /// Are we allowed as the final `Activity` in route building?
-    ///
-    /// Packets will be processed correctly without a valid final,
-    /// but they likely do nothing except move ratchets.
-    pub fn is_final(&self) -> bool {
-        use self::Activity::*;
-        match *self {
-            FromCrossOver {..} => false,
-            Sphinx {..} | Ratchet {..} => false,
-            CrossOverBeta {..} | CrossOverContact {..} | CrossOverGreeting {..} => true,
-            Deliver {..} | ArrivalSURB {} | ArrivalDirect {} => true,
-            // Delete {} => true
-            // DropOff {} => false,
-        }
-    }
-
-    pub fn<F> feed_commands(&self, f: F)
-      where F: FnMut(Command<Vec<u8>,()>) -> R {
-        let gamma = ();
-        match *self {
-            Sphinx { route } => {
-                f(Transmit { route, gamma }),
-            },
-
-            Ratchet { route, branch } => {
-        route: RoutingName,
-        branch: BranchId,
-            },
-    FromCrossOver {
-        route: RoutingName,
-    },
-
-    // DropOff { },
-
-    // Final activities
-
-    Dummy { },
-
-    /// Embed SURB into beta and use at the crossover point specified
-    CrossOver {
-        surb: PreHeader
-    },
-
-    /// Consume a SURB at the contact point specified
-    Contact {
-        route: RoutingName,
-        // id
-    },
-
-    /// Consume a SURB at the greeting point specified
-    Greeting {
-        route: RoutingName,
-        // id
-    },
-
-    /// Deliver message to the specified mailbox, roughly equivelent
-    /// to transmition to a non-existant mix network node.
-    Deliver {
-        mailbox: MailboxName,
-    },
-
-    /// Arrival of a SURB we created and archived.
-    ArrivalSURB { },
-
-    /// Arrival of a message for a local application.
-    ArrivalDirect { },
-
-    // Delete { },
-
-        }
-    }
-}
-
-
-enum Scafold<P: Params> {
-}
-
-
-// type CommandPlus = Command<Vec<u8>>;
-
-
-/// We build `PreHeader`s using successive operations a `Scafold`.
-/// 
-/// We use our first command to set `PreHeader::route` and pad
-/// `PreHeader::beta` for usage in transmission or in aSURB, but
-/// do not encode it into `PreHeader::beta`.
-struct Scaffold<P: Params> {
     /// First hop that should process this header.
     start: RoutingName,
+
+    /// Final hop that should process this header.
+    end: RoutingName,
 
     /// Initial public curve point
     alpha0: AlphaBytes,
@@ -191,38 +41,196 @@ struct Scaffold<P: Params> {
     beta: Box<[u8]>,
 
     /// Available bytes of `beta` that remain unallocated to `commands`.
-    remaining_beta: usize,
+    remaining: usize,
 
-    /// 
-    commands: Vec<Command<Vec<u8>>>
+    /// `Commands` for `beta`.
+    ///
+    /// We interpret `gamma` for `Sphinx` and `Ratchet` commands as
+    /// an index into `hops` for the next `HeaderCipher`.
+    commands: Vec<PreCommand<usize>>
 
     /// Stream ciphers for 
-    hops: Vec<HeaderCipher<P>>,
+    cipher: Vec<HeaderCipher<P>>,
 
     /// Packet construction mode, either `Ok` for SURBs, or
     /// `None` for a normal forward packets. 
     /// Also, records unwinding keys and twig ids in SURB mode.
     surb: Option<Vec<SURBHop>>,
+
+    /// Indexes of ciphers that encrypt the body and surb log
+    body: Option<Vec<usize>>
 }
 
-impl<P: Params> Scafold<P> {
-    pub fn new<R: Rng>(rng: &mut R) -> SphinxResult<Directives<P>> {
-        let mut seed = [u8; 64];
-        rng.fill_bytes(&mut seed);
-        let a = curve::Scalar::make(&seed);
-        let alpha = curve::Point::from_secret(&a).compress();
+
+
+
+/// We build `PreHeader`s using successive operations on `Scafold`.
+/// 
+/// We use our first command to set `PreHeader::route` and pad
+/// `PreHeader::beta` for usage in transmission or in aSURB, but
+/// do not encode it into `PreHeader::beta`.
+struct Scaffold<'a,R: Rng,P: Params> {
+    rng: &'a mut R,
+
+    /// First hop that should process this header.
+    start: RoutingName,
+
+    /// Final hop that should process this header.
+    end: RoutingName,
+
+    /// Initial public curve point
+    alpha0: AlphaBytes,
+
+    /// Accumulator for the current private scalar `a`.
+    aa: curve::Scalar,
+
+    /// Expected delay
+    delay: Duration,
+
+    /// Expected validity period
+    validity: ValidityPeriod,
+
+    /// Workspace for constructing `beta`.
+    beta: Box<[u8]>,
+
+    /// Available bytes of `beta` that remain unallocated to `commands`.
+    remaining: usize,
+
+    /// `Commands` for `beta`.
+    ///
+    /// We interpret `gamma` for `Sphinx` and `Ratchet` commands as
+    /// an index into `hops` for the next `HeaderCipher`.
+    commands: Vec<PreCommand<usize>>
+
+    /// Stream ciphers for 
+    ciphers: Vec<HeaderCipher<P>>,
+
+    /// Packet construction mode, either `Ok` for SURBs, or
+    /// `None` for a normal forward packets. 
+    /// Also, records unwinding keys and twig ids in SURB mode.
+    surbs: Option<Vec<SURBHop>>,
+
+    /// Indexes of ciphers that encrypt the body and surb log
+    bodies: Option<Vec<usize>>
+}
+
+
+RoutingPublic
+
+rp.name()
+
+
+
+impl<R: Rng,P: Params> Scafold<R,P> {
+    pub fn new(rng: R,
+               route: RoutingName, 
+               make_surb: bool,
+               capacity: usize,
+               commands: &[PreCommand<()>]) 
+      -> SphinxResult<Scaffold<R,P>>
+    {
+        let mut seed: [u8; 64] = rng.gen();
+        let aa = curve::Scalar::make(&seed);
+        let alpha = curve::Point::from_secret(&aa).compress();
         // Should we test alpha?
         // curve::Point::decompress(&alpha) ?;
-        Ok(( Directives { alpha, a, remaining: P::BETA_LENGTH, hop: Vec::new() } )
+
+        lookup route
+
+        // Divide by two since we assume a SURB oriented usage,
+        // but this costs allocations if not using SURBs.
+        let capacity = P::max_hops_capacity() / 2;
+        let mut s = Scaffold {
+            rng,
+            start: route,
+            end: RoutingName([0u8; ROUTING_NAME_LENGTH]),
+            alpha, aa, 
+            delay: Duration,
+            validity: r.validity,
+            remaining: P::BETA_LENGTH, 
+            commands: Vec::with_capacity(capacity)),
+            ciphers: Vec::with_capacity(capacity+1)),
+            surb: if make_surb { Some(Vec::with_capacity(capacity)) } else { None },
+            body: if ! make_surb { None } else { Some(Vec::with_capacity(capacity)) },
+        }
+        s.add_sphinx_cipher(route.p, command);
+        Ok( s )
     }
 
-    pub fn add(&mut self, activity: Activity) -> SphinxResult<()> {
+    fn add_cipher<'a>(&mut self, key: SURBHopKey) -> SphinxResult<&'a mut HeaderCipher<P>> {
+        // TODO: Fix code duplication with unwind_delivery_surbs
+        //       including: Use protocol specified in the delivery surb
+        let mut hop = stream::SphinxKey::<P> {
+            params: PhantomData,
+            chacha_nonce: surb.chacha_nonce,
+            chacha_key: surb.chacha_key,
+        }.header_cipher() ?;  // InternalError: ChaCha stream exceeded
+        self.ciphers.push(hop);
+        if Some(ref mut surbs) = self.surbs { surbs.push(surb); }
+        if Some(ref mut bodies) = self.bodies { bodies.push(self.cipher.len()-1); }
+        Ok( self.cipher.last_mut() )
     }
 
-    pub fn add(&mut self, command: Command) -> SphinxResult<()> {
+    fn add_ratchet_cipher<'a>(&mut self, key: SURBHopKey) -> SphinxResult<&'a mut HeaderCipher<P>> {
+        // Remove keys records for Sphinx keys skipped over due to
+        // using the ratchet key instead.
+        if Some(ref mut surbs) = self.surbs { surbs.pop(); }
+        if Some(ref mut bodies) = self.bodies { bodies.pop(); }
+        self.add_cipher(key)
+    }
+
+    fn add_sphinx_cipher<'a>(&mut self, key: SURBHopKey) -> SphinxResult<&'a mut HeaderCipher<P>> {
+        ;
+    }
+
+
+
+    fn add_command(&mut self, route: RoutingName, command: PreCommand<()>) -> SphinxResult<()> {
+        if self.end == route
+    }
+
+    pub fn command(&mut self, command: PreCommand<()>) -> SphinxResult<()> {
         self.a  ??
 
         self.remaining -= command.length_as_bytes();
+
+        match *self {
+            Command::Transmit { route } => {
+                .
+            },
+            Command::Ratchet { twig } => {
+            },
+            Command::CrossOver { alpha, surb_beta } => {
+                unimplemented!();
+            },
+            Command::Contact { } => {
+                unimplemented!();
+            },
+            Command::Greeting { } => {
+                unimplemented!();
+            },
+            Command::Deliver { mailbox } => {
+                unimplemented!();
+            },
+            // DropOff
+            Command::ArrivalSURB { } => {
+            },
+            Command::ArrivalDirect { } => {
+            },
+            // Delete
+        }
+    }
+
+    fn final(self) -> PreHeader {
+        let gamma = ??;
+        let mut beta = Vec::new();
+        beta.extend_from_slice(self.beta[??..??]);
+        PreHeader {
+            validity: self.validity,
+            route: self.start,
+            alpha: self.alpha,
+            gamma, beta,
+        }
     }
 }
 
@@ -243,8 +251,6 @@ struct Client<P: Params> {
     ratchet: Arc<RatchetState>,
 }
 
-
-*/
 
 
 

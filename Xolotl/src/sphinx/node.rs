@@ -51,12 +51,16 @@ pub enum Action {
 }
 
 
-struct Router<P: Params> {
-    params: PhantomData<P>,
-
+struct RoutingSecretData {
     // routing_public: keys::RoutingPublic,
     routing_secret: keys::RoutingSecret,
     replayer: replay::ReplayFilterStore,
+}
+
+struct Router<P: Params> {
+    params: PhantomData<P>,
+
+    secrets: HashMap<<RoutingName,RoutingSecretData>>,
 
     outgoing: OutgoingStore,
     mailboxes: MailboxStore,
@@ -68,6 +72,14 @@ struct Router<P: Params> {
 
 
 impl<P: Params> Router<P> {
+    fn secrets(&self, route: &RoutingName) -> &SphinxResult<RoutingSecretData> {
+        let secrets = if Some(s) = self.secrets.get(route) { s } else {
+            return Err( SphinxError::BadPacket("Unknown routing key name.",0) );
+        };
+        // TODO: Check validity
+        secrets
+    }
+
     /// Invokes ratchet and cross over functionality itself, but
     /// must return an `Action` for functionality that requires
     /// ownership of the header and/or body.
@@ -76,9 +88,11 @@ impl<P: Params> Router<P> {
         // Try SURB unwinding based on alpha contents
         // .. self.surbs.try_unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body); ..
 
+        let secrets = self.secrets(&RoutingName(*refs.route)) ?;
+
         // Compute shared secret from the Diffie-Helman key exchange.
         let alpha = curve::Point::decompress(refs.alpha) ?;  // BadAlpha
-        let ss = alpha.key_exchange(&self.routing_secret.secret);
+        let ss = alpha.key_exchange(&secrets.routing_secret.secret);
 
         // Initalize the stream cipher
         let mut key = stream::SphinxKey::<P>::new_kdf(&ss, &self.routing_secret.name);
@@ -88,7 +102,7 @@ impl<P: Params> Router<P> {
         refs.verify_gamma(&hop) ?;  // InvalidMac
 
         // Abort if the packet is a reply
-        hop.replay_check(&self.replayer) ?; // Replay
+        hop.replay_check(&secrets.replayer) ?; // Replay
 
         // Onion decrypt beta to extract first command.
         let mut command = refs.peal_beta(&mut hop) ?;  // InternalError, BadPacket: Unknown Command
@@ -135,7 +149,7 @@ impl<P: Params> Router<P> {
             // We cross over to running a SURB embedded in beta by
             // moving the SURB into postion, zeroing the tail, and
             // recursing. 
-            Command::CrossOver { surb_beta: surb_beta_length, alpha, gamma } => {
+            Command::CrossOver { surb_beta: surb_beta_length, route, alpha, gamma } => {
                 if already_crossed_over {
                     return Err( SphinxError::BadPacket("Tried two crossover subhops.",0) );
                 }
@@ -143,6 +157,7 @@ impl<P: Params> Router<P> {
                     return Err( SphinxError::BadPacket("Long SURB attack dropped.",surb_beta_length as u64) );
                 }
                 // Put SURB in control of packet.
+                *refs.route = route.0;
                 *refs.alpha = alpha;
                 *refs.gamma = gamma.0;
                 // We must zero the tail of beta beyond surb_beta_length so
@@ -185,6 +200,7 @@ impl<P: Params> Router<P> {
                 // SURB field, much like the SURB log, if we encoded
                 // the SURB in a seperate field seeprately.
                 // Prepare packet for next hop as usual in Sphinx.
+                *refs.route = route.0;
                 *refs.gamma = gamma.0;
                 *refs.alpha = alpha.blind(& hop.blinding()).compress();
                 let time = ::std::time::SystemTime::now() + hop.delay();

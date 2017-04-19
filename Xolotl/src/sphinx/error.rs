@@ -54,6 +54,7 @@ pub enum SphinxError {
     BadAlpha([u8; 32]),
     BadPacket(&'static str,u64),
     BadPacketName(PacketName),
+    ConcensusLacking(&'static str),
 }
 
 pub type SphinxResult<T> = Result<T,SphinxError>;
@@ -81,6 +82,8 @@ impl fmt::Display for SphinxError {
                 => write!(f, "Bad packet : {} ({})", s, v),
             BadPacketName(pn)
                 => write!(f, "Bad packet name {}.", pn.0.to_hex()),
+            ConcensusLacking(s)
+                => write!(f, "Bad packet name {}.", s),
         }
     }
 }
@@ -102,6 +105,7 @@ impl Error for SphinxError {
             BadAlpha(_) => None,
             BadPacket(_,_) => None,
             BadPacketName(_) => None,
+            ConcensusLacking(s) => None,
         }
     }
 }

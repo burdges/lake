@@ -41,24 +41,27 @@ impl CommandData for Vec<u8> {
 }
 
 
-/// Representation for `Gamma` that might currently be unknown.
-pub trait CommandGamma {
-    fn data(&self) -> &[u8; GAMMA_LENGTH];
-}
-
-/// We must know `Gamma`
-impl CommandGamma for Gamma {
-    fn data(&self) -> &[u8; GAMMA_LENGTH] { &self.0 }
-}
-
-/// We prepare `beta` with an unknown value for `Gamma` which
-/// we measure as `[0u8; GAMMA_LENGTH]` to give a correct length.
-impl CommandGamma for () {
-    fn data(&self) -> &[u8; GAMMA_LENGTH] {
+/// Representation for `gamma` that might currently be unknown.
+/// 
+/// 
+pub trait CommandGamma : Clone+Copy {
+    fn gamma(&self) -> &[u8; GAMMA_LENGTH] {
         static INVALID_GAMMA: &[u8; GAMMA_LENGTH] = &[0u8; GAMMA_LENGTH];
         INVALID_GAMMA
     }
 }
+
+/// We return `gamma` itself when we know it, meaning when `G` has
+/// type `Gamma`.
+impl CommandGamma for Gamma {
+    fn gamma(&self) -> &[u8; GAMMA_LENGTH] { &self.0 }
+}
+
+/// If we do not know `gamma` then we supply a fake `Gamma` set to
+/// `[0u8; GAMMA_LENGTH]` so as to give a correct length when 
+/// preparing `beta`.  
+impl CommandGamma for () { }
+impl CommandGamma for usize { }
 
 
 /// Actual `Command` type produced when decoding `beta`.
@@ -85,8 +88,9 @@ pub enum Command<G: CommandGamma,D: CommandData> {
 
     /// Crossover with SURB in beta
     CrossOver {
+        route: RoutingName,
         alpha: AlphaBytes,
-        gamma: G,
+        gamma: Gamma,
         surb_beta: D,
     },
 
@@ -130,17 +134,17 @@ impl<G: CommandGamma,D: CommandData> Command<G,D> {
         use self::Command::*;
         match *self {
             Transmit { route, ref gamma } => {
-                f(&[ &[0x80u8; 1], &route.0, gamma.data() ])
+                f(&[ &[0x80u8; 1], &route.0, gamma.gamma() ])
             },
             Ratchet { twig, ref gamma } => 
-                f(&[ &[0x00u8; 1], & twig.to_bytes(), gamma.data() ]),
-            CrossOver { alpha, ref gamma, ref surb_beta } => {
+                f(&[ &[0x00u8; 1], & twig.to_bytes(), gamma.gamma() ]),
+            CrossOver { route, alpha, ref gamma, ref surb_beta } => {
                 let surb_beta_length = surb_beta.length();
                 debug_assert!(surb_beta_length < MAX_SURB_BETA_LENGTH);
                 debug_assert!(MAX_SURB_BETA_LENGTH <= 0x1000);
                 let h = (surb_beta_length >> 8) as u8;
                 let l = (surb_beta_length & 0xFF) as u8;
-                f(&[ &[0x40u8 | h, l], &alpha, gamma.data(), surb_beta.data() ])
+                f(&[ &[0x40u8 | h, l], &route, &alpha, gamma.0, surb_beta.data() ])
             },
             Contact { } => 
                 f(&[ &[0x60u8; 1], unimplemented!() ]),
@@ -159,7 +163,10 @@ impl<G: CommandGamma,D: CommandData> Command<G,D> {
 
     /// Length of `Command` on the wire.
     ///
-    /// Does not include SURB's beta for `CrossOver` command. 
+    /// Include SURB's `beta` for `CrossOver` command only if `D`
+    /// does so, meaming if `D` is a `Vec<u8>`.  As a result, this
+    /// gives the length without the SURB's `beta` in nodes, but
+    /// includes the SURB's `beta` in the client.
     pub fn length_as_bytes(&self) -> usize {
         self.feed_bytes( |x| { x.iter().map(|y| y.len()).sum() } )
     }
@@ -200,6 +207,7 @@ impl CommandNode {
                 surb_beta: (
                     (((b0 & 0x0F) as u16) << 8) | (reserve_fixed!(&mut beta,1)[0] as u16)
                 ) as usize,
+                route: RoutingName(*reserve_fixed!(&mut beta,ROUTING_NAME_LENGTH)),
                 alpha: *reserve_fixed!(&mut beta,ALPHA_LENGTH),
                 gamma: Gamma(*reserve_fixed!(&mut beta,GAMMA_LENGTH)),
             },
@@ -229,6 +237,16 @@ impl CommandNode {
         Ok((command, beta_len-beta.len()))
     }
 
+}
+
+impl<G0: CommandGamma> PreCommand<G0> {
+    pub add_gamma<G: CommandGamma>(self, gamma: G) -> PreCommand<G> {
+        match *self {
+            Transmit { route } => Transmit { route, gamma },
+            Ratchet { twig } => Ratchet { twig, gamma },
+            c => c,
+        }
+    }
 }
 
 /// Reads a `PacketName` from the SURB log and trims the SURB log
@@ -289,6 +307,14 @@ pub trait Params: Sized {
         ALPHA_LENGTH + GAMMA_LENGTH
         + Self::BETA_LENGTH as usize
         + Self::SURB_LOG_LENGTH as usize
+    }
+
+    fn max_hops_capacity() -> usize {
+        let c = Command::Transmit {
+            route: RoutingName([0u8; ROUTING_NAME_LENGTH]),
+            gamma: Gamma([0u8; GAMMA_LENGTH]),
+        };
+        Self::BODY_LENGTHS / c.length_as_bytes()
     }
 }
 
@@ -397,6 +423,7 @@ impl<'a,T> DerefMut for HideMut<'a,T> where T: ?Sized {
 /// the `HideMut` struct above.  See http://stackoverflow.com/a/42376165/667457
 pub struct HeaderRefs<'a,P> where P: Params {
     params: PhantomData<P>,
+    pub route: &'a mut RoutingNameBytes,
     pub alpha: &'a mut AlphaBytes,
     pub gamma: &'a mut GammaBytes,
     pub beta:  &'a mut [u8],
@@ -439,6 +466,7 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
         }
         let hr = HeaderRefs {
             params: PhantomData,
+            route: reserve_fixed_mut!(&mut header,ROUTING_NAME_LENGTH),
             alpha: reserve_fixed_mut!(&mut header,ALPHA_LENGTH),
             gamma: reserve_fixed_mut!(&mut header,GAMMA_LENGTH),
             beta: reserve_mut(&mut header,P::BETA_LENGTH as usize),
@@ -599,6 +627,7 @@ pub fn encode_header<P: Params,R: Rng>(rng: &mut Rng, preheader: PreHeader) -> B
     let mut h = P::boxed_zeroed_header();
     {
         let mut refs = HeaderRefs::<P>::new_sliced(h.borrow_mut()).unwrap();
+        *refs.route = preheader.route.0;
         *refs.alpha = preheader.alpha;
         *refs.gamma = preheader.gamma.0;
         refs.beta.copy_from_slice(preheader.beta.borrow());
