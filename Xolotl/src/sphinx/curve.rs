@@ -73,7 +73,7 @@ impl fmt::Debug for Scalar {
 
     #[cfg(test)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use rustc_serialize::hex::ToHex;
+        use hex::ToHex;
         let scalar::Scalar(s) = self.0;
         write!(f, "Scalar({:})", s.to_hex())
     }
@@ -164,7 +164,7 @@ impl fmt::Debug for Point {
 
     #[cfg(test)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use rustc_serialize::hex::ToHex;
+        use hex::ToHex;
         write!(f, "Point({:})", self.compress().to_hex())
     }
 }
@@ -176,7 +176,7 @@ mod tests {
 
     use rand::{OsRng, Rng, Rand};
     use super::*;
-    // use rustc_serialize::hex::ToHex;
+    // use hex::ToHex;
 
     fn os_rng() -> OsRng {
         OsRng::new().expect("failed to create an OS RNG")

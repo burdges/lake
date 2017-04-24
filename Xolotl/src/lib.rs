@@ -26,7 +26,7 @@ extern crate arrayref;
 
 extern crate arrayvec;
 
-extern crate rustc_serialize;
+extern crate hex;
 
 extern crate siphasher;  // better than #![feature(sip_hash_13)]
 

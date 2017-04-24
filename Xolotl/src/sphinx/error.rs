@@ -9,8 +9,6 @@ use std::fmt;
 
 // use std::sync::{RwLockReadGuard, RwLockWriteGuard}; // PoisonError
 
-// use rustc_serialize::hex::ToHex;
-
 
 use super::PacketName;
 use super::replay::{ReplayCode};
@@ -61,7 +59,7 @@ pub type SphinxResult<T> = Result<T,SphinxError>;
 
 impl fmt::Display for SphinxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use rustc_serialize::hex::ToHex;
+        use hex::ToHex;
         use self::SphinxError::*;
         match *self {
             InternalError(s)

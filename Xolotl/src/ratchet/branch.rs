@@ -5,7 +5,7 @@
 //! ...
 
 use std::fmt;
-use rustc_serialize::hex::ToHex;
+use hex::ToHex;
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;

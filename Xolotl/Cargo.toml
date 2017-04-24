@@ -6,7 +6,10 @@ authors = ["Jeff Burdges <burdges@gnunet.org>"]
 [dependencies]
 arrayref = "^0.3.3"
 arrayvec = "^0.3.22"
-rustc-serialize = "^0.3.22"
+
+hex = "^0.2"
+# data-encoding = "2.0.0-rc.1"
+# rustc-serialize = "^0.3.22"
 # chrono = "0.3"
 
 rand = "^0.3"

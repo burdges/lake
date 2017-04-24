@@ -26,7 +26,7 @@ pub const REPLAY_CODE_UNKNOWN : ReplayCode = ReplayCode([0u8; REPLAY_CODE_LENGTH
 /// Use hexidecimal when displaying `ReplayCode` in error messages.
 impl fmt::Debug for ReplayCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use rustc_serialize::hex::ToHex;
+        use hex::ToHex;
         write!(f, "ReplayCode({:})", self.0.to_hex())
     }
 }
