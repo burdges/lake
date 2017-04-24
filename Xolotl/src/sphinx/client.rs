@@ -16,6 +16,7 @@ pub use super::layout::{PreHeader};
 use super::*;
 
 
+/*
 
 struct Scaffold<'a,R: Rng,P: Params> {
     rng: &'a mut R,
@@ -252,5 +253,5 @@ struct Client<P: Params> {
 }
 
 
-
+*/
 

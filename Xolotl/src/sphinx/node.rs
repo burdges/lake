@@ -4,6 +4,7 @@
 //!
 //! ...
 
+use std::collections::HashMap;
 use std::borrow::{BorrowMut}; // Borrow
 use std::sync::{Arc}; // RwLock
 use std::marker::PhantomData;
@@ -60,7 +61,7 @@ struct RoutingSecretData {
 struct Router<P: Params> {
     params: PhantomData<P>,
 
-    secrets: HashMap<<RoutingName,RoutingSecretData>>,
+    secrets: HashMap<keys::RoutingName,RoutingSecretData>,
 
     outgoing: OutgoingStore,
     mailboxes: MailboxStore,
@@ -72,12 +73,12 @@ struct Router<P: Params> {
 
 
 impl<P: Params> Router<P> {
-    fn secrets(&self, route: &RoutingName) -> &SphinxResult<RoutingSecretData> {
-        let secrets = if Some(s) = self.secrets.get(route) { s } else {
-            return Err( SphinxError::BadPacket("Unknown routing key name.",0) );
-        };
-        // TODO: Check validity
-        secrets
+    /// 
+    ///
+    /// TODO: Check validity
+    fn secrets(&self, route: &keys::RoutingName) -> SphinxResult<&RoutingSecretData> {
+        self.secrets.get(route)
+          .ok_or( SphinxError::BadPacket("Unknown routing key name.",0) )
     }
 
     /// Invokes ratchet and cross over functionality itself, but
@@ -88,14 +89,14 @@ impl<P: Params> Router<P> {
         // Try SURB unwinding based on alpha contents
         // .. self.surbs.try_unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body); ..
 
-        let secrets = self.secrets(&RoutingName(*refs.route)) ?;
+        let secrets = self.secrets(&keys::RoutingName(*refs.route)) ?;
 
         // Compute shared secret from the Diffie-Helman key exchange.
         let alpha = curve::Point::decompress(refs.alpha) ?;  // BadAlpha
         let ss = alpha.key_exchange(&secrets.routing_secret.secret);
 
         // Initalize the stream cipher
-        let mut key = stream::SphinxKey::<P>::new_kdf(&ss, &self.routing_secret.name);
+        let mut key = stream::SphinxKey::<P>::new_kdf(&ss, &secrets.routing_secret.name);
         let mut hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
 
         // Abort if our MAC gamma fails to verify

@@ -13,7 +13,7 @@ pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
 use super::curve::{AlphaBytes,ALPHA_LENGTH};
 use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH,HeaderCipher};
-pub use super::keys::{RoutingName,ROUTING_NAME_LENGTH,ValidityPeriod};
+pub use super::keys::{RoutingName,RoutingNameBytes,ROUTING_NAME_LENGTH,ValidityPeriod};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::error::*;
 use super::slice::*;
@@ -73,7 +73,7 @@ pub type PreCommand<G> = Command<G,Vec<u8>>;
 
 /// Commands to mix network nodes embedded in beta.
 #[derive(Debug)] // Clone, Copy
-pub enum Command<G: CommandGamma,D: CommandData> {
+pub enum Command<G,D> where G: CommandGamma, D: CommandData {
     /// Transmit packet to another mix network node
     Transmit {
         route: RoutingName,
@@ -144,7 +144,7 @@ impl<G: CommandGamma,D: CommandData> Command<G,D> {
                 debug_assert!(MAX_SURB_BETA_LENGTH <= 0x1000);
                 let h = (surb_beta_length >> 8) as u8;
                 let l = (surb_beta_length & 0xFF) as u8;
-                f(&[ &[0x40u8 | h, l], &route, &alpha, gamma.0, surb_beta.data() ])
+                f(&[ &[0x40u8 | h, l], &route.0, &alpha, &gamma.0, surb_beta.data() ])
             },
             Contact { } => 
                 f(&[ &[0x60u8; 1], unimplemented!() ]),
@@ -239,15 +239,26 @@ impl CommandNode {
 
 }
 
-impl<G0: CommandGamma> PreCommand<G0> {
-    pub add_gamma<G: CommandGamma>(self, gamma: G) -> PreCommand<G> {
-        match *self {
-            Transmit { route } => Transmit { route, gamma },
-            Ratchet { twig } => Ratchet { twig, gamma },
-            c => c,
+impl PreCommand<()> {
+    pub fn add_gamma<G: CommandGamma>(self, gamma: G) -> PreCommand<G> {
+        use self::Command::*;
+        match self {
+            Transmit { route, gamma: _ } => Transmit { route, gamma },
+            Ratchet { twig, gamma: _ } => Ratchet { twig, gamma },
+            CrossOver { route, alpha, gamma, surb_beta }
+              => CrossOver { route, alpha, gamma, surb_beta },
+            Contact { } => Contact { },
+            Greeting { } => Greeting { },
+            Deliver { mailbox } => Deliver { mailbox },
+            ArrivalSURB { } => ArrivalSURB { },
+            ArrivalDirect { } => ArrivalDirect { },
+            // DropOff { } => DropOff { },
+            // Delete { } => Delete { },
+            // Dummy { } => Dummy { },
         }
     }
 }
+
 
 /// Reads a `PacketName` from the SURB log and trims the SURB log
 /// to removing it.  Used in SURB unwinding.
@@ -310,11 +321,13 @@ pub trait Params: Sized {
     }
 
     fn max_hops_capacity() -> usize {
-        let c = Command::Transmit {
+        /// Rust bug: https://github.com/rust-lang/rust/issues/26264
+        /// Write CommandNode::Transmit here when fixed.
+        let c = Command::Transmit::<Gamma,usize> {
             route: RoutingName([0u8; ROUTING_NAME_LENGTH]),
             gamma: Gamma([0u8; GAMMA_LENGTH]),
         };
-        Self::BODY_LENGTHS / c.length_as_bytes()
+        Self::BETA_LENGTH / c.length_as_bytes()
     }
 }
 

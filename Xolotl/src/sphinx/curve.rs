@@ -8,9 +8,8 @@ use std::fmt;
 
 use rand::{Rng, Rand};
 
-// use curve25519_dalek::field;
-use curve25519_dalek::curve;
 use curve25519_dalek::scalar;
+use curve25519_dalek::curve::{self, CompressedEdwardsY,ExtendedPoint,ScalarMult,BasepointMult};
 
 use super::SphinxSecret;
 use super::error::*;
@@ -100,13 +99,13 @@ pub type AlphaBytes = [u8; ALPHA_LENGTH];
 /// with a secret key scalar.  A normal curve25519 implementation used scalars
 /// in ℤ/8lℤ with their low three bits zeroed to achieve this, but we require
 /// scalars in ℤ/lℤ where l = 2^252 + 27742317777372353535851937790883648493.
-#[derive(Clone, Copy)] // PartialEq, Eq, Hash
-pub struct Point(curve::ExtendedPoint);
+#[derive(Clone)] // Copy, PartialEq, Eq, Hash
+pub struct Point(ExtendedPoint);
 
 impl Point {
     /// Create a packet or node public key from a secret key scalar.
     pub fn from_secret(s: &Scalar) -> Point {
-        Point( curve::ExtendedPoint::basepoint_mult(&s.0) )
+        Point( ExtendedPoint::basepoint_mult(&s.0) )
     }
 
     /// Compress a point into bytes for either transmission as a
@@ -114,7 +113,7 @@ impl Point {
     ///
     /// Do not use this for key exchange.
     pub fn compress(&self) -> AlphaBytes {
-        self.0.compress().to_bytes()
+        self.0.compress_edwards().to_bytes()
     }
 
     /// Decompress a point supplied in compressed Edwards Y cordinate
@@ -125,7 +124,7 @@ impl Point {
     /// one does so in testing. 
     pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
         // let f = if trusted { |p| Point(p) } else { |p| Point(p.mult_by_cofactor()) };
-        curve::CompressedEdwardsY(*alpha_bytes).decompress()
+        CompressedEdwardsY(*alpha_bytes).decompress()
             .map(|p| Point(p.mult_by_cofactor()))
             .ok_or( SphinxError::BadAlpha(*alpha_bytes) )
     }
@@ -152,7 +151,7 @@ impl Point {
     pub fn key_exchange(&self, private_key: &Scalar) -> SphinxSecret {
         SphinxSecret(
             self.0.scalar_mult(&private_key.0)
-                .compress().to_bytes()
+                .compress_edwards().to_bytes()
         )
     }
 }
@@ -245,13 +244,13 @@ mod tests {
                 Scalar::rand(&mut r).0
             };
             let x = rc_curve25519::ge_scalarmult_base(&a.0);
-            let y = curve::ExtendedPoint::basepoint_mult(&a).compress().to_bytes();
+            let y = curve::ExtendedPoint::basepoint_mult(&a).compress_edwards().to_bytes();
             assert_eq!(x.to_bytes(),y);
             let z = Point::from_secret(&Scalar(a));
             assert_eq!(y,z.compress());
 
             let mut b = Scalar::rand(&mut r).0;
-            // let z = curve::ExtendedPoint::scalar_mult(??,&s).compress().to_bytes();
+            // let z = curve::ExtendedPoint::scalar_mult(??,&s).compress_edwards().to_bytes();
             // assert_eq!(z,y);
 
             let zero = scalar::Scalar::zero();
@@ -259,7 +258,7 @@ mod tests {
             let v = z.blind(&Scalar(b));
             assert_eq!(u.to_bytes(), v.compress());
 
-            let w = v.0.compress().to_bytes();
+            let w = v.0.compress_edwards().to_bytes();
             assert_eq!(w, z.key_exchange(&Scalar(b)).0);
 
             scalar_mul_by_cofactor(&mut b.0);

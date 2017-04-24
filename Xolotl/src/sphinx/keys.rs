@@ -19,18 +19,23 @@
 //! doi:10.1007/3-540-46088-8_15.
 
 
+use std::collections::HashMap;
 use std::ops::Range;
 use std::time::{Duration,SystemTime,UNIX_EPOCH};
-use std::collections::HashMap;
 
 use rand::{Rng, Rand};
+
+use arrayvec::ArrayVec;
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use ed25519_dalek as ed25519;
+// TODO: Replace with SHA3, but fails right now hashes crate's SHA3 API is broken
+use sha2::Sha512 as Ed25519Hash;
 
 use super::curve;
-
+use super::error::*;
+use super::*;
 
 #[derive(Clone, Debug)] // Copy
 pub struct ValidityPeriod(pub Range<u64>);
@@ -113,7 +118,7 @@ pub struct RoutingName(pub RoutingNameBytes);
 pub struct RoutingPublic {
     pub public: curve::AlphaBytes,
     pub validity: ValidityPeriod,
-    pub issuer: ed25519::PublicKey,
+    pub issuer: IssuerPublicKey,
     pub signature: ed25519::Signature,
 }
 
@@ -126,7 +131,8 @@ impl RoutingPublic {
 
     pub fn verify(&self) -> bool {
         let b = self.to_bytes();
-        self.issuer.verify(&b[..ROUTING_PUBLIC_LENGTH-64],&self.signature)
+        ed25519::PublicKey::from_bytes(&self.issuer.0)
+          .verify::<Ed25519Hash>(&b[..ROUTING_PUBLIC_LENGTH-64],&self.signature)
     }
 
     pub fn to_bytes(&self) -> [u8; ROUTING_PUBLIC_LENGTH] {
@@ -136,7 +142,7 @@ impl RoutingPublic {
           = mut_array_refs![&mut r,32,16,32,64];
         *public = self.public;
         *validity = self.validity.to_bytes();
-        *issuer = self.issuer.0.to_bytes();
+        *issuer = self.issuer.0;
         *signature = self.signature.to_bytes();
         }
         r
@@ -148,7 +154,7 @@ impl RoutingPublic {
         RoutingPublic {
             public: *public,
             validity: ValidityPeriod::from_bytes(validity),
-            issuer: ed25519::PublicKey( CompressedEdwardsY(*issuer) ),
+            issuer: IssuerPublicKey(*issuer),
             signature: ed25519::Signature(*signature),
         }
     }
@@ -158,7 +164,7 @@ impl RoutingPublic {
         let mut sha = Sha3::sha3_512();
         sha.input(&self.public);
         sha.input(& self.validity.to_bytes());
-        sha.input(&self.issuer.to_bytes());
+        sha.input(&self.issuer.0);
         sha.result(&mut rn);
         sha.reset();
         RoutingName(rn)
@@ -201,28 +207,34 @@ impl RoutingSecret {
 
 
 /// Identifies a particular node without specifying a routing key.
-pub type IssuerPublicKey = ed25519::PublicKey;
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
+pub struct IssuerPublicKey(pub [u8; 32]);
 
 /// 
 #[derive(Clone, Debug)]  // Copy
 pub struct IssuerPublicKeyInfo {
     pub validity: ValidityPeriod,
     pub signature: ed25519::Signature,
+
+    // TODO: Updates to validity?
+    // TODO: Certificates by offline keys?
+    // TODO: Signatures with older issuer keys?
 }
 
 fn issuer_signable(pk: &IssuerPublicKey, validity: &ValidityPeriod) -> [u8; 16+32] {
     let mut b = [0u8; 16+32];
     {
-        let (validity,public) = mut_array_refs![&mut b,16,32];
-        *validity = self.validity.to_bytes();
-        *public = self.public.to_bytes();
+        let (v,p) = mut_array_refs![&mut b,16,32];
+        *v = validity.to_bytes();
+        *p = pk.0;
     }
     b
 }
 
 impl IssuerPublicKeyInfo {
     pub fn verify(&self, pk: &IssuerPublicKey) -> bool {
-        pk.verify(& issuer_signable(pk,&self.validity),&self.signature)
+        ed25519::PublicKey::from_bytes(&pk.0)
+          .verify::<Ed25519Hash>(& issuer_signable(pk,&self.validity),&self.signature)
     }
 }
 
@@ -230,23 +242,25 @@ impl IssuerPublicKeyInfo {
 #[derive(Debug)]  // Clone, Copy
 pub struct IssuerSecret {
     pub validity: ValidityPeriod,
-    pub public: ed25519::PublicKey,
+    pub public: IssuerPublicKey,  // ed25519::PublicKey
     pub secret: ed25519::SecretKey,
 }
 
 impl IssuerSecret {
     pub fn new<R: Rng>(rng: &mut R, validity: ValidityPeriod) -> IssuerSecret {
-        let keys = ed25519::Keypair::generate(rng);
+        let keys = ed25519::Keypair::generate::<Ed25519Hash>(rng);
         IssuerSecret {
             validity: validity,
-            public: keys.public,
+            public: IssuerPublicKey(keys.public.to_bytes()),
             secret: keys.secret,
         }
     }
 
     pub fn public(&self) -> (IssuerPublicKey,IssuerPublicKeyInfo) {
-        let signature = self.secret.sign(& issuer_signable(&self.public,&self.validity));
-        (pk, IssuerPublicKeyInfo {
+        let m = issuer_signable(&self.public,&self.validity);
+        let signature = self.secret.sign::<Ed25519Hash>(&m);
+        ( self.public, 
+          IssuerPublicKeyInfo {
             validity: self.validity.clone(),
             signature: signature,
         })
@@ -266,7 +280,7 @@ impl IssuerSecret {
             signature: ed25519::Signature([0u8; 64]),
         };
         let b = p.to_bytes();
-        p.signature = self.secret.sign(&b[..ROUTING_SECRET_LENGTH-64]);
+        p.signature = self.secret.sign::<Ed25519Hash>(&b[..ROUTING_SECRET_LENGTH-64]);
         s.name = p.name();
         (s.name,p,s)
     }
@@ -275,7 +289,9 @@ impl IssuerSecret {
 
 /// Access records for issuer and routing keys.
 /// 
-/// TODO: Add target validity to all these
+/// TODO: Algorithms and data structures suck ass here.  
+///       Rewrite everything using well designed data structures.
+/// TODO: Worry about leakage through validity period, especially with SURBs.
 trait Concensus {
     /// Returns the routing public key record associated to a given
     /// routing name.
@@ -285,41 +301,70 @@ trait Concensus {
     fn routing_named(&self, routing_name: &RoutingName)
       -> SphinxResult<&RoutingPublic>;
 
-    /// Choose a random issuer from the entire network.
-    ///
-    /// Almost impossible to use correctly because poor routing key
-    /// validity period may expose epistemic information.
-    fn issuer_choice(&self, rng: &mut Rng)
-      -> SphinxResult<(IssuerPublicKey,&IssuerPublicKeyInfo)>;
-
-    /// Choose a random routing key from the entire network
-    ///
-    /// TODO: Selects for maximal remaining validity?
-    fn routing_choice(&self, rng: &mut Rng)
-      -> SphinxResult<(RoutingName,&RoutingPublic)>;
-
     /// Fetch a routing key for some particular issuer
-    ///
-    /// TODO: Selects for maximal remaining validity?
-    fn routing_by_issuer(&self, rng: &mut Rng, issuer: &IssuerPublicKey)
-      -> SphinxResult<(RoutingName,&RoutingPublic)>;
+    fn routing_by_issuer<R: Rng>(&self, rng: &mut R,
+          issuer: &IssuerPublicKey, 
+          before: SystemTime
+      ) -> SphinxResult<(RoutingName,&RoutingPublic)>;
 
     /// Fetch a routing key with substancial validity period remaining.
     ///
-    /// TODO: Selects for maximal remaining validity?
-    fn routing_by_routing(&self, rng: &mut Rng, routing_name: &RoutingName)
-      -> SphinxResult<(RoutingName,&RoutingPublic)> 
+    /// Used for building a header to connect with a SURB.
+    fn routing_by_routing<R: Rng>(&self, rng: &mut R,
+          routing_name: &RoutingName, 
+          before: SystemTime
+      ) -> SphinxResult<(RoutingName,&RoutingPublic)> 
     {
         let r = self.routing_named(routing_name) ?;
-        self.routing_by_issuer(rng, &r.issuer)
+        self.routing_by_issuer(rng, &r.issuer, before)
     }
+
+    /// Randomly select a valid `RoutingName` from an array of exactly
+    /// `MAX_ROUTING_PER_ISSUER` pairs `(ValidityPeriod,RoutingName)`.
+    /// 
+    /// TODO: Remove from public interface once associated type constructors,
+    /// higher-kinded types, or `-> impl Trait` n traits allow us to write
+    /// generalize `RoutePicker` to a trait and write `router_picker` without
+    /// a trait object.
+    fn rpi_picker<'a,R: Rng>(&'a self, rng: &mut R, rpi: &'a RpI, before: SystemTime) 
+      -> SphinxResult<(RoutingName,&'a RoutingPublic)> 
+    {
+        let mut v: ArrayVec<[&VPnRN; MAX_ROUTING_PER_ISSUER]>
+          = rpi.iter().filter(|r| rpi_pred(r,before)).collect();
+        if v.len() == 0 {
+            return Err( SphinxError::ConcensusLacking("Issuer's routing keys expire too soon.") ) 
+        }
+        let rn = v[ rng.gen_range(0, v.len()) ].1;
+        Ok(( rn, self.routing_named(&rn) ? ))
+    }
+
+    /// TODO: As in `rand::Rand::gen_iter()`, an iterator might work
+    /// here but only if we give up our random number generator.
+    fn route_picker<'s>(&'s self, before: SystemTime)
+      -> SphinxResult<RoutePicker<'s,Self>>;
 }
 
+pub const MAX_ROUTING_PER_ISSUER : usize = 2;
+
+/// TODO: Make private once we get associated type constructors
+type VPnRN = (ValidityPeriod,RoutingName);
+
+/// TODO: Make private once we get associated type constructors
+type RpI = [VPnRN; MAX_ROUTING_PER_ISSUER];
+
 struct ConcensusMaps {
-    issuer_keys: HashMap<IssuerPublicKey,IssuerPublicKeyInfo>,
+    // TODO: Use a better data strducture to avod collect() in issuer_choice.
+    issuers: HashMap<IssuerPublicKey,IssuerPublicKeyInfo>,
     routing_by_name: HashMap<RoutingName,RoutingPublic>,
-    routing_by_issuer: HashMap<IssuerPublicKey,Vec<(ValidityPeriod,RoutingName)>>,
-};
+    routing_by_issuer: HashMap<IssuerPublicKey,RpI>,
+
+    // TODO: See IssuerPublicKeyInfo TODOs
+    // issuers_archives: Vec<HashMap<IssuerPublicKey,IssuerPublicKeyInfo>>,  ??
+}
+
+fn rpi_pred(r: &VPnRN, before: SystemTime) -> bool {
+    r.0.end() > before && r.0.start() < r.0.end() 
+}
 
 impl Concensus for ConcensusMaps {
     fn routing_named(&self, routing_name: &RoutingName)
@@ -329,29 +374,40 @@ impl Concensus for ConcensusMaps {
           .ok_or( SphinxError::ConcensusLacking("No RoutingPublic for given RoutingName.") )
     }
 
-    fn issuer_choice(&self, rng: &mut Rng)
-      -> SphinxResult<(IssuerPublicKey,&IssuerPublicKeyInfo)>
+    fn routing_by_issuer<R: Rng>(&self, rng: &mut R,
+          issuer: &IssuerPublicKey, 
+          before: SystemTime
+      ) -> SphinxResult<(RoutingName,&RoutingPublic)>
     {
-        unimplemented!();
-    }
-
-    fn routing_choice(&self, rng: &mut Rng)
-      -> SphinxResult<(RoutingName,&RoutingPublic)>
-    {
-        unimplemented!();
-    }
-
-    fn routing_by_issuer(&self, rng: &mut Rng, issuer: &IssuerPublicKey)
-      -> SphinxResult<(RoutingName,&RoutingPublic)>
-    {
-        let v = self.routing_by_issuer.get(issuer)
+        let rpi = self.routing_by_issuer.get(issuer)
           .ok_or( SphinxError::ConcensusLacking("No routing keys for given issuer.") ) ?;
-        if v.len() == 0 {
+        if rpi.len() == 0 {
             return Err( SphinxError::ConcensusLacking("No routing keys for given issuer.") ) 
         }
-        let v = v.sort_by_key(|r| r.0.end);
-        Ok( v.last().1 )
+        self.rpi_picker(rng,rpi,before)
+    }
+
+    fn route_picker<'s>(&'s self, before: SystemTime)
+      -> SphinxResult<RoutePicker<'s,ConcensusMaps>> {
+        let issuers: Vec<_> 
+          = self.routing_by_issuer.values()
+          .filter(|rpi| rpi.iter().any(|r| rpi_pred(r,before))).collect();
+        Ok( RoutePicker { concensus: self, before, issuers } ) 
     }
 }
+
+struct RoutePicker<'a,C> where C: Concensus + 'a + ?Sized  {
+    concensus: &'a C,
+    before: SystemTime,
+    issuers: Vec<&'a RpI>,
+}
+
+impl<'a,C> RoutePicker<'a,C> where C: Concensus+'a {
+    fn pick<R: Rng>(&self, rng: &mut R) -> SphinxResult<(RoutingName,&RoutingPublic)> {
+        let i = rng.gen_range(0, self.issuers.len());
+        self.concensus.rpi_picker(rng,self.issuers[i],self.before)
+    }
+}
+
 
 

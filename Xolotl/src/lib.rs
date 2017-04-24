@@ -16,13 +16,15 @@
 #![feature(box_syntax)]
 #![feature(associated_consts)]
 #![feature(exclusive_range_pattern)]
-// #![feature(conservative_impl_trait)]
+#![feature(conservative_impl_trait)]
 
 // #![doc(html_root_url="...")]
 
 
 #[macro_use]
 extern crate arrayref;
+
+extern crate arrayvec;
 
 extern crate rustc_serialize;
 
@@ -35,6 +37,9 @@ type ClearedBox<T> = clear_on_drop::ClearOnDrop<Box<T>>;
 
 extern crate curve25519_dalek;
 extern crate ed25519_dalek;
+// extern crate sha3;
+extern crate sha2;
+
 extern crate keystream;
 extern crate chacha;
 extern crate lioness;
