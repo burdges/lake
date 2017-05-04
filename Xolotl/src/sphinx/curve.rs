@@ -55,6 +55,11 @@ impl Scalar {
     pub fn from_bytes(s: &ScalarBytes) -> Scalar {
         Scalar(scalar::Scalar(*s))
     }
+
+    pub fn blind(&mut self, other: &Scalar) {
+        let s = scalar::Scalar::multiply_add(& self.0, &other.0, & scalar::Scalar::zero());
+        *self = Scalar(s);
+    }
 }
 
 impl Rand for Scalar {
@@ -64,6 +69,7 @@ impl Rand for Scalar {
         Scalar::make(&s)
     }
 }
+
 
 impl fmt::Debug for Scalar {
     #[cfg(not(test))]
@@ -121,7 +127,10 @@ impl Point {
     /// As the point is untrusted, we must multiply by the cofactor to
     /// protect against small subgroup attacks.  We never expect to
     /// decompress our own key in deployment, but tests might fail if
-    /// one does so in testing. 
+    /// one does so in testing.
+    ///
+    /// TODO: Add validation 
+    /// See https://research.kudelskisecurity.com/2017/04/25/should-ecdh-keys-be-validated/
     pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
         // let f = if trusted { |p| Point(p) } else { |p| Point(p.mult_by_cofactor()) };
         CompressedEdwardsY(*alpha_bytes).decompress()

@@ -162,6 +162,13 @@ pub fn create_initial_branch(state: &Arc<State>, seed: &[u8])
 
 
 
+/// TODO:
+/// - Abstract keys from the sphinx module
+/// - Remove the Arc from here any everywhere else in the ratchet module
+///   as immutable borrows suffice.
+pub type ClientState = HashMap<::sphinx::keys::IssuerPublicKey,Arc<State>>;
+
+
 #[cfg(test)]
 mod tests {
     // use super::*;

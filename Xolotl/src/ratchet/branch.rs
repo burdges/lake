@@ -228,7 +228,7 @@ impl BranchId {
 
         // (MessageKey::new(r[0..32]), BerryKey(r[32..64]))
         let (a,b) = array_refs![&r,32,32];
-        (MessageKey::new(a), BerryKey::make(*b))
+        (*a, BerryKey::make(*b))
         // TODO Zero r
     }
 }

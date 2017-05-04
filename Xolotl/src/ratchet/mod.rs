@@ -12,10 +12,11 @@ pub mod error;
 
 pub use self::branch::{BranchId,BRANCH_ID_LENGTH}; // BranchName,BRANCH_NAME_LENGTH
 pub use self::twig::{TwigIdxT,TwigIdx,TwigId,TWIG_ID_LENGTH};
-pub use self::advance::{Transaction,Advance,AdvanceNode}; // AdvanceUser
+pub use self::advance::{Transaction,Advance,AdvanceNode,AdvanceUser};
 
-pub use self::state::State;
+pub use self::state::{State,ClientState};
 pub type RatchetState = State;
+pub type ClientRatchetState = ClientState;
 
 pub use self::branch::ExtraKey;
 
@@ -27,7 +28,7 @@ use ::sphinx::SphinxSecret;
 /// which agrees with the secret supplied by the Diffie-Hellman key
 /// exchange in Sphinx.  We reuse the SphinxSecret type as this gets
 /// used in exactly the same palce on the Sphinx side.
-pub type MessageKey = SphinxSecret;
+pub type MessageKey = [u8; 32];
 
 
 #[cfg(test)]

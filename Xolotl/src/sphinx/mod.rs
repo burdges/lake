@@ -10,7 +10,7 @@ mod body;
 mod replay;
 mod node;
 mod client;
-mod keys;
+pub mod keys;  // TODO: Abstract keys from this module
 mod mailbox;
 mod error;
 

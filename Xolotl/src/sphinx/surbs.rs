@@ -43,12 +43,12 @@ struct ArrivalSURB  {
 }
 
 // TODO: Make protocol name reference params
-pub struct ProtocolName;
+pub struct ProtocolId(u16);
 
-struct DeliverySURB {
-    protocol: ProtocolName,
-    meta: Metadata,
-    hops: Vec<SURBHopKey>,
+pub struct DeliverySURB {
+    pub protocol: ProtocolId,
+    pub meta: Metadata,
+    pub hops: Vec<SURBHopKey>,
 }
 
 // pub type RwMap<K,V> = RwLock<HashMap<K,V,HasherState>>;

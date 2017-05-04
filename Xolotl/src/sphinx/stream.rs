@@ -54,6 +54,18 @@ pub struct Gamma(pub GammaBytes);
 struct GammaKey(pub [u8; 32]);
 
 
+/*
+/// IETF Chacha20 stream cipher key and nonce.
+pub struct ChaChaKnN {
+    /// IETF ChaCha20 32 byte key 
+    pub key: [u8; 32],
+
+    /// IETF ChaCha20 12 byte nonce 
+    pub nonce: [u8; 12],
+}
+*/
+
+
 /// Results of our KDF consisting of the nonce and key for our
 /// IETF Chacha20 stream cipher, which produces everything else
 /// in the Sphinx header.
@@ -285,16 +297,19 @@ impl<P: Params> HeaderCipher<P> {
         &self.packet_name
     }
 
-    pub fn xor_beta(&mut self, beta: &mut [u8], allow_tail: bool) -> SphinxResult<()> {
-        let mut len = P::BETA_LENGTH as usize;
+    pub fn xor_beta(&mut self, beta: &mut [u8], offset: usize, tail: usize)
+      -> SphinxResult<()> {
+        let mut len = P::BETA_LENGTH as usize - offset;
         if beta.len() < len {
             return Err( SphinxError::InternalError("Beta too short to encrypt!") );
         }
-        if allow_tail { len += P::MAX_BETA_TAIL_LENGTH as usize }
-        if beta.len() > len {
+        if tail > P::MAX_BETA_TAIL_LENGTH as usize {
+            return Err( SphinxError::InternalError("Excessive tail length requested!") );
+        }
+        if beta.len() > len+tail {
             return Err( SphinxError::InternalError("Beta too long to encrypt!") );
         }
-        self.stream.seek_to(self.chunks.beta.start as u64).unwrap();
+        self.stream.seek_to((self.chunks.beta.start + offset) as u64).unwrap();
         self.stream.xor_read(beta).unwrap();
         Ok(())
     }

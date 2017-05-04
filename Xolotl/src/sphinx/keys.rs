@@ -53,6 +53,15 @@ impl ValidityPeriod {
         ValidityPeriod( start.as_secs() .. (start+duration).as_secs() )
     }
 
+    pub fn intersect(&self, other: &ValidityPeriod) -> ValidityPeriod {
+        use std::cmp::{min,max};
+        ValidityPeriod(max(self.0.start, other.0.start)..min(self.0.end, other.0.end))
+    }
+
+    pub fn intersect_assign(&mut self, other: &ValidityPeriod) {
+        *self = self.intersect(other);
+    }
+
     pub fn start(&self) -> SystemTime {
         UNIX_EPOCH + Duration::from_secs(self.0.start)
     }
@@ -292,7 +301,7 @@ impl IssuerSecret {
 /// TODO: Algorithms and data structures suck ass here.  
 ///       Rewrite everything using well designed data structures.
 /// TODO: Worry about leakage through validity period, especially with SURBs.
-trait Concensus {
+pub trait Concensus {
     /// Returns the routing public key record associated to a given
     /// routing name.
     ///

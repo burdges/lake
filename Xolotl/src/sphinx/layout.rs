@@ -167,14 +167,25 @@ impl<G: CommandGamma,D: CommandData> Command<G,D> {
     /// does so, meaming if `D` is a `Vec<u8>`.  As a result, this
     /// gives the length without the SURB's `beta` in nodes, but
     /// includes the SURB's `beta` in the client.
-    pub fn length_as_bytes(&self) -> usize {
+    pub fn command_length(&self) -> usize {
         self.feed_bytes( |x| { x.iter().map(|y| y.len()).sum() } )
+    }
+
+    pub fn write_command(&self, mut beta: &mut [u8]) -> usize {
+        self.feed_bytes( |x| {
+            let mut l = 0usize;
+            for y in x.iter() {
+                l += y.len();
+                reserve_mut(&mut beta, y.len()).copy_from_slice(y);
+            }
+            l  // We do not currently use this return value
+        } )
     }
 
     /// Prepends our command to slice `beta` by shifting `beta`
     /// rightward, destroys the trailing elements.
     pub fn prepend_bytes(&self, beta: &mut [u8]) -> usize {
-        self.feed_bytes( |x| { prepend_slice_of_slices(beta, x) } )
+        self.feed_bytes( |x| prepend_slice_of_slices(beta, x) )
     }
 }
 
@@ -239,12 +250,15 @@ impl CommandNode {
 
 }
 
-impl PreCommand<()> {
-    pub fn add_gamma<G: CommandGamma>(self, gamma: G) -> PreCommand<G> {
+impl<G0> PreCommand<G0> where G0: CommandGamma {
+    pub fn map_gamma<F,E,G1>(self, mut f: F) -> Result<PreCommand<G1>,E>
+      where G1: CommandGamma,
+            F: FnMut(G0) -> Result<G1,E>
+    {
         use self::Command::*;
-        match self {
-            Transmit { route, gamma: _ } => Transmit { route, gamma },
-            Ratchet { twig, gamma: _ } => Ratchet { twig, gamma },
+        Ok( match self {
+            Transmit { route, gamma } => Transmit { route, gamma: f(gamma) ? },
+            Ratchet { twig, gamma } => Ratchet { twig, gamma: f(gamma) ? },
             CrossOver { route, alpha, gamma, surb_beta }
               => CrossOver { route, alpha, gamma, surb_beta },
             Contact { } => Contact { },
@@ -255,7 +269,34 @@ impl PreCommand<()> {
             // DropOff { } => DropOff { },
             // Delete { } => Delete { },
             // Dummy { } => Dummy { },
+        } )
+    }
+}
+
+impl<G0> PreCommand<G0> where G0: CommandGamma+Clone+Copy {
+    pub fn get_gamma(&self) -> Option<G0> {
+        match *self {
+            Command::Transmit { route, gamma } => Some(gamma),
+            Command::Ratchet { twig, gamma } => Some(gamma),
+            _ => None,
         }
+        // We wanted to reduce this to `map_gamma` but it benifits
+        // from being by value.
+        // self.map_gamma::<_,_,G0>( |g| Err(g) ).err()
+    }
+}
+
+impl<G0> PreCommand<G0> where G0: CommandGamma {
+    pub fn is_gamma(&self) -> bool {
+        match *self {
+            Command::Transmit { .. } => true,
+            Command::Ratchet { .. } => true,
+            _ => false,
+        }
+        // We can define this without needing any constraints on
+        // `gamma`, so might as well.
+        // self.get_gamma().is_some()
+        // self.map_gamma( |g| Err::<(),()>(()) ).is_err()
     }
 }
 
@@ -284,13 +325,16 @@ pub type Length = usize;
 /// In some cases, there could be minor performance hits if some
 /// of these are not multiples of the ChaCha blocksize of 64 byte.
 pub trait Params: Sized {
-    /// Unique version identifier for the protocol
+    /// Unique numeric identifier for the protocol
+    const PROTOCOL_ID: surbs::ProtocolId;
+
+    /// Unique string identifier for the protocol
     const PROTOCOL_NAME: &'static str;
 
     /// Length of the routing information block `Beta`.
     const BETA_LENGTH: Length;
 
-    /// Maximal amount of routing infomrmation in `Beta` consued
+    /// Maximal amount of routing infomrmation in `Beta` consumed
     /// by a single sub-hop.
     const MAX_BETA_TAIL_LENGTH: Length;
 
@@ -327,7 +371,7 @@ pub trait Params: Sized {
             route: RoutingName([0u8; ROUTING_NAME_LENGTH]),
             gamma: Gamma([0u8; GAMMA_LENGTH]),
         };
-        Self::BETA_LENGTH / c.length_as_bytes()
+        Self::BETA_LENGTH / c.command_length()
     }
 }
 
@@ -363,19 +407,13 @@ impl<P: Params> ImplParams for P {
     /// Create a `Box<[u8]>` with the required header length
     /// and containing zeros.
     fn boxed_zeroed_header() -> Box<[u8]> {
-        let l = P::header_length();
-        let mut v = Vec::with_capacity(l);
-        for _ in 0..l { v.push(0); }
-        v.into_boxed_slice()
+        vec![0u8; P::header_length()].into_boxed_slice()
     }
 
     /// Create a `Box<[u8]>` with the requested body length
     /// from `SphinxParams::BODY_LENGTHS` and containing zeros.
     fn boxed_zeroed_body(i: usize) -> Box<[u8]> {
-        let length = P::BODY_LENGTHS[i];
-        let mut v = Vec::with_capacity(length);
-        for _ in 0..length { v.push(0); }
-        v.into_boxed_slice()
+        vec![0u8; P::BODY_LENGTHS[i]].into_boxed_slice()
     }
 
     /// Returns an error if the body length is not approved by the paramaters.
@@ -522,7 +560,7 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
     /// shift beta forward by the command's length, and pad the tail
     /// of beta.
     pub fn peal_beta(&mut self, hop: &mut HeaderCipher<P>) -> SphinxResult<CommandNode> {
-        hop.xor_beta(self.beta, false) ?;  // InternalError
+        hop.xor_beta(self.beta,0,0) ?;  // InternalError
 
         let (command, eaten) = Command::parse(self.beta) ?;  // BadPacket: Unknown Command
         if eaten > P::MAX_BETA_TAIL_LENGTH as usize {
@@ -605,7 +643,8 @@ pub struct PreHeader {
     pub route: RoutingName,
     pub alpha: AlphaBytes,
     pub gamma: Gamma,
-    pub beta: Box<[u8]>
+    pub beta: Box<[u8]>,
+    // pub keys: ...,
 }
 
 impl PreHeader {
@@ -636,7 +675,11 @@ impl PreHeader {
 
 use rand::Rng;
 
-pub fn encode_header<P: Params,R: Rng>(rng: &mut Rng, preheader: PreHeader) -> Box<[u8]> {
+pub fn encode_header<P: Params,R: Rng>(rng: &mut Rng, preheader: PreHeader)
+  -> SphinxResult<Box<[u8]>> {
+    if preheader.beta.len() != P::BETA_LENGTH as usize {
+        return Err( SphinxError::InternalError("Used SURB as sending header!") );
+    }
     let mut h = P::boxed_zeroed_header();
     {
         let mut refs = HeaderRefs::<P>::new_sliced(h.borrow_mut()).unwrap();
@@ -651,7 +694,7 @@ pub fn encode_header<P: Params,R: Rng>(rng: &mut Rng, preheader: PreHeader) -> B
         // let mut chacha = ChaCha20::new_chacha20(seed, &[0u8; 8]);
         // self.stream.xor_read(refs.surb_log).unwrap();
     }
-    h
+    Ok(h)
 }
 
 

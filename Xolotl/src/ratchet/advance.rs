@@ -166,6 +166,8 @@ impl Drop for Advance {
 
 impl Advance {
     /// Begin a transaction to advance the ratchet on the branch `bid`.
+    ///
+    /// Remove Arc<> since we do not need it at this level
     pub fn new(state: &Arc<State>, bid: &BranchId) -> RatchetResult<Advance> {
 
         // We found passing in branch_id required an unecessary call to clone
@@ -331,11 +333,12 @@ impl AdvanceUser {
     }
 
     pub fn click(&mut self, ss: &SphinxSecret) 
-      -> RatchetResult<MessageKey> {
+      -> RatchetResult<(TwigId,MessageKey)> {
         let cidx = self.0.branch.chain;
         let linkkey = self.0.do_chain_step(cidx) ?;
           // .. PoisonError, MissingTwig, WrongTwigType .. ??
-        self.0.done_known_link(cidx,&linkkey,ss)
+        let twig = TwigId(self.0.branch_id.1, cidx);
+        Ok(( twig, self.0.done_known_link(cidx,&linkkey,ss) ? ))
     }
 }
 
