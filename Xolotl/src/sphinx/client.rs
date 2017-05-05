@@ -160,7 +160,7 @@ struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     commands: Vec<PreCommand<usize>>,
 
     /// TODO: Refactor to have only one transaction.
-    advances: Vec<AdvanceUser>,
+    advances: Vec<AdvanceUser<'a>>,
 
     /// Stream ciphers for 
     ciphers: Vec<stream::HeaderCipher<P>>,

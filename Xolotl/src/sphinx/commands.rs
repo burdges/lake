@@ -119,10 +119,9 @@ pub enum Command<G,D> where G: CommandGamma, D: CommandData {
     // Dummy { },
 }
 
-/// 
-///
-/// We set this here becuase `Command::CrossOver` has optimizations
-/// that depend upon it. 
+/// Hard maximum size of a SURB's `beta` supported by our encoding
+/// of `Command::CrossOver`.  Actual maximum size is smaller and is
+/// controlled in `layout` module.
 pub const MAX_SURB_BETA_LENGTH : usize = 0x1000;
 
 impl<G: CommandGamma,D: CommandData> Command<G,D> {
@@ -301,17 +300,6 @@ impl<G0> PreCommand<G0> where G0: CommandGamma {
         // self.get_gamma().is_some()
         // self.map_gamma( |g| Err::<(),()>(()) ).is_err()
     }
-}
-
-
-/// Reads a `PacketName` from the SURB log and trims the SURB log
-/// to removing it.  Used in SURB unwinding.
-///
-/// We avoid making this a method to `HeaderRefs` because it trims
-/// the SURB log by shortening the slice, violating the inveriant
-/// assumed by `HeaderRef`.
-pub fn read_n_trim_surb_log(surb_log: &mut &[u8]) -> PacketName {
-    PacketName(*reserve_fixed!(surb_log,PACKET_NAME_LENGTH))
 }
 
 

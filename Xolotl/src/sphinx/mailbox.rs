@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::hash::Hash; // Hasher
-use std::sync::{RwLock}; // Arc, RwLockReadGuard, RwLockWriteGuard
+use std::sync::{RwLock}; // RwLockReadGuard, RwLockWriteGuard
 
 use super::error::*;
 use super::*;

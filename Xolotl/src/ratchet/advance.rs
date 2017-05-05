@@ -3,7 +3,6 @@
 //! Advance transaction for Xolotl ratchet
 
 use std::collections::HashMap; // HashSet
-use std::sync::Arc; // RwLock, RwLockReadGuard, RwLockWriteGuard
 use std::ops::Deref; // DerefMut
 
 use super::MessageKey;
@@ -41,9 +40,9 @@ pub trait Transaction {
 ///
 /// All writes to state occur in `Transaction::confirm` although cache
 /// manipulation occurs in `Drop::drop` as well.
-pub struct Advance {
+pub struct Advance<'a> {
     /// Locked Branch identifier together with Xolotl Branch and Twig state data.
-    pub branch_id: BranchIdGuard,
+    pub branch_id: BranchIdGuard<'a>,
 
     /// Our local copy of the branch data
     pub branch: Branch,
@@ -55,7 +54,7 @@ pub struct Advance {
     inserts: Vec<TwigIS>,
 }
 
-impl Transaction for Advance {
+impl<'a> Transaction for Advance<'a> {
     fn state(&self) -> &State {
         //! Use `self.branch_id.0` directly if this conflicts with borrow checker.
         self.branch_id.0.deref()
@@ -151,7 +150,7 @@ impl Transaction for Advance {
     }
 }
 
-impl Drop for Advance {
+impl<'a> Drop for Advance<'a> {
     fn drop(&mut self) {
         let err = match self.abandon() { 
             Err(e) => e,
@@ -164,11 +163,9 @@ impl Drop for Advance {
     }
 }
 
-impl Advance {
+impl<'a> Advance<'a> {
     /// Begin a transaction to advance the ratchet on the branch `bid`.
-    ///
-    /// Remove Arc<> since we do not need it at this level
-    pub fn new(state: &Arc<State>, bid: &BranchId) -> RatchetResult<Advance> {
+    pub fn new(state: &'a State, bid: &BranchId) -> RatchetResult<Advance<'a>> {
 
         // We found passing in branch_id required an unecessary call to clone
         let branch_id = lock_branch_id(state,bid) ?;
@@ -313,9 +310,9 @@ impl Advance {
 ///
 /// All writes to state occur in `Transaction::confirm` although cache
 /// manipulation occurs in `Drop::drop` as well.
-pub struct AdvanceUser(Advance);
+pub struct AdvanceUser<'a>(Advance<'a>);
 
-impl Transaction for AdvanceUser {
+impl<'a> Transaction for AdvanceUser<'a> {
     fn state(&self) -> &State
       { self.0.state() }
     fn confirm(&mut self) -> RatchetResult<()>
@@ -326,9 +323,9 @@ impl Transaction for AdvanceUser {
       { self.0.abandon() }
 }
 
-impl AdvanceUser {
-    pub fn new(state: &Arc<State>, bid: &BranchId)
-      -> RatchetResult<AdvanceUser> {
+impl<'a> AdvanceUser<'a> {
+    pub fn new(state: &'a State, bid: &BranchId)
+      -> RatchetResult<AdvanceUser<'a>> {
         Ok( AdvanceUser(Advance::new(state,bid) ?) )
     }
 
@@ -348,9 +345,9 @@ impl AdvanceUser {
 ///
 /// All writes to state occur in `Transaction::confirm` although cache
 /// manipulation occurs in `Drop::drop` as well.
-pub struct AdvanceNode(Advance);
+pub struct AdvanceNode<'a>(Advance<'a>);
 
-impl Transaction for AdvanceNode {
+impl<'a> Transaction for AdvanceNode<'a> {
     fn state(&self) -> &State
       { self.0.state() }
     fn confirm(&mut self) -> RatchetResult<()>
@@ -361,9 +358,9 @@ impl Transaction for AdvanceNode {
       { self.0.abandon() }
 }
 
-impl AdvanceNode {
-    pub fn new(state: &Arc<State>, bid: &BranchId)
-      -> RatchetResult<AdvanceNode> {
+impl<'a> AdvanceNode<'a> {
+    pub fn new(state: &'a State, bid: &BranchId)
+      -> RatchetResult<AdvanceNode<'a>> {
         Ok( AdvanceNode(Advance::new(state,bid) ?) )
     }
 
@@ -436,8 +433,8 @@ impl AdvanceNode {
         self.clicks_chain_only(ss,TwigIdx::make(i,0),target)
     }
 
-    pub fn single_click(state: &Arc<State>, ss: &SphinxSecret, tid: &TwigId)
-      -> RatchetResult<(AdvanceNode,MessageKey)> {
+    pub fn single_click(state: &'a State, ss: &SphinxSecret, tid: &TwigId)
+      -> RatchetResult<(AdvanceNode<'a>,MessageKey)> {
         let TwigId(bid, idx) = *tid;
         let mut advance = AdvanceNode::new(state,&bid) ?;
         let message = advance.clicks(ss,idx) ?;

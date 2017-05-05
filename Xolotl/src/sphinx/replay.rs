@@ -6,7 +6,7 @@
 
 use std::collections::HashSet;
 use std::sync::RwLock;
-// use std::sync::{Arc, RwLock}; // RwLockReadGuard, RwLockWriteGuard
+// use std::sync::{RwLock}; // Arc, RwLockReadGuard, RwLockWriteGuard
 // use std::ops::{Deref,DerefMut};
 // use std::hash::{Hash, Hasher};
 use std::fmt;

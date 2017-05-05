@@ -5,7 +5,7 @@
 //! ...
 
 use std::collections::{HashMap,HashSet};
-use std::sync::{Arc, RwLock}; // RwLockReadGuard, RwLockWriteGuard
+use std::sync::{RwLock}; // RwLockReadGuard, RwLockWriteGuard
 use std::ops::{Deref,DerefMut};
 // use std::hash::{Hash, Hasher};
 
@@ -77,10 +77,10 @@ impl State {
 }
 
 /// Create a locked branch identifier.
-pub fn lock_branch_id(state: &Arc<State>, bid: &BranchId) -> RatchetResult<BranchIdGuard> {
+pub fn lock_branch_id<'a>(state: &'a State, bid: &BranchId) -> RatchetResult<BranchIdGuard<'a>> {
     let mut locked = state.locked.write() ?; // PoisonError
     if locked.insert(*bid) {
-        Ok( BranchIdGuard( state.clone(), *bid ) )
+        Ok( BranchIdGuard( state, *bid ) )
     } else {
         Err(RatchetError::BranchAlreadyLocked(*bid))
     }
@@ -88,9 +88,9 @@ pub fn lock_branch_id(state: &Arc<State>, bid: &BranchId) -> RatchetResult<Branc
 
 /// RAII lock for a branch identifier.
 #[derive(Debug, Clone)]
-pub struct BranchIdGuard( pub Arc<State>, pub BranchId );
+pub struct BranchIdGuard<'a>(pub &'a State, pub BranchId);
 
-impl Drop for BranchIdGuard {
+impl<'a> Drop for BranchIdGuard<'a> {
     /// Unlock a branch identifier.
     fn drop(&mut self) {
         let mut err = self.0.advance_drop_errors.write().unwrap(); // Panic on PoisonError
@@ -101,7 +101,7 @@ impl Drop for BranchIdGuard {
     }
 }
 
-impl BranchIdGuard {
+impl<'a> BranchIdGuard<'a> {
     pub fn state(&self) -> &State { self.0.deref() }
     pub fn id(&self)-> &BranchId { &self.1 }
     pub fn family(&self) -> BranchName { self.id().family }
@@ -135,7 +135,7 @@ impl BranchIdGuard {
 /// Create an branch from a messaging layer post-quantum key exchange,
 /// so no transaction necessary. Only `create_initial_branch` and
 /// `Transaction::confirm` should write to `State::{branchs,parents,twigs}`
-pub fn create_initial_branch(state: &Arc<State>, seed: &[u8])
+pub fn create_initial_branch(state: &State, seed: &[u8])
   -> RatchetResult<(BranchId,Branch,TwigId,TrainKey)> {
     let (bid, branch, tk): (BranchId, Branch, TrainKey) = Branch::new_kdf(seed);
     let tid = TwigId(bid,TRAIN_START);
@@ -164,9 +164,7 @@ pub fn create_initial_branch(state: &Arc<State>, seed: &[u8])
 
 /// TODO:
 /// - Abstract keys from the sphinx module
-/// - Remove the Arc from here any everywhere else in the ratchet module
-///   as immutable borrows suffice.
-pub type ClientState = HashMap<::sphinx::keys::IssuerPublicKey,Arc<State>>;
+pub type ClientState = HashMap<::sphinx::keys::IssuerPublicKey,State>;
 
 
 #[cfg(test)]

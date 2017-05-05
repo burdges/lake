@@ -403,3 +403,16 @@ pub fn encode_header<P: Params,R: Rng>(rng: &mut Rng, preheader: PreHeader)
 }
 
 
+/// Reads a `PacketName` from the SURB log and trims the SURB log
+/// to removing it.  Used in SURB unwinding.
+///
+/// We avoid making this a method to `HeaderRefs` because it trims
+/// the SURB log by shortening the slice, violating the inveriant
+/// assumed by `HeaderRef`.
+///
+/// TODO: Is it used??
+pub fn read_n_trim_surb_log(surb_log: &mut &[u8]) -> PacketName {
+    PacketName(*reserve_fixed!(surb_log,PACKET_NAME_LENGTH))
+}
+
+
