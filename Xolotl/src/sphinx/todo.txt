@@ -1,0 +1,43 @@
+
+Explain why `Command` needs two paramaters instead of a single
+uninhabited type with associated types.  Simplicity.
+
+
+TESTS !!!!
+
+
+Keys
+- Abstract keys into a top level model
+- Make keys into GNUnet compatable
+
+Extend client side
+- Basic TESTS !!!!
+- Converion from instructions into commands
+- Reference structs
+- Improve API
+
+Improve data model:
+- Indexing client's foreign ratchets by node
+- SURB storage
+- Queues and Mailboxes
+
+Write Cuckoo filter
+
+Params
+- Pass params as if it were data.
+- Move to mod.rs perhaps?
+
+SURBs
+- Start SURB unwinding based on alpha
+- unimplemented!() bits
+- TESTS with SURBs
+
+Add commands
+- Drop Off
+- Delete
+- ??
+
+All those unimplemented!()
+
+All those TODOs
+
