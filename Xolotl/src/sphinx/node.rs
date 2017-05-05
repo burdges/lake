@@ -89,6 +89,7 @@ impl<P: Params> Router<P> {
       -> SphinxResult<(PacketName,Action)> {
         // Try SURB unwinding based on alpha contents
         // .. self.surbs.try_unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body); ..
+        // But what about authentication?
 
         let secrets = self.secrets(&keys::RoutingName(*refs.route)) ?;
 
