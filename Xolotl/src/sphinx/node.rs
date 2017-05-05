@@ -15,7 +15,8 @@ use std::marker::PhantomData;
 pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
 pub use ratchet::State as RatchetState;
 
-use super::layout::{Params,ImplParams,HeaderRefs,Command};
+use super::commands::{Command};
+use super::layout::{Params,ImplParams,HeaderRefs};
 use super::mailbox::*;
 use super::slice::*;
 use super::error::*;

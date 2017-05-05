@@ -17,6 +17,7 @@ mod error;
 #[macro_use]
 mod slice;
 
+mod commands;
 mod layout;
 mod surbs;
 

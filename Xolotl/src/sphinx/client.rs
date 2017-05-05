@@ -17,7 +17,8 @@ use super::stream::{Gamma}; // GammaBytes,GAMMA_LENGTH,HeaderCipher
 
 pub use super::keys::{RoutingName,RoutingPublic,Concensus};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
-use super::layout::{Params,ImplParams,PreHeader,PreCommand}; // Command
+use super::commands::{PreCommand}; // Command
+use super::layout::{Params,ImplParams,PreHeader};
 use super::error::*;
 use super::*;
 
