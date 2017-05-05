@@ -1,7 +1,4 @@
 
-Explain why `Command` needs two paramaters instead of a single
-uninhabited type with associated types.  Simplicity.
-
 
 TESTS !!!!
 
@@ -13,13 +10,29 @@ Keys
 Extend client side
 - Basic TESTS !!!!
 - Converion from instructions into commands
+
+Client API
 - Reference structs
-- Improve API
+- Store SURBS
+- Actual API
+
+SURBs
+- Start SURB unwinding based on alpha
+- unimplemented!() bits
+- TESTS with SURBs
+- Cross protocol unwinding?
+  - Trait objects vs recursion?
 
 Improve data model:
 - Indexing client's foreign ratchets by node
 - SURB storage
+  - Remove Arcs?
 - Queues and Mailboxes
+  - Remove Arcs?
+
+All those unimplemented!()
+
+All those TODOs
 
 Write Cuckoo filter
 
@@ -27,17 +40,11 @@ Params
 - Pass params as if it were data.
 - Move to mod.rs perhaps?
 
-SURBs
-- Start SURB unwinding based on alpha
-- unimplemented!() bits
-- TESTS with SURBs
+Commands
+- Add Command::DropOff
+- Add Command::Delete
+- Add Command::??
+- Explain why `Command` needs two paramaters instead of a single
+  uninhabited type with associated types.  Simplicity.
 
-Add commands
-- Drop Off
-- Delete
-- ??
-
-All those unimplemented!()
-
-All those TODOs
 

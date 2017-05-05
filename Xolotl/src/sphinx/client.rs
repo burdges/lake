@@ -23,7 +23,7 @@ use super::error::*;
 use super::*;
 
 
-// #[derive(Debug, Clone)]
+/// World of key material in which we build a header.
 pub struct World<'a,C,P> where C: Concensus+'a, P: Params {
     params: PhantomData<P>,
 
@@ -34,6 +34,7 @@ pub struct World<'a,C,P> where C: Concensus+'a, P: Params {
     ratchets: &'a ClientRatchetState,
 }
 
+/// We cannot #[derive(Clone)] if we need a where clause.
 impl<'a,C,P> Clone for World<'a,C,P> where C: Concensus+'a, P: Params {
     fn clone(&self) -> World<'a,C,P> { World::new(self.concensus, self.ratchets) }
 }
@@ -64,7 +65,6 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
             chacha_key: [0u8; 32],
         };
         let rp = self.concensus.routing_named(&route) ?;
-// let w: World<'a,C,P> = self.clone();
         let mut s = Scaffold {
             world: self.clone(),
             rng,

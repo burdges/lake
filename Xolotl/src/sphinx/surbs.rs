@@ -39,6 +39,7 @@ pub struct SURBHopKey {
 
 
 struct ArrivalSURB  {
+    
     delivery_name: PacketName,
 }
 
