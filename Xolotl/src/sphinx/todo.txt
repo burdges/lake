@@ -5,7 +5,7 @@ TESTS !!!!
 
 Keys
 - Abstract keys into a top level model
-- Make keys into GNUnet compatable
+- Make keys GNUnet compatable using features or symlinks
 
 Extend client side
 - Basic TESTS !!!!

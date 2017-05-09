@@ -398,13 +398,13 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
         }
         let gamma = self.do_beta_with_gammas(beta.as_mut()) ?;
 
-        // let Scaffold { route, alpha0, mut validity, surb_keys, mut bodies, mut advances, .. } = self;
+        let Scaffold { route, alpha0, mut validity, surb_keys, bodies, mut advances, mut ciphers, .. } = self;
 
         // TODO: Fuzz validity to prevent leaking route information
         let preheader = PreHeader {
-            validity: self.validity.clone(),
-            route: self.route.end.clone(),
-            alpha: self.alpha0,
+            validity: validity.clone(),
+            route: route.end.clone(),
+            alpha: alpha0,
             gamma,
             beta: {
                 beta.truncate(P::BETA_LENGTH);
@@ -413,15 +413,15 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
         };
 
         use std::mem::replace;  // We should not need this with the above destructuring
-        let surb = replace(&mut self.surb_keys,None).map( |surbs| surbs::DeliverySURB { 
+        let surb = surb_keys.map( |surbs| surbs::DeliverySURB { 
             protocol: P::PROTOCOL_ID,
             meta: surbs::Metadata(0), // TODO: Where does this come from?
             hops: surbs
         } );
-        let bodies = replace(&mut self.bodies,None).map( |bs| {
-            bs.iter().map( |b| self.ciphers[*b].body_cipher() ).collect()
+        let bodies = bodies.map( |bs| {
+            bs.iter().map( |b| ciphers[*b].body_cipher() ).collect()
         } );
-        for mut t in self.advances.drain(..) { t.confirm() ?; }
+        for mut t in advances.drain(..) { t.confirm() ?; }
         Ok( NewHeader { preheader, surb, bodies } )
     }
 }
