@@ -125,7 +125,7 @@ pub type MailboxStore = PacketMapMap<MailboxName,Mailbox>;
 
 
 pub struct OutgoingPacket {
-    pub route: keys::RoutingName,
+    pub route: ::keys::RoutingName,
     pub time: ::std::time::SystemTime,
     pub header: Box<[u8]>,
     pub body: Box<[u8]>
@@ -146,7 +146,7 @@ impl PacketMapy for Outgoing {
 }
 
 // TODO Replace RoutingName with longer term key's name here.
-pub type OutgoingStore = PacketMapMap<keys::RoutingName,Outgoing>;
+pub type OutgoingStore = PacketMapMap<::keys::RoutingName,Outgoing>;
 
 
 

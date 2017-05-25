@@ -81,7 +81,7 @@ pub struct SphinxKey<P: Params> {
 
 impl<P: Params> SphinxKey<P> {
     /// Derive the key material for our IETF Chacha20 stream cipher.
-    pub fn new_kdf(ss: &SphinxSecret, rn: &keys::RoutingName) -> SphinxKey<P> {
+    pub fn new_kdf(ss: &SphinxSecret, rn: &::keys::RoutingName) -> SphinxKey<P> {
         use crypto::digest::Digest;
         use crypto::sha3::Sha3;
 
@@ -284,11 +284,11 @@ impl<P: Params> HeaderCipher<P> {
     }
 
     /// Returns the curve25519 scalar for blinding alpha in Sphinx.
-    pub fn blinding(&mut self) -> curve::Scalar {
+    pub fn blinding(&mut self) -> ::curve::Scalar {
         let mut b = &mut [0u8; 64];
         self.stream.seek_to(self.chunks.blinding.start as u64).unwrap();
         self.stream.xor_read(b).unwrap();
-        curve::Scalar::make(b)
+        ::curve::Scalar::make(b)
     }
 
     /// Returns our name for the packet for insertion into the SURB log

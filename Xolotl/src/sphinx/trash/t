@@ -1,0 +1,3 @@
+
+sed -e 's/\(protocol_name\|beta_length\|max_beta_tail_length\|max_surb_beta_length\|surb_log_length\|delay_lambda\|body_lengths\)/\U\1/'
+

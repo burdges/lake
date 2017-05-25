@@ -15,7 +15,7 @@ pub use ratchet::ClientState as ClientRatchetState;
 
 use super::stream::{Gamma}; // GammaBytes,GAMMA_LENGTH,HeaderCipher
 
-pub use super::keys::{RoutingName,RoutingPublic,Concensus};
+pub use keys::{RoutingName,RoutingPublic,Concensus};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::commands::{PreCommand}; // Command
 use super::layout::{Params,ImplParams,PreHeader};
@@ -55,8 +55,8 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
       ) -> SphinxResult<Scaffold<'a,R,C,P>>
     {
         let aa = rng.gen();
-        let alpha0 = curve::Point::from_secret(&aa).compress();
-        // TODO: Any tests for alpha?  curve::Point::decompress(&alpha) ?;
+        let alpha0 = ::curve::Point::from_secret(&aa).compress();
+        // TODO: Any tests for alpha?  ::curve::Point::decompress(&alpha) ?;
 
         // Initial value for `self.key` that our call to `add_sphinx` below replaces.
         let key = stream::SphinxKey {
@@ -139,16 +139,16 @@ struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     key: stream::SphinxKey<P>,
 
     /// Initial public curve point
-    alpha0: curve::AlphaBytes,
+    alpha0: ::curve::AlphaBytes,
 
     /// Accumulator for the current private scalar `a`.
-    aa: curve::Scalar,
+    aa: ::curve::Scalar,
 
     /// Expected delay
     delay: Duration,
 
     /// Expected validity period
-    validity: keys::ValidityPeriod,
+    validity: ::keys::time::ValidityPeriod,
 
     /// Amount of `beta` used by `commands`.
     eaten: usize,
@@ -218,7 +218,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
           // some mutable borrow.
         // TODO: Figure out how to prevent leakage via validity
         self.validity.intersect_assign(&self.route_public.validity);  
-        let rpoint = curve::Point::decompress(&self.route_public.public) ?;  // BadAlpha
+        let rpoint = ::curve::Point::decompress(&self.route_public.public) ?;  // BadAlpha
         let ss = rpoint.key_exchange(&self.aa);
         self.key = stream::SphinxKey::<P>::new_kdf(&ss, &route);
         self.add_cipher(None)

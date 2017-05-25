@@ -9,9 +9,9 @@ use std::iter::{Iterator};  // IntoIterator, TrustedLen, ExactSizeIterator
 
 pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
-use super::curve::{AlphaBytes,ALPHA_LENGTH};
+use keys::{RoutingName,ROUTING_NAME_LENGTH}; // RoutingNameBytes
+use curve::{AlphaBytes,ALPHA_LENGTH};
 use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH};
-use super::keys::{RoutingName,ROUTING_NAME_LENGTH}; // RoutingNameBytes
 use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::error::*;
 use super::slice::*;

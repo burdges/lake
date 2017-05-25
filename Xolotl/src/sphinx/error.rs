@@ -12,7 +12,9 @@ use std::fmt;
 
 use super::PacketName;
 use super::replay::{ReplayCode};
+use keys::error::KeysError;
 use ratchet::error::RatchetError;
+
 
 /// `ErrorPacketId` is a `ReplayCode` in testing and empty otherwise.
 #[cfg(not(test))]
@@ -47,13 +49,14 @@ pub enum SphinxError {
     BadLength(&'static str, usize),
     PoisonError(&'static str, &'static str),
     RatchetError(RatchetError),
+    KeysError(KeysError),
     Replay(ErrorPacketId), 
     InvalidMac(ErrorPacketId),
     BadAlpha([u8; 32]),
     BadPacket(&'static str,u64),
     BadPacketName(PacketName),
     ConcensusLacking(&'static str),
-    IsserHasNoRatchet(super::keys::IssuerPublicKey),
+    IsserHasNoRatchet(::keys::IssuerPublicKey),
 }
 
 pub type SphinxResult<T> = Result<T,SphinxError>;
@@ -69,6 +72,8 @@ impl fmt::Display for SphinxError {
                 => write!(f, "Internal length error: {} ({})", c, l),
             PoisonError(l,t)
                 => write!(f, "Internal error: PoisonError< {}<'_,{}> >.", l, t),
+            KeysError(ref k)
+                => write!(f, "{}.", k),
             RatchetError(ref e)
                 => write!(f, "{}.", e),
             Replay(id)
@@ -100,6 +105,7 @@ impl Error for SphinxError {
             InternalError(_) => None,
             BadLength(_,_) => None,
             PoisonError(_,_) => None, // Maybe here
+            KeysError(ref e) => e.cause(),
             RatchetError(ref e) => e.cause(),
             Replay(_) => None,
             InvalidMac(_) => None,
@@ -113,12 +119,17 @@ impl Error for SphinxError {
 }
 
 
+impl<'a> From<KeysError> for SphinxError {
+    fn from(e: KeysError) -> SphinxError {
+        SphinxError::KeysError(e)
+    }
+}
+
 impl<'a> From<RatchetError> for SphinxError {
     fn from(e: RatchetError) -> SphinxError {
         SphinxError::RatchetError(e)
     }  // what about XolotlError ??
 }
-
 
 
 

@@ -11,8 +11,8 @@ use rand::{Rng, Rand};
 use curve25519_dalek::scalar;
 use curve25519_dalek::curve::{self, CompressedEdwardsY,ExtendedPoint,ScalarMult,BasepointMult};
 
-use super::SphinxSecret;
-use super::error::*;
+use sphinx::SphinxSecret;
+use sphinx::error::*;
 
 
 /// A curve25519 scalar chosen uniformly from ℤ/lℤ where

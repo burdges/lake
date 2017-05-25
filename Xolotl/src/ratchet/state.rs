@@ -164,7 +164,7 @@ pub fn create_initial_branch(state: &State, seed: &[u8])
 
 /// TODO:
 /// - Abstract keys from the sphinx module
-pub type ClientState = HashMap<::sphinx::keys::IssuerPublicKey,State>;
+pub type ClientState = HashMap<::keys::IssuerPublicKey,State>;
 
 
 #[cfg(test)]

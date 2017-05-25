@@ -17,7 +17,8 @@ Client API
 - Actual API
 
 SURBs
-- Start SURB unwinding based on alpha
+- Add foreign SURB unwinding based on ../../papers/add.txt
+  - Maybe start SURB unwinding based on alpha
 - unimplemented!() bits
 - TESTS with SURBs
 - Cross protocol unwinding?

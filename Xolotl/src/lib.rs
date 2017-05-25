@@ -50,10 +50,11 @@ extern crate crypto;  //  SHA3, Poly1305, checking curve25519_dalek
 #[macro_use]
 mod macros;
 
+mod curve;
 mod state;
+mod keys;
 mod ratchet;
 mod sphinx;
-
 
 
 // pub use self::...;

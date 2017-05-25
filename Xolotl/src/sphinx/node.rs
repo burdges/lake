@@ -37,7 +37,7 @@ pub enum Action {
     /// Forward this message to another hop.
     Transmit {
         /// Next hop
-        route: keys::RoutingName,
+        route: ::keys::RoutingName,
         time: ::std::time::SystemTime,
     },
 
@@ -54,15 +54,15 @@ pub enum Action {
 
 
 struct RoutingSecretData {
-    // routing_public: keys::RoutingPublic,
-    routing_secret: keys::RoutingSecret,
+    // routing_public: ::keys::RoutingPublic,
+    routing_secret: ::keys::RoutingSecret,
     replayer: replay::ReplayFilterStore,
 }
 
 struct Router<P: Params> {
     params: PhantomData<P>,
 
-    secrets: HashMap<keys::RoutingName,RoutingSecretData>,
+    secrets: HashMap<::keys::RoutingName,RoutingSecretData>,
 
     outgoing: OutgoingStore,
     mailboxes: MailboxStore,
@@ -77,7 +77,7 @@ impl<P: Params> Router<P> {
     /// 
     ///
     /// TODO: Check validity
-    fn secrets(&self, route: &keys::RoutingName) -> SphinxResult<&RoutingSecretData> {
+    fn secrets(&self, route: &::keys::RoutingName) -> SphinxResult<&RoutingSecretData> {
         self.secrets.get(route)
           .ok_or( SphinxError::BadPacket("Unknown routing key name.",0) )
     }
@@ -91,10 +91,10 @@ impl<P: Params> Router<P> {
         // .. self.surbs.try_unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body); ..
         // But what about authentication?
 
-        let secrets = self.secrets(&keys::RoutingName(*refs.route)) ?;
+        let secrets = self.secrets(&::keys::RoutingName(*refs.route)) ?;
 
         // Compute shared secret from the Diffie-Helman key exchange.
-        let alpha = curve::Point::decompress(refs.alpha) ?;  // BadAlpha
+        let alpha = ::curve::Point::decompress(refs.alpha) ?;  // BadAlpha
         let ss = alpha.key_exchange(&secrets.routing_secret.secret);
 
         // Initalize the stream cipher

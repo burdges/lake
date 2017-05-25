@@ -4,15 +4,13 @@
 //!
 //! ...
 
-mod curve;
 mod stream;
 mod body;
 mod replay;
 mod node;
 mod client;
-pub mod keys;  // TODO: Abstract keys from this module
 mod mailbox;
-mod error;
+pub mod error;
 
 #[macro_use]
 mod slice;

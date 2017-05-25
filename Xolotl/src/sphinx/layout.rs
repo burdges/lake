@@ -7,10 +7,10 @@
 use std::borrow::{Borrow,BorrowMut};
 use std::marker::PhantomData;
 
-use super::curve::{AlphaBytes,ALPHA_LENGTH};
+use keys::{RoutingName,RoutingNameBytes,ROUTING_NAME_LENGTH};
+use keys::time::{ValidityPeriod};
+use curve::{AlphaBytes,ALPHA_LENGTH};
 use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH,HeaderCipher};
-use super::keys::{RoutingName,RoutingNameBytes,ROUTING_NAME_LENGTH};
-use super::keys::{ValidityPeriod};
 use super::commands::{Command,CommandGamma,CommandData,CommandNode,MAX_SURB_BETA_LENGTH};
 use super::error::*;
 use super::slice::*;
