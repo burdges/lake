@@ -237,7 +237,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     fn add_ratchet(&mut self, branch_id: BranchId)
       -> SphinxResult<(TwigId,usize)> {
         let ratchet = self.world.ratchets.get(&self.route_public.issuer)
-          .ok_or( SphinxError::IsserHasNoRatchet(self.route_public.issuer) ) ?;
+          .ok_or( SphinxError::IssuerHasNoRatchet(self.route_public.issuer) ) ?;
         let mut advance = AdvanceUser::new(ratchet,&branch_id) ?;  // RatchetError
         let ss = SphinxSecret(self.key.chacha_key);
         let (twig,key) = advance.click(&ss) ?; // RatchetError

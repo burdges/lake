@@ -56,7 +56,7 @@ pub enum SphinxError {
     BadPacket(&'static str,u64),
     BadPacketName(PacketName),
     ConcensusLacking(&'static str),
-    IsserHasNoRatchet(::keys::IssuerPublicKey),
+    IssuerHasNoRatchet(::keys::IssuerPublicKey),
 }
 
 pub type SphinxResult<T> = Result<T,SphinxError>;
@@ -88,7 +88,7 @@ impl fmt::Display for SphinxError {
                 => write!(f, "Bad packet name {}.", pn.0.to_hex()),
             ConcensusLacking(s)
                 => write!(f, "Bad packet name {}.", s),
-            IsserHasNoRatchet(i)
+            IssuerHasNoRatchet(i)
                 => write!(f, "Issuer {} has no ratchet for us.", i.0.to_hex()),
         }
     }
@@ -113,7 +113,7 @@ impl Error for SphinxError {
             BadPacket(_,_) => None,
             BadPacketName(_) => None,
             ConcensusLacking(_) => None,
-            IsserHasNoRatchet(_) => None,
+            IssuerHasNoRatchet(_) => None,
         }
     }
 }
