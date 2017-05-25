@@ -4,8 +4,7 @@ TESTS !!!!
 
 
 Keys
-- Abstract keys into a top level model
-- Make keys GNUnet compatable using features or symlinks
+- Make keys GNUnet compatable using features
 
 Extend client side
 - Basic TESTS !!!!
@@ -42,8 +41,9 @@ Params
 - Move to mod.rs perhaps?
 
 Commands
-- Add Command::DropOff
 - Add Command::Delete
+- Add support for multiple commands without decryption
+  - Add Command::DropOff
 - Add Command::??
 - Explain why `Command` needs two paramaters instead of a single
   uninhabited type with associated types.  Simplicity.
