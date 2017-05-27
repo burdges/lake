@@ -1,0 +1,158 @@
+From burdges@gnunet.org Tue Feb  7 14:36:17 2017
+Message-ID: <1486474577.6590.158.camel@gnunet.org>
+Subject: Re: IFF, Autocrypt, etc
+From: Jeff Burdges <burdges@gnunet.org>
+To: holger@merlinux.eu, Daniel Kahn Gillmor <dkg@fifthhorseman.net>, 
+ Internationale <internationale@riseup.net>, Moritz Bartl
+ <moritz@torservers.net>, Christian Grothoff <grothoff@gnunet.org>
+Date: Tue, 07 Feb 2017 14:36:17 +0100
+In-Reply-To: <1486389716.6590.38.camel@gnunet.org>
+References: <1486389716.6590.38.camel@gnunet.org>
+Content-Type: multipart/signed; micalg="pgp-sha256"; protocol="application/pgp-signature"; boundary="=-uvQ/hTFiTOIBqQyzqlzv"
+X-Mailer: Evolution 3.12.9-1+b1 
+Mime-Version: 1.0
+X-Evolution-Identity: 1433242059.8898.0@nyarlathotep
+X-Evolution-Fcc: folder://local/Sent
+X-Evolution-Transport: 1433242060.8898.10@nyarlathotep
+X-Evolution-Source-Folder: folder://local/Sent
+X-Evolution-Source-Message: 1486389717.6590_3691.nyarlathotep
+X-Evolution-Source-Flags: ANSWERED ANSWERED_ALL SEEN 
+X-Evolution-Draft-Folder: folder://local/Drafts
+X-Evolution-Draft-Message: 1486473722.6590_6522.nyarlathotep
+X-Evolution-Format: text/plain, pgp-sign
+X-Evolution-Source: 
+
+
+--=-uvQ/hTFiTOIBqQyzqlzv
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+
+There is an issue with using our protocol for key attestation :
+
+We envisioned using it only for low value targets like preventing
+harassment, SPAM, etc. so the kappa parameter of our cut-n-choose could
+be fairly small.  If you want to use it for key attestation, then kappa
+should be of cryptographic size, making the protocol 8-16 times more
+time and maybe space.  I donno if 16 times slower is fatal, but it's not
+a fast protocol in the first place due to using multiple pairing based
+operations per key.
+
+
+In fact, one can imagine doing something similar without pairings, but
+it comes down to finding a signature for which you can mutate the
+signing key.
+
+Imagine Bob has an ECDSA [0] signature (r,s) on a message m that says "I
+know Bob with nonce n".  Bob makes another message m' that says "I'm
+know Bob with nonce n'".  Continuing in the notation of [0], Bob
+computes z' from H(m') and computes s' =3D z'/z s =3D (z' + r (z'/z) d)/k.
+Bob computes Q' =3D (z'/z) Q as the new public key.  Now an ordinary ECDSA
+verifier given (r,s') and Q' will compute=20
+  w =3D (s')^{-1} =3D k/(z' + r (z'/z) d),
+  u_1 =3D z' w  and  u_2 =3D r w
+so that u_2 Q' =3D r w (z'/z) d G and
+  u_1 G + u_2 Q' =3D w (z' + r (z'/z) d) G =3D k G
+
+We have not mutated r so if Bob and his friends are tricked into
+befriending many Sibel then the Sibels can identify common friends
+whenever r gets reused.  This means Bob should ask Q for many signatures
+with many different r on the same message.  That does not provide great
+security, and messes up out cut n' choose slightly, but it maybe beats
+what you'd get from PIR schemes, and the cut n' choose can likely be
+fixed.
+
+Now Bob needs the same base message m signed by all his Q and their
+different r choices if we want to take t_j =3D z'/z in our protocol.  This
+means that Alice and any Q who signed m can compute z and break Bob's
+contact list.  I believe we could fix the cut n' choose to prevent this,
+but I'll need to work out the details, and it may mean signatures can
+only be used once.=20
+
+Anywho..
+Jeff
+
+
+[0]
+https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm
+
+
+
+On Mon, 2017-02-06 at 15:01 +0100, Jeff Burdges wrote:
+> On Sun, 2017-02-05 at 23:37 -0500, Daniel Kahn Gillmor wrote:
+> > On Mon 2017-01-30 21:24:48 -0500, Jeff Burdges wrote:
+> > > Are there any plans for an autocrypt related meetup around IFF? =20
+> > indeed there are! we'll be meeting the weekend prior to it -- both
+> > Saturday and Sunday, hopefully.  Will you be around?
+>=20
+> Yes, I'd planed on doing personal stuff in Tarragona that weekend.  I
+> cut that stuff short, come down for Sunday, and then go back to
+> Tarragona between IFF and some Barcelona/Calafou stuff the week after.
+>=20
+> Also..
+>=20
+> A chat with Harry Halpin helped me think somewhat more clearly about
+> your situation.  If I understand, you need to send a key with an
+> unencrypted email, and provide a resource R which help the recipient
+> find evidence for the key's legitimacy, say via a gossip protocol or
+> something else.  I'd expect most formulations of R would reveal your
+> contact list, which sucks.
+>=20
+> Christin and I worked out an interesting little protocol that allows two
+> users to count the number of contacts that they have in common without
+> revealing anything about the list of either participant.  We developed
+> it to help this PhD student doing machine learning, so it appears in a
+> paper on stuff you should ignore, but you can find the protocol
+> described sections 5.6, 5.7, and 5.8 on pages 8-11 in
+> https://gnunet.org/sites/default/files/p4t.pdf
+> We stripped the security arguments from that paper but they appear in
+> Appendix A on pages 28-30 of the attached early draft of the same, which
+> contains an earlier description of the protocol on sections 6.7 and 6.8
+> on pages 16-19.  I'm reemphasize that you should probably ignore the
+> machine learning parts of these articles.  :)
+>=20
+> I donno if our protocol helps much with email as it requires two round
+> trips, but it might be useful if one imagines a messaging system where:
+> - an initial communications can burn two+ round trips,
+> - everyone has long term keys that rarely change, and
+> - the count of shared contacts is useful for establishing key
+> authenticity.
+>=20
+> I envision a whole mess of problems here, but maybe they can be fixed.
+> I'm happy to chat with folks like Harry and Carmela about the lack of
+> key rotation.  I'm less sure if the anonymous attestation to key
+> authenticity is really useful, but maybe you guys can tell me?
+>=20
+> I look forward to seeing folks in Valencia!
+>=20
+> Best,
+> Jeff
+>=20
+>=20
+
+
+--=-uvQ/hTFiTOIBqQyzqlzv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCAAGBQJYmc1RAAoJEKusf9HMEAp0zagP/3NTb8vOXS9hSmzCAjZ0kWjZ
+HSETdc7ortnHYDtA6YBJIwBViU4ikG4Tqk38CgeomICJQwEjbZoIJ6x/V0HtTnc/
++tEoxXOpictsdUf49lUl3H/QFmd62FTdJbBdRkI7EJkq2OExtP1lhAtcTCZ3ee28
+ZfyjUp8PRvwo+2dCY/EVTa+rjWwAT00UgFN3Tou4w3s7MB2ygHpQkeDhpsKKE/lz
+6T5IwXHrXcLEgd2mrw72D7QlaVNEi1m8kzbfVA/tHAYVlT+E5DiAGEgVnenGw1V8
+tYDUxOa3NJEt/Td1F7mhFhiuCyrMqz2A4T6pulZTmScFcxZYxi+MITCh+GK99wEb
+NGlKNP+2xyHkzm8a0xbBZ3Tsje0Vqx/4k08nsUhJJiTk7PcGfT7tGDwfUEOmuNOz
+8qJxeNQfesppr8KNZAU3yenYInXRBJSrkKkfwlo0Q6ZuUpaRvcIaBNev985YK1TI
+D1eR/6PMuGaeQMJfz9Y4EJX5UK4WpI8jOLwoYXhQcrhmXR9/YZrUnXu5SAlkLY8a
+hNNEsomuDohzD0Rqt3KC4xKDc+nuo+5R4XOuSudK28kHuC5AvqzSajK/2zeKzvlH
++ZV4wbDLDvOiSc4Edte7hsFxz/aOWJOHE7a05DfFuSECM8eV1o8JHvnr9rWS2cgN
+rLicSLqNP+YjEEZB/xAX
+=SES8
+-----END PGP SIGNATURE-----
+
+--=-uvQ/hTFiTOIBqQyzqlzv--
+
