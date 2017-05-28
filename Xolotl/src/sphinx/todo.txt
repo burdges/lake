@@ -7,8 +7,12 @@ Keys
 - Make keys GNUnet compatable using features
 
 Extend client side
-- Basic TESTS !!!!
+- Transaction???
 - Converion from instructions into commands
+- SURB beta insertion?
+- Commands after SURB beta?
+- Abstractions for instruction length?
+- Basic TESTS !!!!
 
 Client API
 - Reference structs
@@ -16,6 +20,9 @@ Client API
 - Actual API
 
 SURBs
+- Consistent beta lengths in both implementaiton and paper
+  - Padding
+  - Allowed list
 - Add foreign SURB unwinding based on ../../papers/add.txt
   - Maybe start SURB unwinding based on alpha
 - unimplemented!() bits
@@ -24,7 +31,7 @@ SURBs
   - Trait objects vs recursion?
 
 Improve data model:
-- Indexing client's foreign ratchets by node
+- Improve indexing client's foreign ratchets by node
 - SURB storage
   - Remove Arcs?
 - Queues and Mailboxes
@@ -44,8 +51,20 @@ Commands
 - Add Command::Delete
 - Add support for multiple commands without decryption
   - Add Command::DropOff
+    - Support both surb_keys and bodies in same message
 - Add Command::??
 - Explain why `Command` needs two paramaters instead of a single
   uninhabited type with associated types.  Simplicity.
 
+Ratchet
+- Berry depends on beta in both implementation and paper
+
+
+COFU
+- New repository
+- tex
+  - Add Protocol 1
+  - Add strawman maybe?
+- Fix Zaki's BLS signatures 
+- Implement !!!
 

@@ -23,14 +23,16 @@ impl ValidityPeriod {
         ValidityPeriod( start.as_secs() .. (start+duration).as_secs() )
     }
 
-    pub fn intersect(&self, other: &ValidityPeriod) -> ValidityPeriod {
+    pub fn intersect(&self, other: &ValidityPeriod) -> Option<ValidityPeriod> {
         use std::cmp::{min,max};
-        ValidityPeriod(max(self.0.start, other.0.start)..min(self.0.end, other.0.end))
+        let start = max(self.0.start, other.0.start);
+        let end = min(self.0.end, other.0.end);
+        if start < end { Some(ValidityPeriod(start..end)) } else { None }
     }
 
-    pub fn intersect_assign(&mut self, other: &ValidityPeriod) {
-        *self = self.intersect(other);
-    }
+    // pub fn intersect_assign(&mut self, other: &ValidityPeriod) {
+    //     *self = self.intersect(other);
+    // }
 
     pub fn start(&self) -> SystemTime {
         UNIX_EPOCH + Duration::from_secs(self.0.start)

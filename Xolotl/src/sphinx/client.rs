@@ -17,10 +17,57 @@ use super::stream::{Gamma}; // GammaBytes,GAMMA_LENGTH,HeaderCipher
 
 pub use keys::{RoutingName,RoutingPublic,Concensus};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
-use super::commands::{PreCommand}; // Command
+use super::commands::{PreCommand,Command};
 use super::layout::{Params,ImplParams,PreHeader};
 use super::error::*;
 use super::*;
+
+
+/// `Instruction`s are translated into sequences of `Command`s when
+/// building a header.
+pub enum Instruction {
+    /// Transmit packet to another mix network node
+    Transmit {
+        route: RoutingName,
+    },
+
+    /// Advance and integrate a ratchet state
+    Ratchet {
+        route: RoutingName,
+        branch: BranchId,
+    },
+
+    /// Crossover with SURB in beta
+    CrossOver {
+        surb: PreHeader,
+    },
+
+    /// Crossover with SURB stored on node
+    Contact {
+        // unimplemented!()
+    },
+    Greeting {
+        // unimplemented!()
+    },
+
+    /// Deliver message to the specified mailbox, roughly equivelent
+    /// to transmition to a non-existant mix network node.
+    Deliver {
+        /// Mailbox name
+        mailbox: MailboxName,
+    },
+
+    /// Arrival of a SURB we created and archived.
+    ArrivalSURB { },
+
+    /// Arrival of a message for a local application.
+    ArrivalDirect { },
+
+    // DropOff { },
+    // Delete { },
+    // Dummy { },
+}
+
 
 
 /// World of key material in which we build a header.
@@ -28,6 +75,9 @@ pub struct World<'a,C,P> where C: Concensus+'a, P: Params {
     params: PhantomData<P>,
 
     /// Network concensus information for looking up nodes.
+    ///
+    /// TODO: We might not need this here if RoutingPublic were
+    /// supplied in `Command::Transmit::route`
     concensus: &'a C,
 
     /// Our ratchets with other nodes.
@@ -159,7 +209,9 @@ struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     /// an index into `hops` for the next `HeaderCipher`.
     commands: Vec<PreCommand<usize>>,
 
-    /// TODO: Refactor to have only one transaction.
+    /// Ratchet advance transactions 
+    ///
+    /// TODO: Refactor to have only one transaction and/or support repeats?!?
     advances: Vec<AdvanceUser<'a>>,
 
     /// Stream ciphers for 
@@ -175,6 +227,15 @@ struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
 }
 
 impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
+    fn intersect_validity(&mut self) -> SphinxResult<()> {
+        if let Some(v) = self.validity.intersect(&self.route_public.validity) {
+            self.validity = v;
+            Ok(())
+        } else {
+            Err( SphinxError::InternalError("TODO: Validity Error") )
+        }
+    }
+
     /// 
     fn add_route(&mut self, route: RoutingName) -> SphinxResult<&RoutingPublic> {
         if self.route.end != route {
@@ -217,7 +278,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
           // that that the immutable borrow returned does not hide
           // some mutable borrow.
         // TODO: Figure out how to prevent leakage via validity
-        self.validity.intersect_assign(&self.route_public.validity);  
+        self.intersect_validity();
         let rpoint = ::curve::Point::decompress(&self.route_public.public) ?;  // BadAlpha
         let ss = rpoint.key_exchange(&self.aa);
         self.key = stream::SphinxKey::<P>::new_kdf(&ss, &route);
@@ -243,71 +304,74 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
         let (twig,key) = advance.click(&ss) ?; // RatchetError
         self.key.chacha_key = key;
         let i = self.add_ratchet_twig(twig) ?;
-        self.advances.push(advance);  // TODO: Refactor to have only one transaction
+        self.advances.push(advance);
+          // TODO: Refactor to have only one transaction and/or support repeats
         Ok(( twig, i ) )
     }
 
-/*
-    pub fn command(&mut self, command: PreCommand<()>) -> SphinxResult<()> {
-        use self::Command::*;
-        let l0 = 0usize;
-        let command = match *self {
-            Transmit { route, gamma: _ } => 
-                Transmit { route, gamma: self.add_sphinx_cipher(route) ? },
-            Ratchet { twig: branch_id, gamma: _ } => {
-                let (twig,gamma) = self.add_ratchet(branch_id);
-                Ratchet { twig, gamma }
-            },
-            CrossOver { route, alpha, gamma, surb_beta } => {
-                l0 = surb_beta.len();
-                CrossOver { route, alpha, gamma, surb_beta }
-            },
-            Contact { } => Contact { },
-            Greeting { } => Greeting { },
-            Deliver { mailbox } => Deliver { mailbox },
-            ArrivalSURB { } => ArrivalSURB { },
-            ArrivalDirect { } => ArrivalDirect { },
-            // DropOff { } => DropOff { },
-            // Delete { } => Delete { },
-            // Dummy { } => Dummy { },
+    pub fn command(&mut self, instrustion: Instruction) -> SphinxResult<()> {
+        use arrayvec::ArrayVec;
+        let mut valid = Some(self.validity.clone());
+        let mut commands = ArrayVec::<[PreCommand<usize>; 2]>::new();
+        let mut eaten = 0usize;
+        let mut extra = 0usize;
+        let mut delay = self.delay;
+
+        {
+        let mut p = |c: PreCommand<usize>| {
+            eaten += c.command_length();
+            commands.push(c);
+            // eaten += commands.last().unwrap().command_length();
         };
-        let l = command.command_length() - l0;        
-        if l > P::MAX_BETA_TAIL_LENGTH {
-            unimplemented!();
+        match instrustion {
+            Instruction::Transmit { route } => {
+                p(Command::Transmit { route, gamma: self.add_sphinx(route) ? });
+                delay += self.ciphers.last_mut().unwrap().delay();
+            },
+            Instruction::Ratchet { route, branch } => {
+                p(Command::Transmit { route, gamma: self.add_sphinx(route) ? });
+                let (twig,gamma) = self.add_ratchet(branch) ?;
+                p(Command::Ratchet { twig, gamma });
+                delay += self.ciphers.last_mut().unwrap().delay();
+            },
+            Instruction::CrossOver { surb: PreHeader { validity, route, alpha, gamma, beta } } => {
+                valid = self.validity.intersect(&validity);
+                extra = beta.len();
+                p(Command::CrossOver { route, alpha, gamma, surb_beta: beta });
+            },
+            Instruction::Contact { } =>
+                p(Command::Contact { }),
+            Instruction::Greeting { } => 
+                p(Command::Greeting { }),
+            Instruction::Deliver { mailbox } =>
+                p(Command::Deliver { mailbox }),
+            Instruction::ArrivalSURB { } =>
+                p(Command::ArrivalSURB { }),
+            Instruction::ArrivalDirect { } => 
+                p(Command::ArrivalDirect { }),
+            // Instruction::DropOff { } => 
+            //     p(Command::DropOff { },
+            // Instruction::Delete { } => 
+            //     p(Command::Delete { },
+            // Instruction::Dummy { } => 
+            //     p(Command::Dummy { },
         }
-        self.eaten += l;
-        if self.eaten >= P::BETA_LENGTH {
-            unimplemented!();
         }
-
-
-        match *self {
-            Command::Transmit { route } => {
-                .
-            },
-            Command::Ratchet { twig } => {
-            },
-            Command::CrossOver { alpha, surb_beta } => {
-                unimplemented!();
-            },
-            Command::Contact { } => {
-                unimplemented!();
-            },
-            Command::Greeting { } => {
-                unimplemented!();
-            },
-            Command::Deliver { mailbox } => {
-                unimplemented!();
-            },
-            // DropOff
-            Command::ArrivalSURB { } => {
-            },
-            Command::ArrivalDirect { } => {
-            },
-            // Delete
+        if eaten - extra  > P::MAX_BETA_TAIL_LENGTH {
+            return Err( SphinxError::InternalError("Command exceeded beta tail length") );
         }
+        if self.eaten + eaten >= P::BETA_LENGTH {
+            return Err( SphinxError::InternalError("Commands exceed length of beta") );
+        }
+        if let Some(v) = valid {
+            self.validity = v;
+        } else {
+            return Err( SphinxError::InternalError("TODO: Validity Error") );
+        }
+        self.eaten += eaten;
+        self.commands.extend(commands.drain(..));
+        Ok(())
     }
-*/
 
     /// Write fully encrypted tails `phi` to `beta`.
     ///
@@ -357,8 +421,8 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     fn do_beta_with_gammas(&mut self, beta: &mut [u8]) -> SphinxResult<Gamma> {
         // We insert our newly created PreCommand<Gamma> directly
         // into `beta` and do not constrcut a Vec<PreCommand<Gamma>>.
+        let mut j = None;  // Previous ciphers index for testing in debug mode.
         let mut o = self.eaten;
-        let mut j = None;
         let mut tail = 0;
         while let Some(c) = self.commands.pop() {
             let l = c.command_length();

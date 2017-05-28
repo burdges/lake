@@ -34,7 +34,7 @@ impl CommandData for usize {
 
 /// We hold unsized extra data as a `Vec[u8]` inside the `Command` 
 /// when building headers on the client.
-impl CommandData for Vec<u8> {
+impl CommandData for Box<[u8]> {
     fn length(&self) -> usize { self.len() }
     fn data(&self) -> &[u8] { self }
 }
@@ -67,7 +67,7 @@ impl CommandGamma for usize { }
 pub type CommandNode = Command<Gamma,usize>;
 
 /// Preliminay `Command` types used when encoding `beta`.
-pub type PreCommand<G> = Command<G,Vec<u8>>;
+pub type PreCommand<G> = Command<G,Box<[u8]>>;
 
 
 /// Commands to mix network nodes embedded in beta.
