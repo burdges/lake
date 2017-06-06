@@ -28,11 +28,8 @@ pub struct Metadata(pub u64);
 
 
 pub struct SURBHopKey {
-    /// IETF ChaCha20 12 byte nonce 
-    pub chacha_nonce: [u8; 12],
-
-    /// IETF ChaCha20 32 byte key 
-    pub chacha_key: [u8; 32],
+    /// IETF Chacha20 stream cipher key and nonce.
+    pub chacha: stream::ChaChaKnN,
 
     pub berry_twig: Option<TwigId>,
 }
@@ -112,11 +109,8 @@ impl<P: Params> SURBStore<P> {
                     // to add all at once? 
                 }
                 // TODO: Use protocol specified in the delivery surb
-                let mut hop = stream::SphinxKey::<P> {
-                    params: PhantomData,
-                    chacha_nonce: key.chacha_nonce,
-                    chacha_key: key.chacha_key,
-                }.header_cipher() ?;  // InternalError: ChaCha stream exceeded
+                let mut hop = key.chacha.header_cipher::<P>() ?;
+                  // InternalError: ChaCha stream exceeded
                 hop.xor_surb_log(surb_log) ?;  // InternalError
                 hop.body_cipher().encrypt(body) ?;  // InternalError
             }

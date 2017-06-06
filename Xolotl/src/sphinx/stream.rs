@@ -54,8 +54,8 @@ pub struct Gamma(pub GammaBytes);
 struct GammaKey(pub [u8; 32]);
 
 
-/*
 /// IETF Chacha20 stream cipher key and nonce.
+#[derive(Clone)]
 pub struct ChaChaKnN {
     /// IETF ChaCha20 32 byte key 
     pub key: [u8; 32],
@@ -63,7 +63,34 @@ pub struct ChaChaKnN {
     /// IETF ChaCha20 12 byte nonce 
     pub nonce: [u8; 12],
 }
-*/
+
+impl ChaChaKnN {
+    /// Initalize an IETF ChaCha20 stream cipher with our key material
+    /// and use it to generate the poly1305 key for our MAC gamma, and
+    /// the packet's name for SURB unwinding.
+    ///
+    /// Notes: We could improve performance by using the curve25519 point
+    /// derived in the key exchagne directly as the key for an XChaCha20
+    /// instance, which includes some mixing, and using chacha for the
+    /// replay code and gamma key.  We descided to use SHA3's SHAKE256
+    /// mode so that we have more and different mixing.
+    pub fn header_cipher<P: Params>(&self) -> SphinxResult<HeaderCipher<P>> {
+        let mut chacha = ChaCha20::new_ietf(&self.key, &self.nonce);
+        let mut r = &mut [0u8; HOP_EATS];
+        chacha.xor_read(r).unwrap();  // No KeystreamError::EndReached here.
+        let (packet_name,replay_code,gamma_key) = array_refs![r,16,16,32];
+
+        Ok( HeaderCipher {
+            params: PhantomData,
+            chunks: StreamChunks::make::<P>() ?,
+            packet_name: PacketName(*packet_name),
+            replay_code: ReplayCode(*replay_code),
+            gamma_key: GammaKey(*gamma_key),
+            stream: chacha,
+        } )
+    }
+
+}
 
 
 /// Results of our KDF consisting of the nonce and key for our
@@ -73,11 +100,8 @@ pub struct ChaChaKnN {
 pub struct SphinxKey<P: Params> {
     pub params: PhantomData<P>,
 
-    /// IETF ChaCha20 12 byte nonce 
-    pub chacha_nonce: [u8; 12],
-
-    /// IETF ChaCha20 32 byte key 
-    pub chacha_key: [u8; 32],
+    /// IETF Chacha20 stream cipher key and nonce.
+    pub chacha: ChaChaKnN,
 }
 
 /*
@@ -85,15 +109,16 @@ impl<P> Clone for SphinxKey<P> where P: Params {
     fn clone(&self) -> SphinxKey<P> {
         SphinxKey {
             params: PhantomData,
-            chacha_nonce: self.chacha_nonce.clone(),
-            chacha_key: self.chacha_key.clone(),
+            chacha: chacha.clone(),
         }
     }
 }
 */
 
 impl<P: Params> SphinxKey<P> {
-    /// Derive the key material for our IETF Chacha20 stream cipher.
+    /// Derive the key material for our IETF Chacha20 stream cipher,
+    /// incorporating both `P::PROTOCOL_NAME` and our `RoutingName`
+    /// as seed material.
     pub fn new_kdf(ss: &SphinxSecret, rn: &::keys::RoutingName) -> SphinxKey<P> {
         use crypto::digest::Digest;
         use crypto::sha3::Sha3;
@@ -108,37 +133,17 @@ impl<P: Params> SphinxKey<P> {
         sha.result(r);
         sha.reset();
 
-        let (chacha_nonce,_,chacha_key) = array_refs![r,12,4,32];
+        let (nonce,_,key) = array_refs![r,12,4,32];
         SphinxKey {
             params: PhantomData,
-            chacha_nonce: *chacha_nonce,
-            chacha_key: *chacha_key,
+            chacha: ChaChaKnN { nonce: *nonce, key: *key },
         }
     }
 
-    /// Initalize an IETF ChaCha20 stream cipher with our key material
-    /// and use it to generate the poly1305 key for our MAC gamma, and
-    /// the packet's name for SURB unwinding.
-    ///
-    /// Notes: We could improve performance by using the curve25519 point
-    /// derived in the key exchagne directly as the key for an XChaCha20
-    /// instance, which includes some mixing, and using chacha for the
-    /// replay code and gamma key.  We descided to use SHA3's SHAKE256
-    /// mode so that we have more and different mixing.
+    /// Initalize our IETF ChaCha20 stream cipher by invoking 
+    /// `ChaChaKnN::header_cipher` with our paramaters `P: Params`.
     pub fn header_cipher(&self) -> SphinxResult<HeaderCipher<P>> {
-        let mut chacha = ChaCha20::new_ietf(&self.chacha_key, &self.chacha_nonce);
-        let mut r = &mut [0u8; HOP_EATS];
-        chacha.xor_read(r).unwrap();  // No KeystreamError::EndReached here.
-        let (packet_name,replay_code,gamma_key) = array_refs![r,16,16,32];
-
-        Ok( HeaderCipher {
-            params: PhantomData,
-            chunks: StreamChunks::make::<P>() ?,
-            packet_name: PacketName(*packet_name),
-            replay_code: ReplayCode(*replay_code),
-            gamma_key: GammaKey(*gamma_key),
-            stream: chacha,
-        } )
+        self.chacha.header_cipher::<P>()
     }
 }
 

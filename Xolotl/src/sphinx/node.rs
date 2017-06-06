@@ -114,8 +114,8 @@ impl<P: Params> Router<P> {
         if let Command::Ratchet { twig, gamma } = command {
             let TwigId(branch_id, twig_idx) = twig;
             let mut advance = AdvanceNode::new(&self.ratchet, &branch_id) ?;  // RatchetError
-            let ss = SphinxSecret(key.chacha_key);
-            key.chacha_key = advance.clicks(&ss, twig_idx) ?;  // RatchetError
+            let ss = SphinxSecret(key.chacha.key);
+            key.chacha.key = advance.clicks(&ss, twig_idx) ?;  // RatchetError
             hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
             *refs.gamma = gamma.0;
             if let Err(e) = refs.verify_gamma(&hop) {

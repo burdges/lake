@@ -297,8 +297,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         if let Some(ref mut bodies) = self.bodies { bodies.push(l); }
         if let Some(ref mut sh) = self.surb_keys {
             sh.push( surbs::SURBHopKey {
-                chacha_nonce: key.chacha_nonce,
-                chacha_key: key.chacha_key,
+                chacha: key.chacha.clone(),
                 berry_twig,
             } ); 
         }
@@ -348,8 +347,8 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         let mut advance = AdvanceUser::new(ratchet,&branch_id) ?;  // RatchetError
         let twig = {
             let key = self.v.key.as_mut().expect("Cannot add ratchet without a previous key!");
-            let (twig,k) = advance.click(&SphinxSecret(key.chacha_key)) ?; // RatchetError
-            key.chacha_key = k;
+            let (twig,k) = advance.click(&SphinxSecret(key.chacha.key)) ?; // RatchetError
+            key.chacha.key = k;
             twig
         };
         let i = self.add_ratchet_twig(twig) ?;
