@@ -416,7 +416,8 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
     /// Add `Instruction` to 
     ///
     /// TODO:
-    pub fn command(&mut self, instrustion: Instruction) -> SphinxResult<()> {
+    pub fn command(&mut self, instrustion: Instruction)
+      -> SphinxResult<&mut Hoist<'s,'a,R,C,P>> {
         use arrayvec::ArrayVec;
         let mut commands = ArrayVec::<[PreCommand<usize>; 2]>::new();
         let mut eaten = 0usize;
@@ -468,7 +469,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
         }
         self.v.eaten += eaten;
         self.s.commands.extend(commands.drain(..));
-        Ok(())
+        Ok(self)
     }
 
     /// Destructure the `Hoist` to avoid drop, thereby avoiding
