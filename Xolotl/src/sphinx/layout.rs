@@ -22,14 +22,20 @@ use super::*; // {PacketName,PACKET_NAME_LENGTH};
 pub type Length = usize;
 
 
-/// Sphinx paramaters
+/// Sphinx packet format paramaters
 ///
-/// We require a `&'static SphinxParams` when used because the
-/// protocol specification should be compiled into the binary.
+/// We handle these paramaters only at the type level, only
+/// instantiating `PhantomData<P>` where `P: Params`.
+/// 
+/// We require they be `Clone` only because `#[derive(Clone)]` uses
+/// [incorrect bounds](https://github.com/rust-lang/rust/issues/26925).
+/// We could fix this by adding manual clone instances for every
+/// type with a type paramater `P: Params`, but adding the supertrait
+/// seems easier for now.
 ///
 /// In some cases, there could be minor performance hits if some
 /// of these are not multiples of the ChaCha blocksize of 64 byte.
-pub trait Params: Sized {
+pub trait Params: Sized+Clone+Copy {
     /// Unique numeric identifier for the protocol
     const PROTOCOL_ID: surbs::ProtocolId;
 
@@ -52,6 +58,9 @@ pub trait Params: Sized {
 
     /// Length of the SURB log.
     const SURB_LOG_LENGTH: Length;
+
+    /// Approved message body lengths
+    const BETA_LENGTHS: &'static [Length];
 
     /// Approved message body lengths
     const BODY_LENGTHS: &'static [Length];

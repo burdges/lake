@@ -69,6 +69,7 @@ pub struct ChaChaKnN {
 /// Results of our KDF consisting of the nonce and key for our
 /// IETF Chacha20 stream cipher, which produces everything else
 /// in the Sphinx header.
+#[derive(Clone)]
 pub struct SphinxKey<P: Params> {
     pub params: PhantomData<P>,
 
@@ -78,6 +79,18 @@ pub struct SphinxKey<P: Params> {
     /// IETF ChaCha20 32 byte key 
     pub chacha_key: [u8; 32],
 }
+
+/*
+impl<P> Clone for SphinxKey<P> where P: Params {
+    fn clone(&self) -> SphinxKey<P> {
+        SphinxKey {
+            params: PhantomData,
+            chacha_nonce: self.chacha_nonce.clone(),
+            chacha_key: self.chacha_key.clone(),
+        }
+    }
+}
+*/
 
 impl<P: Params> SphinxKey<P> {
     /// Derive the key material for our IETF Chacha20 stream cipher.

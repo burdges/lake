@@ -4,7 +4,7 @@
 //!
 //! TODO: Add serialization options using Serde.
 
-use std::ops::Range;
+use std::ops::{Range,AddAssign,Add,SubAssign,Sub};
 use std::time::{Duration,SystemTime,UNIX_EPOCH};
 
 #[derive(Clone, Debug)] // Copy
@@ -84,4 +84,55 @@ impl ValidityPeriod {
         } )
     }
 }
+
+impl<'a> Add<Duration> for &'a ValidityPeriod {
+    type Output = ValidityPeriod;
+
+    fn add(self, rhs: Duration) -> ValidityPeriod {
+        let e = "overflow when adding seconds to a validity period";
+        let f = |x: u64| x.checked_add(rhs.as_secs()).expect(e);
+        ValidityPeriod(f(self.0.start)..f(self.0.end))
+    }
+}
+
+impl Add<Duration> for ValidityPeriod {
+    type Output = ValidityPeriod;
+
+    #[inline(always)]
+    fn add(self, rhs: Duration) -> ValidityPeriod {
+        &self + rhs
+    }
+}
+
+impl AddAssign<Duration> for ValidityPeriod {
+    fn add_assign(&mut self, rhs: Duration) {
+        *self = &*self + rhs;
+    }
+}
+
+impl<'a> Sub<Duration> for &'a ValidityPeriod {
+    type Output = ValidityPeriod;
+
+    fn sub(self, rhs: Duration) -> ValidityPeriod {
+        let e = "overflow when subtracting seconds from a validity period";
+        let f = |x: u64| x.checked_sub(rhs.as_secs()).expect(e);
+        ValidityPeriod(f(self.0.start)..f(self.0.end))
+    }
+}
+
+impl Sub<Duration> for ValidityPeriod {
+    type Output = ValidityPeriod;
+
+    #[inline(always)]
+    fn sub(self, rhs: Duration) -> ValidityPeriod {
+        &self - rhs
+    }
+}
+
+impl SubAssign<Duration> for ValidityPeriod {
+    fn sub_assign(&mut self, rhs: Duration) {
+        *self = &*self - rhs;
+    }
+}
+
 

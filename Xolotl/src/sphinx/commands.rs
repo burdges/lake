@@ -59,8 +59,8 @@ impl CommandGamma for Gamma {
 /// If we do not know `gamma` then we supply a fake `Gamma` set to
 /// `[0u8; GAMMA_LENGTH]` so as to give a correct length when 
 /// preparing `beta`.  
-impl CommandGamma for () { }
 impl CommandGamma for usize { }
+// impl CommandGamma for () { }
 
 
 /// Actual `Command` type produced when decoding `beta`.
@@ -87,6 +87,7 @@ pub enum Command<G,D> where G: CommandGamma, D: CommandData {
 
     /// Crossover with SURB in beta
     CrossOver {
+        // TODO: Use only index part of RoutingName is using GNUNet's Brahms based RPS.
         route: RoutingName,
         alpha: AlphaBytes,
         gamma: Gamma,

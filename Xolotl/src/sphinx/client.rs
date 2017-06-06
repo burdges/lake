@@ -108,22 +108,19 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
         let alpha0 = ::curve::Point::from_secret(&aa).compress();
         // TODO: Any tests for alpha?  ::curve::Point::decompress(&alpha) ?;
 
-        // Initial value for `self.key` that our call to `add_sphinx` below replaces.
-        let key = stream::SphinxKey {
-            params: PhantomData,
-            chacha_nonce: [0u8; 12],
-            chacha_key: [0u8; 32],
-        };
         let rp = self.concensus.routing_named(&route) ?;
-        let mut s = Scaffold {
-            world: self.clone(),
-            rng,
+        let v = Values {
             route: route..route,
             route_public: rp.clone(),
-            key, alpha0, aa, 
+            key: None,
+            alpha0, aa, 
             delay: Duration::from_secs(0),
             validity: rp.validity.clone(),
             eaten: 0, 
+        };
+        let mut s = Scaffold {
+            world: self.clone(),
+            rng, v,
             commands: Vec::with_capacity(capacity),
             advances: Vec::with_capacity(capacity),
             ciphers: Vec::with_capacity(capacity+1),
@@ -161,16 +158,20 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
 }
 
 
-/// We build `PreHeader`s using successive operations on `Scafold`.
-/// 
-/// We use our first command to set `PreHeader::route` and pad
-/// `PreHeader::beta` for usage in transmission or in aSURB, but
-/// do not encode it into `PreHeader::beta`.
-struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
-    world: World<'a,C,P>,
-
-    rng: &'a mut R,
-
+/// All singleton values mutated while building a header,
+/// except for the random number generator.  
+///
+/// We include these values into both `Scaffold` and `Hoist`,
+/// with those in `Hoist` being used to rollback a failed
+/// transaction on the `Scaffold`.  
+///
+/// We cannot include the random number generator becuase they
+/// lack a rollback function and any such function would be
+/// inherently insecure.  As a result, any rolled backs of the 
+/// `Scaffold` may prevent the resulting `PreHeader` from being 
+/// regenerated from the same seed and `Instructon`s.
+#[derive(Clone)]
+struct Values<P: Params> {
     /// First and last hop that should process this header.
     ///
     /// TODO: `Range` makes and odd choice for this, but the field
@@ -186,7 +187,7 @@ struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     ///
     /// TODO: Should we make this a real argument to `add_cipher`
     /// somehow?  Should we not keep the nonce from key exchange? 
-    key: stream::SphinxKey<P>,
+    key: Option<stream::SphinxKey<P>>,
 
     /// Initial public curve point
     alpha0: ::curve::AlphaBytes,
@@ -202,6 +203,43 @@ struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
 
     /// Amount of `beta` used by `commands`.
     eaten: usize,
+}
+
+/*
+impl<P> Clone for Values<P> where P: Params {
+    fn clone(&self) -> Values<P> {
+        let Values {
+            ref route, ref route_public, ref key,
+            alpha0, aa, delay, ref validity, eaten, 
+        } = *self;
+        Values {
+            route: route.clone(),
+            route_public: route_public.clone(),
+            key: key.clone(),
+            alpha0, aa, delay,
+            validity: validity.clone(),
+            eaten, 
+        }
+    }
+}
+*/
+
+/// We build `PreHeader`s using successive operations on `Scafold`.
+/// 
+/// We use our first command to set `PreHeader::route` and pad
+/// `PreHeader::beta` for usage in transmission or in aSURB, but
+/// do not encode it into `PreHeader::beta`.
+struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
+    world: World<'a,C,P>,
+
+    rng: &'a mut R,
+
+    /// All singleton values mutated while building a header,
+    /// except for the random number generator `rng`.
+    /// 
+    /// In future, we should fold incorporate this directly into
+    /// `Scafold` via `..v` or whatever syntax emerges for that.
+    v: Values<P>,
 
     /// `Commands` for `beta`.
     ///
@@ -223,41 +261,44 @@ struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     surb_keys: Option<Vec<surbs::SURBHopKey>>,
 
     /// Indexes of ciphers that encrypt the body and surb log
-    bodies: Option<Vec<usize>>
+    bodies: Option<Vec<usize>>,
 }
 
-impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
-    fn intersect_validity(&mut self) -> SphinxResult<()> {
-        if let Some(v) = self.validity.intersect(&self.route_public.validity) {
-            self.validity = v;
-            Ok(())
-        } else {
-            Err( SphinxError::InternalError("TODO: Validity Error") )
-        }
+
+impl<'a,R,C,P> Scaffold<'a,R,C,P>
+  where R: Rng+'a, C: Concensus+'a, P: Params {
+    fn intersect_validity(&mut self, other: Option<&::keys::time::ValidityPeriod>)
+      -> SphinxResult<()> {
+        let mut other = other.unwrap_or(&self.v.route_public.validity).clone();
+        other += self.v.delay;
+        self.v.validity = self.v.validity.intersect(&other)
+          .ok_or( SphinxError::InternalError("Validity Error") ) ?;
+        Ok(())
     }
 
     /// 
     fn add_route(&mut self, route: RoutingName) -> SphinxResult<&RoutingPublic> {
-        if self.route.end != route {
+        if self.v.route.end != route {
             let rp = self.world.concensus.routing_named(&route) ?; // ??
-            self.route_public = rp.clone();
-            self.route.end = route;
+            self.v.route_public = rp.clone();
+            self.v.route.end = route;
         } else {
             return Err( SphinxError::InternalError("Repeated hop!") );
         }
-        Ok( &self.route_public )
+        Ok( &self.v.route_public )
     }
 
     fn add_cipher(&mut self, berry_twig: Option<TwigId>)
       -> SphinxResult<usize> {
-        let mut hop = self.key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
+        let key = self.v.key.as_ref().expect("Cannot add cipher if no key is given!");
+        let mut hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
         let l = self.ciphers.len();
         self.ciphers.push(hop);
         if let Some(ref mut bodies) = self.bodies { bodies.push(l); }
         if let Some(ref mut sh) = self.surb_keys {
             sh.push( surbs::SURBHopKey {
-                chacha_nonce: self.key.chacha_nonce,
-                chacha_key: self.key.chacha_key,
+                chacha_nonce: key.chacha_nonce,
+                chacha_key: key.chacha_key,
                 berry_twig,
             } ); 
         }
@@ -266,22 +307,27 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
 
     fn add_sphinx(&mut self, route: RoutingName)
       -> SphinxResult<usize> {
-        // We avoid unecessary blinding by keeping `aa` one hop
-        // behind and only blinding right before use.  We always
-        // blind here except when called from `Scaffold::new`.
-        if let Some(c) = self.ciphers.last_mut() { self.aa.blind(& c.blinding()); }
-          // Annoyingly we cannot use `map` here because the borrow checker cannot
-          // tell that we're borrowing different parts of `self`
+        if let Some(c) = self.ciphers.last_mut() {
+            // We avoid unecessary blinding by keeping `aa` one hop
+            // behind and only blinding right before use.  We always
+            // blind here except when called from `Scaffold::new`.
+            self.v.aa.blind(& c.blinding());
+            // We keep delay one hop behind as well because delays
+            // only happen when packets are queued for delivery.
+            // TODO: Make delays optional!
+            self.v.delay += c.delay();
+        } // We cannot use `map` here because the borrow checker
+          // cannot tell we're borrowing different parts of `self`.
         self.add_route(route) ?; // ??
-          // Annoyingly we cannot use the reference returned by
-          // `add_route` because the borrow checker cannot tell
-          // that that the immutable borrow returned does not hide
-          // some mutable borrow.
+          // We cannot use the reference returned by `add_route`
+          // because the borrow checker cannot tell that the immutable
+          // borrow returned does not hide some mutable borrow via
+          // interior mutability, ala `RefCell`.
         // TODO: Figure out how to prevent leakage via validity
-        self.intersect_validity();
-        let rpoint = ::curve::Point::decompress(&self.route_public.public) ?;  // BadAlpha
-        let ss = rpoint.key_exchange(&self.aa);
-        self.key = stream::SphinxKey::<P>::new_kdf(&ss, &route);
+        self.intersect_validity(None) ?;
+        let rpoint = ::curve::Point::decompress(&self.v.route_public.public) ?;  // BadAlpha
+        let ss = rpoint.key_exchange(&self.v.aa);
+        self.v.key = Some(stream::SphinxKey::<P>::new_kdf(&ss, &route));
         self.add_cipher(None)
     }
 
@@ -297,25 +343,84 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     /// Assumes ...  !!!!!!!!!!
     fn add_ratchet(&mut self, branch_id: BranchId)
       -> SphinxResult<(TwigId,usize)> {
-        let ratchet = self.world.ratchets.get(&self.route_public.issuer)
-          .ok_or( SphinxError::IssuerHasNoRatchet(self.route_public.issuer) ) ?;
+        let ratchet = self.world.ratchets.get(&self.v.route_public.issuer)
+          .ok_or( SphinxError::IssuerHasNoRatchet(self.v.route_public.issuer) ) ?;
         let mut advance = AdvanceUser::new(ratchet,&branch_id) ?;  // RatchetError
-        let ss = SphinxSecret(self.key.chacha_key);
-        let (twig,key) = advance.click(&ss) ?; // RatchetError
-        self.key.chacha_key = key;
+        let twig = {
+            let key = self.v.key.as_mut().expect("Cannot add ratchet without a previous key!");
+            let (twig,k) = advance.click(&SphinxSecret(key.chacha_key)) ?; // RatchetError
+            key.chacha_key = k;
+            twig
+        };
         let i = self.add_ratchet_twig(twig) ?;
         self.advances.push(advance);
           // TODO: Refactor to have only one transaction and/or support repeats
         Ok(( twig, i ) )
     }
 
+    fn add<'s: 'a>(&'s mut self) -> Hoist<'s,'a,R,C,P> {
+        Hoist {
+            v: self.v.clone(),
+            commands: self.commands.len(),
+            advances: self.advances.len(),
+            ciphers: self.ciphers.len(),
+            surb_keys: self.surb_keys.as_ref().map( |z| z.len() ),
+            bodies: self.bodies.as_ref().map( |z| z.len() ),
+            s: self
+        }
+    }
+}
+
+
+/// A transaction to extend a `Scaffold` with additional instructions.
+///
+/// Holds only a mutable reference to the `Scaffold` itself,
+/// along with its state saved when starting this transaction.
+///
+/// We save this state as a copy of the singleton values `Values`
+/// along with lengths of all 
+struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
+    /// Our `Scaffold` to which we mutate to add commands.
+    s: &'s mut Scaffold<'a,R,C,P>,
+
+    /// Saved singleton values `Values` components `s.v` of our
+    /// `Scaffold` for roll back.
+    v: Values<P>,
+
+    /// Save length of `s.commands` from our `Scaffold`
+    ///
+    /// We interpret `gamma` for `Sphinx` and `Ratchet` commands as
+    /// an index into `hops` for the next `HeaderCipher`.
+    commands: usize,
+
+    /// Ratchet advance transactions 
+    ///
+    /// TODO: Refactor to have only one transaction and/or support repeats?!?
+    advances: usize,
+
+    /// Stream ciphers for 
+    ciphers: usize,
+
+    /// Packet construction mode, either `Ok` for SURBs, or
+    /// `None` for a normal forward packets. 
+    /// Also, records unwinding keys and twig ids in SURB mode.
+    surb_keys: Option<usize>,
+
+    /// Indexes of ciphers that encrypt the body and surb log
+    bodies: Option<usize>,
+}
+
+
+impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
+  where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
+    /// Add `Instruction` to 
+    ///
+    /// TODO:
     pub fn command(&mut self, instrustion: Instruction) -> SphinxResult<()> {
         use arrayvec::ArrayVec;
-        let mut valid = Some(self.validity.clone());
         let mut commands = ArrayVec::<[PreCommand<usize>; 2]>::new();
         let mut eaten = 0usize;
         let mut extra = 0usize;
-        let mut delay = self.delay;
 
         {
         let mut p = |c: PreCommand<usize>| {
@@ -325,17 +430,15 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
         };
         match instrustion {
             Instruction::Transmit { route } => {
-                p(Command::Transmit { route, gamma: self.add_sphinx(route) ? });
-                delay += self.ciphers.last_mut().unwrap().delay();
+                p(Command::Transmit { route, gamma: self.s.add_sphinx(route) ? });
             },
             Instruction::Ratchet { route, branch } => {
-                p(Command::Transmit { route, gamma: self.add_sphinx(route) ? });
-                let (twig,gamma) = self.add_ratchet(branch) ?;
+                p(Command::Transmit { route, gamma: self.s.add_sphinx(route) ? });
+                let (twig,gamma) = self.s.add_ratchet(branch) ?;
                 p(Command::Ratchet { twig, gamma });
-                delay += self.ciphers.last_mut().unwrap().delay();
             },
             Instruction::CrossOver { surb: PreHeader { validity, route, alpha, gamma, beta } } => {
-                valid = self.validity.intersect(&validity);
+                self.s.intersect_validity(Some(&validity));
                 extra = beta.len();
                 p(Command::CrossOver { route, alpha, gamma, surb_beta: beta });
             },
@@ -360,19 +463,52 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
         if eaten - extra  > P::MAX_BETA_TAIL_LENGTH {
             return Err( SphinxError::InternalError("Command exceeded beta tail length") );
         }
-        if self.eaten + eaten >= P::BETA_LENGTH {
+        if self.v.eaten + eaten >= P::BETA_LENGTH {
             return Err( SphinxError::InternalError("Commands exceed length of beta") );
         }
-        if let Some(v) = valid {
-            self.validity = v;
-        } else {
-            return Err( SphinxError::InternalError("TODO: Validity Error") );
-        }
-        self.eaten += eaten;
-        self.commands.extend(commands.drain(..));
+        self.v.eaten += eaten;
+        self.s.commands.extend(commands.drain(..));
         Ok(())
     }
 
+    /// Destructure the `Hoist` to avoid drop, thereby avoiding
+    /// the roll back build into `Hoist`'s as `Drop`.
+    pub fn approve(mut self) {
+        let Hoist { .. } = self;
+        // We could use `::std::mem::forget(self)` but this assumes
+        // the `Host` itself contains no `Drop` types, which might
+        // change in future.
+    }
+}
+
+impl<'s,'a,R,C,P> Drop for Hoist<'s,'a,R,C,P>
+  where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
+    /// Roll back the transaction represented by this `Hoist` if
+    /// not consumed by `Hoist::approve`.
+    ///
+    /// We can truncate an `Option<Vec<T>>` back to `None`.
+    /// There is no way to repair an `Option<Vec<T>>` converted into
+    /// `None` though, so no transaction may do that.
+    fn drop(&mut self) {
+        let Hoist { ref mut s, ref v, commands, advances, ciphers, surb_keys, bodies } = *self;
+        s.v.clone_from(v);
+        s.commands.truncate(advances);
+        s.advances.truncate(advances);
+        s.ciphers.truncate(ciphers);
+        fn rb_opt_vec<T>(saved: Option<usize>, t: &mut Option<Vec<T>>) {
+            if let Some(l) = saved {
+                debug_assert!( t.is_some() );
+                t.as_mut().map( |z| z.truncate(l) );
+            } else { *t = None; }
+        }
+        rb_opt_vec(surb_keys, &mut s.surb_keys);
+        rb_opt_vec(bodies, &mut s.bodies);
+    }
+}
+
+
+impl<'a,R,C,P> Scaffold<'a,R,C,P>
+  where R: Rng+'a, C: Concensus+'a, P: Params {
     /// Write fully encrypted tails `phi` to `beta`.
     ///
     /// We place the SURB for a cross over point inside `beta` so
@@ -396,7 +532,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     /// everything else acordingly.
     fn do_beta_tails(&mut self, mut offset: usize, mut beta_tail: &mut [u8])
       -> SphinxResult<()> {
-        let mut length = beta_tail.len() - self.eaten;
+        let mut length = beta_tail.len() - self.v.eaten;
         let mut tail = 0;
         let mut j = 0;
         for c in self.commands.iter() {
@@ -422,7 +558,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
         // We insert our newly created PreCommand<Gamma> directly
         // into `beta` and do not constrcut a Vec<PreCommand<Gamma>>.
         let mut j = None;  // Previous ciphers index for testing in debug mode.
-        let mut o = self.eaten;
+        let mut o = self.v.eaten;
         let mut tail = 0;
         while let Some(c) = self.commands.pop() {
             let l = c.command_length();
@@ -452,22 +588,25 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     }
 
     pub fn done(mut self) -> SphinxResult<NewHeader<P>> {
-        let eaten = self.eaten;
+        let eaten = self.v.eaten;
         let mut beta = vec![0u8; P::BETA_LENGTH+eaten];
         if let None = self.surb_keys {
             self.rng.fill_bytes(&mut beta[eaten..P::BETA_LENGTH]);
             self.do_beta_tails(P::BETA_LENGTH, &mut beta[P::BETA_LENGTH..]) ?;
         } else {
+            // Padding ??
+            // self.rng.fill_bytes(&mut beta[eaten..???]);
             self.do_beta_tails(eaten, &mut beta[eaten..]) ?;
         }
         let gamma = self.do_beta_with_gammas(beta.as_mut()) ?;
 
-        let Scaffold { route, alpha0, mut validity, surb_keys, bodies, mut advances, mut ciphers, .. } = self;
+        let Scaffold { v, surb_keys, bodies, mut advances, mut ciphers, .. } = self;
+        let Values { route, alpha0, mut validity, .. } = v;
 
         // TODO: Fuzz validity to prevent leaking route information
         let preheader = PreHeader {
             validity: validity.clone(),
-            route: route.end.clone(),
+            route: route.start.clone(),
             alpha: alpha0,
             gamma,
             beta: {
@@ -489,6 +628,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
         Ok( NewHeader { preheader, surb, bodies } )
     }
 }
+
 
 struct NewHeader<P: Params> {
     preheader: PreHeader,
