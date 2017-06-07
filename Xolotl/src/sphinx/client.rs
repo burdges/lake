@@ -33,7 +33,9 @@ pub enum Instruction {
 
     /// Advance and integrate a ratchet state
     Ratchet {
-        route: RoutingName,
+        // We considered add a Sphinx hop here too, but this makes it harder
+        // to add a ratchet hop right after the first mandatory Sphinx hop.
+        // route: RoutingName,
         branch: BranchId,
     },
 
@@ -155,6 +157,14 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
         let capacity = P::max_hops_capacity() / 2;
         self.start_header(rng,route,true,capacity)
     }
+}
+
+
+/// 
+#[derive(Debug,Clone,Copy)]
+enum SaveKeys {
+    Bodies,
+    SURB,
 }
 
 
@@ -412,17 +422,17 @@ struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s
 
 impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
   where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
-    /// Add `Instruction` to 
+    /// Add `Command`(s) corresponding to the provided `Instruction`. 
     ///
     /// TODO:
-    pub fn command(&mut self, instrustion: Instruction)
+    pub fn instruct(&mut self, instrustion: Instruction)
       -> SphinxResult<&mut Hoist<'s,'a,R,C,P>> {
         use arrayvec::ArrayVec;
         let mut commands = ArrayVec::<[PreCommand<usize>; 2]>::new();
         let mut eaten = 0usize;
         let mut extra = 0usize;
 
-        {
+        { // p
         let mut p = |c: PreCommand<usize>| {
             eaten += c.command_length();
             commands.push(c);
@@ -432,8 +442,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
             Instruction::Transmit { route } => {
                 p(Command::Transmit { route, gamma: self.s.add_sphinx(route) ? });
             },
-            Instruction::Ratchet { route, branch } => {
-                p(Command::Transmit { route, gamma: self.s.add_sphinx(route) ? });
+            Instruction::Ratchet { branch } => {
                 let (twig,gamma) = self.s.add_ratchet(branch) ?;
                 p(Command::Ratchet { twig, gamma });
             },
@@ -459,7 +468,8 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
             // Instruction::Dummy { } => 
             //     p(Command::Dummy { },
         }
-        }
+        } // p
+
         if eaten - extra  > P::MAX_BETA_TAIL_LENGTH {
             return Err( SphinxError::InternalError("Command exceeded beta tail length") );
         }
