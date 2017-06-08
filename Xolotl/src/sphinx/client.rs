@@ -370,11 +370,11 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
     fn add<'s: 'a>(&'s mut self) -> Hoist<'s,'a,R,C,P> {
         Hoist {
             v: self.v.clone(),
-            commands: self.commands.len(),
-            advances: self.advances.len(),
-            ciphers: self.ciphers.len(),
-            surb_keys: self.surb_keys.as_ref().map( |z| z.len() ),
-            bodies: self.bodies.as_ref().map( |z| z.len() ),
+            commands_len: self.commands.len(),
+            advances_len: self.advances.len(),
+            ciphers_len: self.ciphers.len(),
+            surb_keys_len: self.surb_keys.as_ref().map( |z| z.len() ),
+            bodies_len: self.bodies.as_ref().map( |z| z.len() ),
             s: self
         }
     }
@@ -400,23 +400,23 @@ struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s
     ///
     /// We interpret `gamma` for `Sphinx` and `Ratchet` commands as
     /// an index into `hops` for the next `HeaderCipher`.
-    commands: usize,
+    commands_len: usize,
 
     /// Ratchet advance transactions 
     ///
     /// TODO: Refactor to have only one transaction and/or support repeats?!?
-    advances: usize,
+    advances_len: usize,
 
     /// Stream ciphers for 
-    ciphers: usize,
+    ciphers_len: usize,
 
     /// Packet construction mode, either `Ok` for SURBs, or
     /// `None` for a normal forward packets. 
     /// Also, records unwinding keys and twig ids in SURB mode.
-    surb_keys: Option<usize>,
+    surb_keys_len: Option<usize>,
 
     /// Indexes of ciphers that encrypt the body and surb log
-    bodies: Option<usize>,
+    bodies_len: Option<usize>,
 }
 
 
@@ -424,7 +424,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
   where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
     /// Add `Command`(s) corresponding to the provided `Instruction`. 
     ///
-    /// TODO:
+    /// TODO: Should we 
     pub fn instruct(&mut self, instrustion: Instruction)
       -> SphinxResult<&mut Hoist<'s,'a,R,C,P>> {
         use arrayvec::ArrayVec;
@@ -500,19 +500,19 @@ impl<'s,'a,R,C,P> Drop for Hoist<'s,'a,R,C,P>
     /// There is no way to repair an `Option<Vec<T>>` converted into
     /// `None` though, so no transaction may do that.
     fn drop(&mut self) {
-        let Hoist { ref mut s, ref v, commands, advances, ciphers, surb_keys, bodies } = *self;
+        let Hoist { ref mut s, ref v, commands_len, advances_len, ciphers_len, surb_keys_len, bodies_len } = *self;
         s.v.clone_from(v);
-        s.commands.truncate(advances);
-        s.advances.truncate(advances);
-        s.ciphers.truncate(ciphers);
+        s.commands.truncate(commands_len);
+        s.advances.truncate(advances_len);
+        s.ciphers.truncate(ciphers_len);
         fn rb_opt_vec<T>(saved: Option<usize>, t: &mut Option<Vec<T>>) {
             if let Some(l) = saved {
                 debug_assert!( t.is_some() );
                 t.as_mut().map( |z| z.truncate(l) );
             } else { *t = None; }
         }
-        rb_opt_vec(surb_keys, &mut s.surb_keys);
-        rb_opt_vec(bodies, &mut s.bodies);
+        rb_opt_vec(surb_keys_len, &mut s.surb_keys);
+        rb_opt_vec(bodies_len, &mut s.bodies);
     }
 }
 
