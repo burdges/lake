@@ -369,7 +369,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
 
     fn add<'s: 'a>(&'s mut self) -> Hoist<'s,'a,R,C,P> {
         Hoist {
-            v: self.v.clone(),
+            saved_v: self.v.clone(),
             commands_len: self.commands.len(),
             advances_len: self.advances.len(),
             ciphers_len: self.ciphers.len(),
@@ -394,7 +394,7 @@ struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s
 
     /// Saved singleton values `Values` components `s.v` of our
     /// `Scaffold` for roll back.
-    v: Values<P>,
+    saved_v: Values<P>,
 
     /// Save length of `s.commands` from our `Scaffold`
     ///
@@ -427,6 +427,10 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
     /// TODO: Should we 
     pub fn instruct(&mut self, instrustion: Instruction)
       -> SphinxResult<&mut Hoist<'s,'a,R,C,P>> {
+        { // s
+        // Destructure `self` to prevent access to saved values.
+        let Hoist { ref mut s, .. } = *self;
+
         use arrayvec::ArrayVec;
         let mut commands = ArrayVec::<[PreCommand<usize>; 2]>::new();
         let mut eaten = 0usize;
@@ -440,14 +444,14 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
         };
         match instrustion {
             Instruction::Transmit { route } => {
-                p(Command::Transmit { route, gamma: self.s.add_sphinx(route) ? });
+                p(Command::Transmit { route, gamma: s.add_sphinx(route) ? });
             },
             Instruction::Ratchet { branch } => {
-                let (twig,gamma) = self.s.add_ratchet(branch) ?;
+                let (twig,gamma) = s.add_ratchet(branch) ?;
                 p(Command::Ratchet { twig, gamma });
             },
             Instruction::CrossOver { surb: PreHeader { validity, route, alpha, gamma, beta } } => {
-                self.s.intersect_validity(Some(&validity));
+                s.intersect_validity(Some(&validity));
                 extra = beta.len();
                 p(Command::CrossOver { route, alpha, gamma, surb_beta: beta });
             },
@@ -473,11 +477,12 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
         if eaten - extra  > P::MAX_BETA_TAIL_LENGTH {
             return Err( SphinxError::InternalError("Command exceeded beta tail length") );
         }
-        if self.v.eaten + eaten >= P::BETA_LENGTH {
+        if s.v.eaten + eaten >= P::BETA_LENGTH {
             return Err( SphinxError::InternalError("Commands exceed length of beta") );
         }
-        self.v.eaten += eaten;
-        self.s.commands.extend(commands.drain(..));
+        s.v.eaten += eaten;
+        s.commands.extend(commands.drain(..));
+        } // s
         Ok(self)
     }
 
@@ -500,8 +505,8 @@ impl<'s,'a,R,C,P> Drop for Hoist<'s,'a,R,C,P>
     /// There is no way to repair an `Option<Vec<T>>` converted into
     /// `None` though, so no transaction may do that.
     fn drop(&mut self) {
-        let Hoist { ref mut s, ref v, commands_len, advances_len, ciphers_len, surb_keys_len, bodies_len } = *self;
-        s.v.clone_from(v);
+        let Hoist { ref mut s, ref saved_v, commands_len, advances_len, ciphers_len, surb_keys_len, bodies_len } = *self;
+        s.v.clone_from(saved_v);
         s.commands.truncate(commands_len);
         s.advances.truncate(advances_len);
         s.ciphers.truncate(ciphers_len);
