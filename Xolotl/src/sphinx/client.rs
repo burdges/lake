@@ -13,7 +13,7 @@ use rand::{Rng, Rand};
 use ratchet::{BranchId,BRANCH_ID_LENGTH,TwigId,TWIG_ID_LENGTH,Transaction,AdvanceUser};
 pub use ratchet::ClientState as ClientRatchetState;
 
-use super::stream::{Gamma}; // GammaBytes,GAMMA_LENGTH,HeaderCipher
+use super::stream::{Gamma,GAMMA_LENGTH}; // GammaBytes,HeaderCipher
 
 pub use keys::{RoutingName,RoutingPublic,Concensus};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
@@ -70,6 +70,38 @@ pub enum Instruction {
     // Dummy { },
 }
 
+impl Instruction {
+    pub fn commands_length(&self) -> usize {
+        let gamma = Gamma([0u8; GAMMA_LENGTH]);
+        let p = |c: commands::CommandNode| c.command_length();
+        match *self {
+            Instruction::Transmit { route } =>
+                p(Command::Transmit { route, gamma }),
+            Instruction::Ratchet { branch } => {
+                let twig = TwigId(branch,::ratchet::TwigIdx(0));
+                p(Command::Ratchet { twig, gamma })
+            },
+            Instruction::CrossOver { surb: PreHeader { ref validity, route, alpha, gamma, ref beta } } =>
+                p(Command::CrossOver { route, alpha, gamma, surb_beta: beta.len() }),
+            Instruction::Contact { } =>
+                p(Command::Contact { }),
+            Instruction::Greeting { } => 
+                p(Command::Greeting { }),
+            Instruction::Deliver { mailbox } =>
+                p(Command::Deliver { mailbox }),
+            Instruction::ArrivalSURB { } =>
+                p(Command::ArrivalSURB { }),
+            Instruction::ArrivalDirect { } => 
+                p(Command::ArrivalDirect { }),
+            // Instruction::DropOff { } => 
+            //     p(Command::DropOff { },
+            // Instruction::Delete { } => 
+            //     p(Command::Delete { },
+            // Instruction::Dummy { } => 
+            //     p(Command::Dummy { },
+        }
+    }
+}
 
 
 /// World of key material in which we build a header.
@@ -340,6 +372,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         self.add_cipher(None)
     }
 
+    /// TODO: This will corrupt our tansaction !!!
     fn add_ratchet_twig(&mut self, twig: TwigId)
       -> SphinxResult<usize> {
         // Remove keys records for Sphinx keys skipped over due to
@@ -387,7 +420,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
 /// along with its state saved when starting this transaction.
 ///
 /// We save this state as a copy of the singleton values `Values`
-/// along with lengths of all 
+/// along with lengths of all `Vec`s.
 struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
     /// Our `Scaffold` to which we mutate to add commands.
     s: &'s mut Scaffold<'a,R,C,P>,
@@ -424,7 +457,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
   where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
     /// Add `Command`(s) corresponding to the provided `Instruction`. 
     ///
-    /// TODO: Should we 
+    /// TODO: We 
     pub fn instruct(&mut self, instrustion: Instruction)
       -> SphinxResult<&mut Hoist<'s,'a,R,C,P>> {
         { // s
@@ -435,6 +468,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
         let mut commands = ArrayVec::<[PreCommand<usize>; 2]>::new();
         let mut eaten = 0usize;
         let mut extra = 0usize;
+        let l = instrustion.commands_length();
 
         { // p
         let mut p = |c: PreCommand<usize>| {
@@ -474,6 +508,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
         }
         } // p
 
+        debug_assert_eq!(l,eaten);
         if eaten - extra  > P::MAX_BETA_TAIL_LENGTH {
             return Err( SphinxError::InternalError("Command exceeded beta tail length") );
         }
@@ -482,6 +517,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
         }
         s.v.eaten += eaten;
         s.commands.extend(commands.drain(..));
+
         } // s
         Ok(self)
     }
