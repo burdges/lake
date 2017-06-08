@@ -318,7 +318,10 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         Ok(())
     }
 
-    /// 
+    /// Add routing information for a Sphinx sub-hop.
+    ///
+    /// We only call this from `add_sphinx` but it provides a handy
+    /// place to seperate out the concensus database access.  
     fn add_route(&mut self, route: RoutingName) -> SphinxResult<&RoutingPublic> {
         if self.v.route.end != route {
             let rp = self.world.concensus.routing_named(&route) ?; // ??
@@ -330,8 +333,25 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         Ok( &self.v.route_public )
     }
 
+    /// Add a `HeaderCipher` derived from `key` to `ciphers` and
+    /// update `surb_keys` and `bodies` accordingly for both body
+    /// building and SURB unwinding of the body and SURB log. 
+    ///
+    /// We call this from both `add_sphinx` and `add_ratchet`, so
+    /// it handles possibly removing ciphers that a ratchet superceeds
+    /// for processing the body and SURB log.
     fn add_cipher(&mut self, berry_twig: Option<TwigId>)
       -> SphinxResult<usize> {
+        // We only decrypt the body and SURB logs with the most secure
+        // key produced in `node::Router::do_crypto`, so if we add a
+        // ratchet sub-hop then we must first remove the key for the
+        // preceeding Sphinx sub-hop before adding the key for the
+        // ratchet sub-hop.
+        if let Some(twig) = berry_twig {
+            if let Some(ref mut sh) = self.surb_keys { sh.pop(); }
+            if let Some(ref mut bodies) = self.bodies { bodies.pop(); }
+        }
+
         let key = self.v.key.as_ref().expect("Cannot add cipher if no key is given!");
         let mut hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
         let l = self.ciphers.len();
@@ -372,18 +392,6 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         self.add_cipher(None)
     }
 
-    /// 
-    /// FIXME: This will corrupt our tansaction !!!
-    ///  We must save this somehow !!
-    fn add_ratchet_twig(&mut self, twig: TwigId)
-      -> SphinxResult<usize> {
-        // Remove keys records for Sphinx keys skipped over due to
-        // using the ratchet key instead. 
-        if let Some(ref mut sh) = self.surb_keys { sh.pop(); }
-        if let Some(ref mut bodies) = self.bodies { bodies.pop(); }
-        self.add_cipher( Some(twig) )
-    }
-
     /// Assumes ...  !!!!!!!!!!
     fn add_ratchet(&mut self, branch_id: BranchId)
       -> SphinxResult<(TwigId,usize)> {
@@ -396,7 +404,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
             key.chacha.key = k;
             twig
         };
-        let i = self.add_ratchet_twig(twig) ?;
+        let i = self.add_cipher( Some(twig) ) ?;
         self.advances.push(advance);
           // TODO: Refactor to have only one transaction and/or support repeats
         Ok(( twig, i ) )

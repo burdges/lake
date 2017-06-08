@@ -124,6 +124,10 @@ impl<P: Params> Router<P> {
             }
             advance.confirm() ?;  // RatchetError
             command = refs.peal_beta(&mut hop) ?;  // InternalError, BadPacket: Unknown Command
+            // We do not permit multiple ratchet sub-hops because
+            // spending too much of `beta` on one node might harm real
+            // world anonymity.  We bake this assumption in elsewhere
+            // too, like maybe `sphinx::client::Scaffold::add_cipher`.
             if let Command::Ratchet { .. } = command {
                 return Err( SphinxError::BadPacket("Tried two ratchet subhops.",0) );
             }
