@@ -1,3 +1,99 @@
+pub enum Instruction {
+    /// Transmit packet to another mix network node
+    Transmit {
+        route: RoutingName,
+    },
 
-sed -e 's/\(protocol_name\|beta_length\|max_beta_tail_length\|max_surb_beta_length\|surb_log_length\|delay_lambda\|body_lengths\)/\U\1/'
+    /// Advance and integrate a ratchet state
+    Ratchet {
+        branch: BranchId,
+    },
+
+    /// Crossover with SURB in beta
+    CrossOver {
+        surb: PreHeader,
+    },
+
+    /// Crossover with SURB stored on node
+    Contact {
+        // unimplemented!()
+    },
+    Greeting {
+        // unimplemented!()
+    },
+
+    /// Deliver message to the specified mailbox, roughly equivelent
+    /// to transmition to a non-existant mix network node.
+    Deliver {
+        /// Mailbox name
+        mailbox: MailboxName,
+    },
+
+    /// Arrival of a SURB we created and archived.
+    ArrivalSURB { },
+
+    /// Arrival of a message for a local application.
+    ArrivalDirect { },
+
+    // DropOff { },
+    // Delete { },
+    // Dummy { },
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    pub fn command(&mut self, command: PreCommand<()>) -> SphinxResult<()> {
+        use self::Command::*;
+        let l0 = 0usize;
+        let command = match *self {
+            Transmit { route, gamma: _ } => 
+                Transmit { route, gamma: self.add_sphinx_cipher(route) ? },
+            Ratchet { twig: branch_id, gamma: _ } => {
+                let (twig,gamma) = self.add_ratchet(branch_id);
+                Ratchet { twig, gamma }
+            },
+            CrossOver { route, alpha, gamma, surb_beta } => {
+                l0 = surb_beta.len();
+                CrossOver { route, alpha, gamma, surb_beta }
+            },
+            Contact { } => Contact { },
+            Greeting { } => Greeting { },
+            Deliver { mailbox } => Deliver { mailbox },
+            ArrivalSURB { } => ArrivalSURB { },
+            ArrivalDirect { } => ArrivalDirect { },
+            // DropOff { } => DropOff { },
+            // Delete { } => Delete { },
+            // Dummy { } => Dummy { },
+        };
+        let l = command.command_length() - l0;        
+        if l > P::MAX_BETA_TAIL_LENGTH {
+            unimplemented!();
+        }
+        self.eaten += l;
+        if self.eaten >= P::BETA_LENGTH {
+            unimplemented!();
+        }
+
+    }
+
 
