@@ -3,6 +3,38 @@
 
 
 
+
+
+        fn rb_opt_vec<T>(saved: Option<usize>, t: &mut Option<Vec<T>>) {
+            if let Some(l) = saved {
+                debug_assert!( t.is_some() );
+                t.as_mut().map( |z| z.truncate(l) );
+            } else { *t = None; }
+        }
+        rb_opt_vec(surb_keys_len, &mut s.surb_keys);
+        rb_opt_vec(bodies_len, &mut s.bodies);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     fn do_gammas(&mut self, beta: &mut [u8])
       -> SphinxResult<()> {
         // We insert our newly created PreCommand<Gamma> directly

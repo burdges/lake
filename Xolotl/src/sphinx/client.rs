@@ -372,7 +372,9 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         self.add_cipher(None)
     }
 
-    /// TODO: This will corrupt our tansaction !!!
+    /// 
+    /// FIXME: This will corrupt our tansaction !!!
+    ///  We must save this somehow !!
     fn add_ratchet_twig(&mut self, twig: TwigId)
       -> SphinxResult<usize> {
         // Remove keys records for Sphinx keys skipped over due to
@@ -400,14 +402,14 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         Ok(( twig, i ) )
     }
 
-    fn add<'s: 'a>(&'s mut self) -> Hoist<'s,'a,R,C,P> {
+    pub fn add<'s: 'a>(&'s mut self) -> Hoist<'s,'a,R,C,P> {
         Hoist {
             saved_v: self.v.clone(),
             commands_len: self.commands.len(),
             advances_len: self.advances.len(),
             ciphers_len: self.ciphers.len(),
-            surb_keys_len: self.surb_keys.as_ref().map( |z| z.len() ),
-            bodies_len: self.bodies.as_ref().map( |z| z.len() ),
+            surb_keys: self.surb_keys.clone(),
+            bodies: self.bodies.clone(),
             s: self
         }
     }
@@ -429,27 +431,33 @@ struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s
     /// `Scaffold` for roll back.
     saved_v: Values<P>,
 
-    /// Save length of `s.commands` from our `Scaffold`
-    ///
-    /// We interpret `gamma` for `Sphinx` and `Ratchet` commands as
-    /// an index into `hops` for the next `HeaderCipher`.
+    /// Saved number of `Command`s recorded by our `Scaffold`
+    /// when this `Hoist` transaction started.
     commands_len: usize,
 
-    /// Ratchet advance transactions 
-    ///
-    /// TODO: Refactor to have only one transaction and/or support repeats?!?
+    /// Saved number of ratchet `Advance` transactions recorded by our
+    /// `Scaffold` when this `Hoist` transaction started.
     advances_len: usize,
 
-    /// Stream ciphers for 
+    /// Saved length of `HeaderCipher`s recorded by our `Scaffold`
+    /// when this `Hoist` transaction started.
     ciphers_len: usize,
 
-    /// Packet construction mode, either `Ok` for SURBs, or
-    /// `None` for a normal forward packets. 
-    /// Also, records unwinding keys and twig ids in SURB mode.
-    surb_keys_len: Option<usize>,
+    /// Saved clone of all `SURBHopKey`s ecorded by our `Scaffold`
+    /// when this `Hoist` transaction started.
+    ///
+    /// We clone here instead of just recording the length because
+    /// `add_ratchet_twig` needs to pop these off `Scaffold::surb_keys`.
+    /// We expect only one of `surb_keys` and `bodies` to be non-`None`.
+    surb_keys: Option<Vec<surbs::SURBHopKey>>,
 
-    /// Indexes of ciphers that encrypt the body and surb log
-    bodies_len: Option<usize>,
+    /// Saved clone of indexes of ciphers that encrypt the body and
+    /// surb log
+    ///
+    /// We clone here instead of just recording the length because
+    /// `add_ratchet_twig` needs to pop these off `Scaffold::surb_keys`.
+    /// We expect only one of `surb_keys` and `bodies` to be non-`None`.
+    bodies: Option<Vec<usize>>,
 }
 
 
@@ -541,19 +549,13 @@ impl<'s,'a,R,C,P> Drop for Hoist<'s,'a,R,C,P>
     /// There is no way to repair an `Option<Vec<T>>` converted into
     /// `None` though, so no transaction may do that.
     fn drop(&mut self) {
-        let Hoist { ref mut s, ref saved_v, commands_len, advances_len, ciphers_len, surb_keys_len, bodies_len } = *self;
+        let Hoist { ref mut s, ref saved_v, commands_len, advances_len, ciphers_len, ref mut surb_keys, ref mut bodies } = *self;
         s.v.clone_from(saved_v);
         s.commands.truncate(commands_len);
         s.advances.truncate(advances_len);
         s.ciphers.truncate(ciphers_len);
-        fn rb_opt_vec<T>(saved: Option<usize>, t: &mut Option<Vec<T>>) {
-            if let Some(l) = saved {
-                debug_assert!( t.is_some() );
-                t.as_mut().map( |z| z.truncate(l) );
-            } else { *t = None; }
-        }
-        rb_opt_vec(surb_keys_len, &mut s.surb_keys);
-        rb_opt_vec(bodies_len, &mut s.bodies);
+        ::std::mem::swap(&mut s.surb_keys, surb_keys);
+        ::std::mem::swap(&mut s.bodies, bodies);
     }
 }
 
@@ -666,7 +668,6 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
             },
         };
 
-        use std::mem::replace;  // We should not need this with the above destructuring
         let surb = surb_keys.map( |surbs| surbs::DeliverySURB { 
             protocol: P::PROTOCOL_ID,
             meta: surbs::Metadata(0), // TODO: Where does this come from?

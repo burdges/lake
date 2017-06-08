@@ -27,6 +27,7 @@ pub const MAX_SURB_METADATA : usize = 8;
 pub struct Metadata(pub u64);
 
 
+#[derive(Clone)]
 pub struct SURBHopKey {
     /// IETF Chacha20 stream cipher key and nonce.
     pub chacha: stream::ChaChaKnN,
