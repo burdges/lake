@@ -17,91 +17,10 @@ use super::stream::{Gamma,GAMMA_LENGTH}; // GammaBytes,HeaderCipher
 
 pub use keys::{RoutingName,RoutingPublic,Concensus};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
-use super::commands::{PreCommand,Command};
+use super::commands::{PreCommand,Command,Instruction};
 use super::layout::{Params,ImplParams,PreHeader};
 use super::error::*;
 use super::*;
-
-
-/// `Instruction`s are translated into sequences of `Command`s when
-/// building a header.
-pub enum Instruction {
-    /// Transmit packet to another mix network node
-    Transmit {
-        route: RoutingName,
-    },
-
-    /// Advance and integrate a ratchet state
-    Ratchet {
-        // We considered add a Sphinx hop here too, but this makes it harder
-        // to add a ratchet hop right after the first mandatory Sphinx hop.
-        // route: RoutingName,
-        branch: BranchId,
-    },
-
-    /// Crossover with SURB in beta
-    CrossOver {
-        surb: PreHeader,
-    },
-
-    /// Crossover with SURB stored on node
-    Contact {
-        // unimplemented!()
-    },
-    Greeting {
-        // unimplemented!()
-    },
-
-    /// Deliver message to the specified mailbox, roughly equivelent
-    /// to transmition to a non-existant mix network node.
-    Deliver {
-        /// Mailbox name
-        mailbox: MailboxName,
-    },
-
-    /// Arrival of a SURB we created and archived.
-    ArrivalSURB { },
-
-    /// Arrival of a message for a local application.
-    ArrivalDirect { },
-
-    // DropOff { },
-    // Delete { },
-    // Dummy { },
-}
-
-impl Instruction {
-    pub fn beta_length(&self) -> usize {
-        let gamma = Gamma([0u8; GAMMA_LENGTH]);
-        let p = |c: commands::CommandNode| c.command_length();
-        match *self {
-            Instruction::Transmit { route } =>
-                p(Command::Transmit { route, gamma }),
-            Instruction::Ratchet { branch } => {
-                let twig = TwigId(branch,::ratchet::TwigIdx(0));
-                p(Command::Ratchet { twig, gamma })
-            },
-            Instruction::CrossOver { surb: PreHeader { ref validity, route, alpha, gamma, ref beta } } =>
-                p(Command::CrossOver { route, alpha, gamma, surb_beta: beta.len() }) + beta.len(),
-            Instruction::Contact { } =>
-                p(Command::Contact { }),
-            Instruction::Greeting { } => 
-                p(Command::Greeting { }),
-            Instruction::Deliver { mailbox } =>
-                p(Command::Deliver { mailbox }),
-            Instruction::ArrivalSURB { } =>
-                p(Command::ArrivalSURB { }),
-            Instruction::ArrivalDirect { } => 
-                p(Command::ArrivalDirect { }),
-            // Instruction::DropOff { } => 
-            //     p(Command::DropOff { },
-            // Instruction::Delete { } => 
-            //     p(Command::Delete { },
-            // Instruction::Dummy { } => 
-            //     p(Command::Dummy { },
-        }
-    }
-}
 
 
 /// World of key material in which we build a header.
