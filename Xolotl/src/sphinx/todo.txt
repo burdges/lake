@@ -58,7 +58,7 @@ Commands
 
 Ratchet
 - Berry depends on beta in both implementation and paper
-- Return chacha.nonce too?
+- Return chacha.nonce too!
 
 
 COFU

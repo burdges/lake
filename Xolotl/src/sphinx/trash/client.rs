@@ -2,6 +2,122 @@
 
 
 
+    fn map_bodies<P,F>(self, f: F) -> ScaffoldOrientation<body::BodyCipher<P>>
+      where P: Params, F: FnMut(usize) -> body::BodyCipher<P> {
+        let g = |bodies| bodies.iter().map( |b| f(b) ).collect();
+        match self {
+            Unknown { surb_keys, bodies } => {
+                surb_keys, bodies: g(bodies),
+            },
+            Send { bodies } => Send { bodies: g(bodies) },
+            SURB { surb_keys } => SURB { surb_keys },
+            SendAndSURB { surb_keys, bodies } => SendAndSURB {
+                surb_keys, bodies: g(bodies),
+            },
+        }
+    }
+
+
+
+
+
+
+
+
+
+impl Orientation<usize> {
+    pub fn reserve(&mut self, additional: usize) {
+        match *self {
+            Unknown { ref mut surb_keys, ref mut bodies } => {
+                surb_keys.reserve(additional);
+                bodies.reserve(additional);
+            },
+            Send { ref mut bodies } => bodies.reserve(additional),
+            SURB { ref mut surb_keys } => surb_keys.reserve(additional),
+            SendAndSURB { ref mut surb_keys, ref mut bodies } => surb_keys.reserve(additional),
+        }
+    }
+
+    fn pop(&mut self) {
+        match *self {
+            Unknown { ref mut surb_keys, ref mut bodies } => {
+                surb_keys.pop();
+                bodies.pop();
+            },
+            Send { ref mut bodies } => bodies.pop(),
+            SURB { ref mut surb_keys } => surb_keys.pop(),
+            SendAndSURB { ref mut surb_keys, ref mut bodies } => surb_keys.pop(),
+        }
+    }
+
+    fn push(&mut self, bci: usize, surb_key: surbs::SURBHopKey) {
+        match *self {
+            Unknown { ref mut surb_keys, ref mut bodies } => {
+                surb_keys.push(surb_key);
+                bodies.push(bci);
+            },
+            Send { ref mut bodies } => bodies.push(bci),
+            SURB { ref mut surb_keys } => surb_keys.push(surb_key),
+            SendAndSURB { ref mut surb_keys, ref mut bodies } => surb_keys.push(surb_key),
+        }
+    }
+
+    fn doSendAndSURB(&mut self) -> SphinxResult<()> {
+        let surb_keys = match *self {
+            Unknown { .. } => Err("Can only transition to SendAndSURB from Send, not Unknown."),
+            Send { ref mut bodies } => Err("Can only transition to SendAndSURB from Send, not SURB."),
+            SURB { ref mut surb_keys } => ::std::mem::replace(surb_keys, Vec::new()),
+            SendAndSURB { .. } => Err("Can only transition to SendAndSURB from Send, not Unknown"),
+        }.map_err( |s| SphinxError::InternalError(s) ) ?;
+        let bodies = Vec::with_capacity( surb_keys.capacity() ); // TODO: Assume equal!!
+        *self = SendAndSURB { bodies, surb_keys };
+        Ok(())
+    }
+
+    fn map_bodies<P,F>(self, f: F) -> Orientation<body::BodyCipher<P>>
+      where P: Params, F: FnMut(usize) -> body::BodyCipher<P> {
+        let g = |bodies| bodies.iter().map( |b| f(b) ).collect();
+        match self {
+            Unknown { surb_keys, bodies } => {
+                surb_keys, bodies: g(bodies),
+            },
+            Send { bodies } => Send { bodies: g(bodies) },
+            SURB { surb_keys } => SURB { surb_keys },
+            SendAndSURB { surb_keys, bodies } => SendAndSURB {
+                surb_keys, bodies: g(bodies),
+            },
+        }
+    }
+}
+
+
+
+
+
+
+
+
+impl<B: BodyCipherish> Orientation<B> {
+    fn pop(&mut self) {
+        let r = match *self {
+            Send(ref mut v) => { v.pop(); return },
+            SURB(ref mut v) => { v.pop(); return },
+            SendNSURB(ref mut v, ref mut o) => {
+                v.pop();
+                if v.is_empty() {
+                    Orientation::Send( ::std::mem::replace(o,Vec::new()) )
+                } else { return }
+            },
+        }
+        *self = r;
+    }
+}
+
+
+
+
+
+
 
 
 

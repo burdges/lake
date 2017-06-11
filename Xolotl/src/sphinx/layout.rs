@@ -60,7 +60,7 @@ pub trait Params: Sized+Clone+Copy {
     const SURB_LOG_LENGTH: Length;
 
     /// Approved message body lengths
-    const BETA_LENGTHS: &'static [Length];
+    const SURB_BETA_LENGTHS: &'static [Length];
 
     /// Approved message body lengths
     const BODY_LENGTHS: &'static [Length];

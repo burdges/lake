@@ -71,7 +71,7 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    pub fn commands_length(&self) -> usize {
+    pub fn beta_length(&self) -> usize {
         let gamma = Gamma([0u8; GAMMA_LENGTH]);
         let p = |c: commands::CommandNode| c.command_length();
         match *self {
@@ -82,7 +82,7 @@ impl Instruction {
                 p(Command::Ratchet { twig, gamma })
             },
             Instruction::CrossOver { surb: PreHeader { ref validity, route, alpha, gamma, ref beta } } =>
-                p(Command::CrossOver { route, alpha, gamma, surb_beta: beta.len() }),
+                p(Command::CrossOver { route, alpha, gamma, surb_beta: beta.len() }) + beta.len(),
             Instruction::Contact { } =>
                 p(Command::Contact { }),
             Instruction::Greeting { } => 
@@ -152,14 +152,17 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
             validity: rp.validity.clone(),
             eaten: 0, 
         };
+        let orientation = if make_surb {
+            Orientation::SURB { surb_keys: Vec::with_capacity(capacity) }
+        } else {
+            Orientation::Send { bodies: Vec::with_capacity(capacity) }
+        };
         let mut s = Scaffold {
             world: self.clone(),
-            rng, v,
+            rng, v, orientation,
             commands: Vec::with_capacity(capacity),
             advances: Vec::with_capacity(capacity),
             ciphers: Vec::with_capacity(capacity+1),
-            surb_keys: if make_surb { Some(Vec::with_capacity(capacity)) } else { None },
-            bodies: if ! make_surb { None } else { Some(Vec::with_capacity(capacity)) },
         };
         s.add_sphinx(route);
         Ok( s )
@@ -192,12 +195,121 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
 }
 
 
-/// 
-#[derive(Debug,Clone,Copy)]
-enum SaveKeys {
-    Bodies,
-    SURB,
+pub trait SURBKeys { }
+impl SURBKeys for surbs::DeliverySURB { }
+impl SURBKeys for Vec<surbs::SURBHopKey> { }
+
+trait BodyCipherish { }
+impl BodyCipherish for usize { }
+impl<P: Params> BodyCipherish for body::BodyCipher<P> { }
+
+pub trait BodyCiphers { }
+impl<B: BodyCipherish> BodyCiphers for Vec<B> { }
+
+/// An `Orientation` used during building a header with a `Scaffold`
+/// provides direct access to `Vec`s that reference key material.
+type ScaffoldOrientation = Orientation<Vec<usize>, Vec<surbs::SURBHopKey>>;
+
+/// An `Orientation` returned by `Scaffold::done` along with a completed 
+/// `PreHeader` provides exactly the needed key material encapsulated 
+/// for usage or storage.
+pub type HeaderOrientation<P> = Orientation<Vec<body::BodyCipher<P>>, surbs::DeliverySURB>;
+
+/// Packet construction orientation. 
+///
+/// determines cryptographic material for  ????
+#[derive(Clone)]
+pub enum Orientation<BCs: BodyCiphers,SKs: SURBKeys> {
+    // Unknown { surb_keys: SKs, bodies: BCs },
+
+    /// An outgoing packet whose construction collects `BodyCipher`s
+    /// to encrypt an outgoing body.
+    ///
+    /// We take `B` to be `usize` to collect the indexes of the
+    /// `HeaderCipher`s that encrypt the body.
+    Send { bodies: BCs },
+
+    /// A returning packet whose construction collects `SURBHopKey`s
+    /// for SURB unwinding.
+    SURB { surb_keys: SKs },
+
+    /// A packet that acts first as an outgoing packet and later
+    /// as returning packet, so its construction collects first.
+    /// `BodyCipher`s and then `SURBHopKey`s for SURB unwinding.
+    SendAndSURB { surb_keys: SKs, bodies: BCs },
 }
+
+impl<BCs: BodyCiphers,SKs: SURBKeys> Orientation<BCs,SKs> {
+    /// Run closures on both whichever of `Orientation` exist.
+    fn map<BCs1,SKs1,BCM,SKM>(self, mut bcm: BCM, mut skm: SKM) -> Orientation<BCs1,SKs1>
+      where BCs1: BodyCiphers,
+            SKs1: SURBKeys,
+            BCM: FnMut(BCs) -> BCs1,
+            SKM: FnMut(SKs) -> SKs1 {
+        use self::Orientation::*;
+        match self {
+            // Unknown { surb_keys, bodies } => 
+            //     Unknown { surb_keys: skm(surb_keys), bodies: bcm(bodies) },
+            Send { bodies } => Send { bodies: bcm(bodies) },
+            SURB { surb_keys } => SURB { surb_keys: skm(surb_keys) },
+            SendAndSURB { surb_keys, bodies } => 
+                SendAndSURB { surb_keys: skm(surb_keys), bodies: bcm(bodies) },
+        }
+    }
+}
+
+impl ScaffoldOrientation {
+    /// Run approporaite closure on whichever member `Vec` currently
+    /// collects key material.
+    fn map_active<BCM,SKM>(&mut self, bcm: BCM, skm: SKM)
+      where BCM: FnOnce(&mut Vec<usize>),
+            SKM: FnOnce(&mut Vec<surbs::SURBHopKey>) {
+        use self::Orientation::*;
+        match *self {
+            // Unknown { surb_keys, bodies } => { skm(surb_keys); bcm(bodies); },
+            Send { ref mut bodies } => bcm(bodies),
+            SURB { ref mut surb_keys } => skm(surb_keys),
+            SendAndSURB { ref mut surb_keys, ref mut bodies } => skm(surb_keys),
+        }
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        self.map_active(
+            |bodies| bodies.reserve(additional), 
+            |surb_keys| surb_keys.reserve(additional) 
+        );
+    }
+
+    fn pop(&mut self) {
+        self.map_active(
+            |bodies| { bodies.pop(); },
+            |surb_keys| { surb_keys.pop(); } 
+        );
+    }
+
+    fn push(&mut self, bci: usize, surb_key: surbs::SURBHopKey) {
+        self.map_active( 
+            |bodies| bodies.push(bci), 
+            |surb_keys| surb_keys.push(surb_key) 
+        );
+    }
+
+    fn doSendAndSURB(&mut self) -> SphinxResult<()> {
+        use self::Orientation::*;
+        let bodies = match *self {
+            // Unknown { .. } => Err("Can only transition to SendAndSURB from Send, not Unknown."),
+            Send { ref mut bodies } => Ok( ::std::mem::replace(bodies, Vec::new()) ),
+            SURB { ref mut surb_keys } => Err("Can only transition to SendAndSURB from Send, not SURB."),
+            SendAndSURB { .. } => Err("Can only transition to SendAndSURB from Send, not Unknown"),
+        }.map_err( |s| SphinxError::InternalError(s) ) ?;
+        let surb_keys = Vec::with_capacity( bodies.capacity() ); // TODO: Assume equal!!
+        *self = SendAndSURB { bodies, surb_keys };
+        Ok(())
+    }
+}
+
+// pub const SEND : ScaffoldOrientation = Orientation::Send { bodies: Vec::new() };
+// pub const SURB : ScaffoldOrientation = Orientation::SURB { surb_keys: Vec::new() };
 
 
 /// All singleton values mutated while building a header,
@@ -297,18 +409,25 @@ struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     /// Stream ciphers for 
     ciphers: Vec<stream::HeaderCipher<P>>,
 
-    /// Packet construction mode, either `Ok` for SURBs, or
-    /// `None` for a normal forward packets. 
-    /// Also, records unwinding keys and twig ids in SURB mode.
-    surb_keys: Option<Vec<surbs::SURBHopKey>>,
-
-    /// Indexes of ciphers that encrypt the body and surb log
-    bodies: Option<Vec<usize>>,
+    /// Header orientation along with associated key material.
+    /// 
+    /// A sending packet records the indexes of header ciphers that
+    /// encrypt the body and surb log. A recieving packet records the
+    /// `SURBHopKey`s used for SURB unwinnding, which consist of keys
+    /// and twig ids.
+    orientation: ScaffoldOrientation,
 }
 
 
 impl<'a,R,C,P> Scaffold<'a,R,C,P>
   where R: Rng+'a, C: Concensus+'a, P: Params {
+    pub fn reserve(&mut self, additional: usize) {
+        self.commands.reserve(additional);
+        self.advances.reserve(additional);
+        self.ciphers.reserve(additional);
+        self.orientation.reserve(additional);
+    }
+
     fn intersect_validity(&mut self, other: Option<&::keys::time::ValidityPeriod>)
       -> SphinxResult<()> {
         let mut other = other.unwrap_or(&self.v.route_public.validity).clone();
@@ -347,22 +466,14 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         // ratchet sub-hop then we must first remove the key for the
         // preceeding Sphinx sub-hop before adding the key for the
         // ratchet sub-hop.
-        if let Some(twig) = berry_twig {
-            if let Some(ref mut sh) = self.surb_keys { sh.pop(); }
-            if let Some(ref mut bodies) = self.bodies { bodies.pop(); }
-        }
+        if let Some(twig) = berry_twig { self.orientation.pop(); }
 
         let key = self.v.key.as_ref().expect("Cannot add cipher if no key is given!");
         let mut hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
         let l = self.ciphers.len();
         self.ciphers.push(hop);
-        if let Some(ref mut bodies) = self.bodies { bodies.push(l); }
-        if let Some(ref mut sh) = self.surb_keys {
-            sh.push( surbs::SURBHopKey {
-                chacha: key.chacha.clone(),
-                berry_twig,
-            } ); 
-        }
+        let chacha = key.chacha.clone();
+        self.orientation.push(l, surbs::SURBHopKey { chacha, berry_twig });
         Ok(l)
     }
 
@@ -416,8 +527,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
             commands_len: self.commands.len(),
             advances_len: self.advances.len(),
             ciphers_len: self.ciphers.len(),
-            surb_keys: self.surb_keys.clone(),
-            bodies: self.bodies.clone(),
+            orientation: self.orientation.clone(),
             s: self
         }
     }
@@ -451,21 +561,14 @@ struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s
     /// when this `Hoist` transaction started.
     ciphers_len: usize,
 
-    /// Saved clone of all `SURBHopKey`s ecorded by our `Scaffold`
-    /// when this `Hoist` transaction started.
+    /// Saved clone of header orientation along with associated key
+    /// material encoded by our `Scaffold` when this `Hoist`
+    /// transaction started.
     ///
-    /// We clone here instead of just recording the length because
-    /// `add_ratchet_twig` needs to pop these off `Scaffold::surb_keys`.
-    /// We expect only one of `surb_keys` and `bodies` to be non-`None`.
-    surb_keys: Option<Vec<surbs::SURBHopKey>>,
-
-    /// Saved clone of indexes of ciphers that encrypt the body and
-    /// surb log
-    ///
-    /// We clone here instead of just recording the length because
-    /// `add_ratchet_twig` needs to pop these off `Scaffold::surb_keys`.
-    /// We expect only one of `surb_keys` and `bodies` to be non-`None`.
-    bodies: Option<Vec<usize>>,
+    /// A sending packet records the indexes of ciphers that encrypt
+    /// the body and surb log. A recieving packet records the keys
+    /// and twig ids used in for SURB unwinnding.
+    orientation: ScaffoldOrientation,
 }
 
 
@@ -484,7 +587,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
         let mut commands = ArrayVec::<[PreCommand<usize>; 2]>::new();
         let mut eaten = 0usize;
         let mut extra = 0usize;
-        let l = instrustion.commands_length();
+        let l = instrustion.beta_length();
 
         { // p
         let mut p = |c: PreCommand<usize>| {
@@ -557,13 +660,12 @@ impl<'s,'a,R,C,P> Drop for Hoist<'s,'a,R,C,P>
     /// There is no way to repair an `Option<Vec<T>>` converted into
     /// `None` though, so no transaction may do that.
     fn drop(&mut self) {
-        let Hoist { ref mut s, ref saved_v, commands_len, advances_len, ciphers_len, ref mut surb_keys, ref mut bodies } = *self;
+        let Hoist { ref mut s, ref saved_v, commands_len, advances_len, ciphers_len, ref mut orientation } = *self;
         s.v.clone_from(saved_v);
         s.commands.truncate(commands_len);
         s.advances.truncate(advances_len);
         s.ciphers.truncate(ciphers_len);
-        ::std::mem::swap(&mut s.surb_keys, surb_keys);
-        ::std::mem::swap(&mut s.bodies, bodies);
+        ::std::mem::swap(&mut s.orientation, orientation);
     }
 }
 
@@ -651,17 +753,21 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
     pub fn done(mut self) -> SphinxResult<NewHeader<P>> {
         let eaten = self.v.eaten;
         let mut beta = vec![0u8; P::BETA_LENGTH+eaten];
-        if let None = self.surb_keys {
-            self.rng.fill_bytes(&mut beta[eaten..P::BETA_LENGTH]);
-            self.do_beta_tails(P::BETA_LENGTH, &mut beta[P::BETA_LENGTH..]) ?;
-        } else {
-            // Padding ??
-            // self.rng.fill_bytes(&mut beta[eaten..???]);
-            self.do_beta_tails(eaten, &mut beta[eaten..]) ?;
+        match self.orientation {
+            // Unknown {..} => return Err( SphinxError::InternalError("Cannot build header without knowing if sending or recieving") );
+            Orientation::Send {..} | Orientation::SendAndSURB {..} => {
+                self.rng.fill_bytes(&mut beta[eaten..P::BETA_LENGTH]);
+                self.do_beta_tails(P::BETA_LENGTH, &mut beta[P::BETA_LENGTH..]) ?;
+            },
+            Orientation::SURB {..} => {
+                // Padding ??
+                // self.rng.fill_bytes(&mut beta[eaten..???]);
+                self.do_beta_tails(eaten, &mut beta[eaten..]) ?;
+            },
         }
         let gamma = self.do_beta_with_gammas(beta.as_mut()) ?;
 
-        let Scaffold { v, surb_keys, bodies, mut advances, mut ciphers, .. } = self;
+        let Scaffold { v, orientation, mut advances, mut ciphers, .. } = self;
         let Values { route, alpha0, mut validity, .. } = v;
 
         // TODO: Fuzz validity to prevent leaking route information
@@ -676,24 +782,23 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
             },
         };
 
-        let surb = surb_keys.map( |surbs| surbs::DeliverySURB { 
-            protocol: P::PROTOCOL_ID,
-            meta: surbs::Metadata(0), // TODO: Where does this come from?
-            hops: surbs
-        } );
-        let bodies = bodies.map( |bs| {
-            bs.iter().map( |b| ciphers[*b].body_cipher() ).collect()
-        } );
+        let orientation = orientation.map(
+            |bs| { bs.iter().map( |b| ciphers[*b].body_cipher() ).collect() },
+            |surbs| surbs::DeliverySURB {
+                protocol: P::PROTOCOL_ID,
+                meta: surbs::Metadata(0), // TODO: Where does this come from?
+                hops: surbs
+            }
+        );
         for mut t in advances.drain(..) { t.confirm() ?; }
-        Ok( NewHeader { preheader, surb, bodies } )
+        Ok( NewHeader { preheader, orientation } )
     }
 }
 
 
 struct NewHeader<P: Params> {
     preheader: PreHeader,
-    surb: Option<surbs::DeliverySURB>, 
-    bodies: Option<Vec<body::BodyCipher<P>>>
+    orientation: HeaderOrientation<P>,
 }
 
 
