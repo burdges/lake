@@ -6,19 +6,17 @@
 
 use std::sync::Arc; // RwLock, RwLockReadGuard, RwLockWriteGuard
 use std::marker::PhantomData;
-use std::time::{Duration,SystemTime,UNIX_EPOCH};
+use std::time::{Duration}; // SystemTime, UNIX_EPOCH
 
 use rand::{Rng, Rand};
 
-use ratchet::{BranchId,BRANCH_ID_LENGTH,TwigId,TWIG_ID_LENGTH,Transaction,AdvanceUser};
+use ratchet::{BranchId,TwigId,Transaction,AdvanceUser}; // BRANCH_ID_LENGTH,TWIG_ID_LENGTH
 pub use ratchet::ClientState as ClientRatchetState;
-
-use super::stream::{Gamma,GAMMA_LENGTH}; // GammaBytes,HeaderCipher
 
 pub use keys::{RoutingName,RoutingPublic,Concensus};
 pub use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::commands::{PreCommand,Command,Instruction};
-use super::layout::{Params,ImplParams,PreHeader};
+use super::layout::{Params,PreHeader}; // ImplParams
 use super::error::*;
 use super::*;
 
@@ -83,7 +81,7 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
             advances: Vec::with_capacity(capacity),
             ciphers: Vec::with_capacity(capacity+1),
         };
-        s.add_sphinx(route);
+        s.add_sphinx(route) ?;
         Ok( s )
     }
 
@@ -118,7 +116,7 @@ pub trait SURBKeys { }
 impl SURBKeys for surbs::DeliverySURB { }
 impl SURBKeys for Vec<surbs::SURBHopKey> { }
 
-trait BodyCipherish { }
+pub trait BodyCipherish { }
 impl BodyCipherish for usize { }
 impl<P: Params> BodyCipherish for body::BodyCipher<P> { }
 
@@ -180,7 +178,7 @@ impl<BCs: BodyCiphers,SKs: SURBKeys> Orientation<BCs,SKs> {
 impl ScaffoldOrientation {
     /// Run approporaite closure on whichever member `Vec` currently
     /// collects key material.
-    fn map_active<BCM,SKM>(&mut self, bcm: BCM, skm: SKM)
+    fn do_active<BCM,SKM>(&mut self, bcm: BCM, skm: SKM)
       where BCM: FnOnce(&mut Vec<usize>),
             SKM: FnOnce(&mut Vec<surbs::SURBHopKey>) {
         use self::Orientation::*;
@@ -188,26 +186,26 @@ impl ScaffoldOrientation {
             // Unknown { surb_keys, bodies } => { skm(surb_keys); bcm(bodies); },
             Send { ref mut bodies } => bcm(bodies),
             SURB { ref mut surb_keys } => skm(surb_keys),
-            SendAndSURB { ref mut surb_keys, ref mut bodies } => skm(surb_keys),
+            SendAndSURB { ref mut surb_keys, .. } => skm(surb_keys),
         }
     }
 
     fn reserve(&mut self, additional: usize) {
-        self.map_active(
+        self.do_active(
             |bodies| bodies.reserve(additional), 
             |surb_keys| surb_keys.reserve(additional) 
         );
     }
 
     fn pop(&mut self) {
-        self.map_active(
+        self.do_active(
             |bodies| { bodies.pop(); },
             |surb_keys| { surb_keys.pop(); } 
         );
     }
 
     fn push(&mut self, bci: usize, surb_key: surbs::SURBHopKey) {
-        self.map_active( 
+        self.do_active( 
             |bodies| bodies.push(bci), 
             |surb_keys| surb_keys.push(surb_key) 
         );
@@ -302,7 +300,7 @@ impl<P> Clone for Values<P> where P: Params {
 /// We use our first command to set `PreHeader::route` and pad
 /// `PreHeader::beta` for usage in transmission or in aSURB, but
 /// do not encode it into `PreHeader::beta`.
-struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
+pub struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
     world: World<'a,C,P>,
 
     rng: &'a mut R,
@@ -385,10 +383,10 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         // ratchet sub-hop then we must first remove the key for the
         // preceeding Sphinx sub-hop before adding the key for the
         // ratchet sub-hop.
-        if let Some(twig) = berry_twig { self.orientation.pop(); }
+        if let Some(..) = berry_twig { self.orientation.pop(); }
 
         let key = self.v.key.as_ref().expect("Cannot add cipher if no key is given!");
-        let mut hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
+        let hop = key.header_cipher() ?;  // InternalError: ChaCha stream exceeded
         let l = self.ciphers.len();
         self.ciphers.push(hop);
         let chacha = key.chacha.clone();
@@ -523,7 +521,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
                 p(Command::Ratchet { twig, gamma });
             },
             Instruction::CrossOver { surb: PreHeader { validity, route, alpha, gamma, beta } } => {
-                s.intersect_validity(Some(&validity));
+                s.intersect_validity(Some(&validity)) ?;
                 extra = beta.len();
                 p(Command::CrossOver { route, alpha, gamma, surb_beta: beta });
             },
@@ -562,7 +560,7 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
 
     /// Destructure the `Hoist` to avoid drop, thereby avoiding
     /// the roll back build into `Hoist`'s as `Drop`.
-    pub fn approve(mut self) {
+    pub fn approve(self) {
         let Hoist { .. } = self;
         // We could use `::std::mem::forget(self)` but this assumes
         // the `Host` itself contains no `Drop` types, which might
@@ -636,7 +634,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
     /// We store the SURB's `beta` in the `CrossOver` command,
     /// so this must consume `self.commands`, and hence it may
     /// only be called once by `done`.
-    fn do_beta_with_gammas(&mut self, beta: &mut [u8]) -> SphinxResult<Gamma> {
+    fn do_beta_with_gammas(&mut self, beta: &mut [u8]) -> SphinxResult<stream::Gamma> {
         // We insert our newly created PreCommand<Gamma> directly
         // into `beta` and do not constrcut a Vec<PreCommand<Gamma>>.
         let mut j = None;  // Previous ciphers index for testing in debug mode.
@@ -644,7 +642,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         let mut tail = 0;
         while let Some(c) = self.commands.pop() {
             let l = c.command_length();
-            let c: PreCommand<Gamma> = c.map_gamma( |g| {
+            let c: PreCommand<stream::Gamma> = c.map_gamma( |g| {
                 // Test that every cipher gets used
                 debug_assert_eq!(g+1, j.unwrap_or(self.ciphers.len()) );
                 j = Some(g);
@@ -687,12 +685,12 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         let gamma = self.do_beta_with_gammas(beta.as_mut()) ?;
 
         let Scaffold { v, orientation, mut advances, mut ciphers, .. } = self;
-        let Values { route, alpha0, mut validity, .. } = v;
+        let Values { route, alpha0, validity, .. } = v;
 
         // TODO: Fuzz validity to prevent leaking route information
         let preheader = PreHeader {
-            validity: validity.clone(),
-            route: route.start.clone(),
+            validity: validity,
+            route: route.start,
             alpha: alpha0,
             gamma,
             beta: {

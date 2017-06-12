@@ -11,7 +11,7 @@ pub use ratchet::{TwigId,TWIG_ID_LENGTH};
 
 use keys::{RoutingName,ROUTING_NAME_LENGTH}; // RoutingNameBytes
 use curve::{AlphaBytes,ALPHA_LENGTH};
-use super::stream::{Gamma,GammaBytes,GAMMA_LENGTH};
+use super::stream::{Gamma,GAMMA_LENGTH}; // GammaBytes
 use super::mailbox::{MailboxName,MAILBOX_NAME_LENGTH};
 use super::error::*;
 use super::slice::*;
@@ -279,8 +279,8 @@ impl<G0> PreCommand<G0> where G0: CommandGamma {
 impl<G0> PreCommand<G0> where G0: CommandGamma+Clone+Copy {
     pub fn get_gamma(&self) -> Option<G0> {
         match *self {
-            Command::Transmit { route, gamma } => Some(gamma),
-            Command::Ratchet { twig, gamma } => Some(gamma),
+            Command::Transmit { gamma, .. } => Some(gamma),
+            Command::Ratchet { gamma, .. } => Some(gamma),
             _ => None,
         }
         // We wanted to reduce this to `map_gamma` but it benifits
@@ -362,7 +362,7 @@ impl Instruction {
                 let twig = ::ratchet::TwigId(branch,::ratchet::TwigIdx(0));
                 p(Command::Ratchet { twig, gamma })
             },
-            Instruction::CrossOver { surb: layout::PreHeader { ref validity, route, alpha, gamma, ref beta } } =>
+            Instruction::CrossOver { surb: layout::PreHeader { route, alpha, gamma, ref beta, .. } } =>
                 p(Command::CrossOver { route, alpha, gamma, surb_beta: beta.len() }) + beta.len(),
             Instruction::Contact { } =>
                 p(Command::Contact { }),

@@ -220,7 +220,7 @@ pub struct HeaderCipher<P: Params> {
 // that it may be dropped normally.  Requirs that `Drop::drop` does 
 // nothing interesting.
 impl<P: Params> ::clear_on_drop::clear::InitializableFromZeroed for HeaderCipher<P> {
-    unsafe fn initialize(hop: *mut HeaderCipher<P>) {
+    unsafe fn initialize(_: *mut HeaderCipher<P>) {
     }
 }
 
@@ -317,7 +317,7 @@ impl<P: Params> HeaderCipher<P> {
 
     pub fn xor_beta(&mut self, beta: &mut [u8], offset: usize, tail: usize)
       -> SphinxResult<()> {
-        let mut len = P::BETA_LENGTH as usize - offset;
+        let len = P::BETA_LENGTH as usize - offset;
         if beta.len() < len {
             return Err( SphinxError::InternalError("Beta too short to encrypt!") );
         }

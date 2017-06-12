@@ -9,7 +9,7 @@ use std::fmt;
 use rand::{Rng, Rand};
 
 use curve25519_dalek::scalar;
-use curve25519_dalek::curve::{self, CompressedEdwardsY,ExtendedPoint,ScalarMult,BasepointMult};
+use curve25519_dalek::curve::{CompressedEdwardsY,ExtendedPoint,ScalarMult,BasepointMult};
 
 use sphinx::SphinxSecret;
 use sphinx::error::*;

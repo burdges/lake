@@ -18,7 +18,7 @@ pub use ratchet::State as RatchetState;
 use super::commands::{Command};
 use super::layout::{Params,ImplParams,HeaderRefs};
 use super::mailbox::*;
-use super::slice::*;
+// use super::slice::*;
 use super::error::*;
 use super::*;
 

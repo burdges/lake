@@ -4,9 +4,9 @@
 //!
 //! ...
 
-use std::collections::HashMap;
+// use std::collections::HashMap;
 // use std::hash::Hash; // Hasher
-use std::sync::{RwLock}; // RwLockReadGuard, RwLockWriteGuard
+// use std::sync::{RwLock}; // RwLockReadGuard, RwLockWriteGuard
 use std::iter::Iterator;
 use std::marker::PhantomData;
 
@@ -18,7 +18,7 @@ use super::error::*;
 use super::slice::*;
 use super::*;
 
-use ::state::{HasherState};
+// use ::state::{HasherState};
 
 
 pub const MAX_SURB_METADATA : usize = 8;
