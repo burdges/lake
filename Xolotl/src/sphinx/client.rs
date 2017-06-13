@@ -397,9 +397,10 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
     fn add_sphinx(&mut self, route: RoutingName)
       -> SphinxResult<usize> {
         if let Some(c) = self.ciphers.last_mut() {
-            // We avoid unecessary blinding by keeping `aa` one hop
-            // behind and only blinding right before use.  We always
-            // blind here except when called from `Scaffold::new`.
+            // We avoid unecessary blinding or needing `aa` to be a
+            // `Vec<::curve::Scalar>` by keeping `aa` one hop behind
+            // and only blinding right before use.  We always blind
+            // here except when called from `Scaffold::new`.
             self.v.aa.blind(& c.blinding());
             // We keep delay one hop behind as well because delays
             // only happen when packets are queued for delivery.
