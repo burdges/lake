@@ -2,6 +2,145 @@
 
 
 
+
+    pub fn start_header<R: Rng+'a>(&self,
+          rng: &'a mut R,
+          route: RoutingName,
+          make_surb: bool,
+          capacity: usize 
+      ) -> SphinxResult<Scaffold<'a,R,C,P>>
+    {
+        let aa = rng.gen();
+        let alpha0 = ::curve::Point::from_secret(&aa).compress();
+        // TODO: Any tests for alpha?  ::curve::Point::decompress(&alpha) ?;
+
+        let rp = self.concensus.routing_named(&route) ?;
+        let v = Values {
+            route: route..route,
+            route_public: rp.clone(),
+            key: None,
+            alpha0, aa, 
+            delay: Duration::from_secs(0),
+            validity: rp.validity.clone(),
+            eaten: 0, 
+        };
+        let orientation = if make_surb {
+            Orientation::SURB { surb_keys: Vec::with_capacity(capacity) }
+        } else {
+            Orientation::Send { bodies: Vec::with_capacity(capacity) }
+        };
+        let mut s = Scaffold {
+            world: self.clone(),
+            rng, v, orientation,
+            commands: Vec::with_capacity(capacity),
+            advances: Vec::with_capacity(capacity),
+            ciphers: Vec::with_capacity(capacity+1),
+        };
+        s.add_sphinx(route) ?;
+        Ok( s )
+    }
+
+    /// Prepare a sending header that does not expect to cross over to a SURB.
+    pub fn send_header_long<R: Rng+'a>(&self, rng: &'a mut R, route: RoutingName)
+      -> SphinxResult<Scaffold<'a,R,C,P>>
+    {
+        self.start_header(rng,route,false,P::max_hops_capacity())
+    }
+
+    /// Prepare a sending header that expects to cross over to a SURB.
+    pub fn send_header<R: Rng+'a>(&self, rng: &'a mut R, route: RoutingName)
+      -> SphinxResult<Scaffold<'a,R,C,P>>
+    {
+        // Divide by two since we assume a SURB oriented usage,
+        // but this costs allocations if not using SURBs.
+        let capacity = P::max_hops_capacity() / 2;
+        self.start_header(rng,route,false,capacity)
+    }
+
+    /// Prepare a SURB with which to recieve a message.
+    pub fn recieve_header<R: Rng+'a>(&self, rng: &'a mut R, route: RoutingName)
+      -> SphinxResult<Scaffold<'a,R,C,P>>
+    {
+        let capacity = P::max_hops_capacity() / 2;
+        self.start_header(rng,route,true,capacity)
+    }
+
+
+
+
+
+
+        use self::Orientation::*;
+        let orientation = match self.orientation {
+            SURB {..} => SURB { surb_keys: Vec::with_capacity(capacity) }
+            Send {..} => Send { bodies: Vec::with_capacity(capacity) }
+            _ => return Err( SphinxError::InternalError("We must begin packet consgtruction with an orientation of either Send or SURB.") ),
+        };
+
+
+
+
+
+
+/*
+pub struct BuildScaffold<'a,R,C,P>
+  where R: Rng+'a, C: Concensus+'a, P: Params {
+    world: World<'a,C,P>,
+
+    rng: &'a mut R,
+
+    /// All singleton values mutated while building a header,
+    /// except for the random number generator `rng`.
+    v: Values<P>,
+
+    pub capacity: usize,
+
+    /// Initial header orientation.
+    orientation: ScaffoldOrientation,
+}
+    
+impl<'a,R,C,P> PreScaffold<'a,R,C,P>
+  where R: Rng+'a, C: Concensus+'a, P: Params {
+    fn make_surb(&mut self) {
+        self.orientation = Orientation::SURB { surb_keys: Vec::new() }
+    }
+
+    fn go(mut self) -> SphinxResult<Scaffold<'a,R,C,P>> {
+        let PreScaffold { world, rng, v, capacity, orientation } = self;
+        orientation.reserve(capacity);
+        let mut s = Scaffold {
+            world: self.clone(),
+            rng, v, orientation,
+            commands: Vec::with_capacity(capacity),
+            advances: Vec::with_capacity(capacity),
+            ciphers: Vec::with_capacity(capacity+1),
+        };
+        s.add_sphinx(route) ?;
+        Ok( s )
+    }
+}
+
+/// We convert an `InitialOrientation`
+pub enum InitialOrientation {
+    /// An outgoing packet whose construction collects `BodyCipher`s
+    /// to encrypt an outgoing body.  Can result in `Send` or `SendAndSURB`
+    Send,
+
+    /// A returning packet whose construction collects `SURBHopKey`s
+    /// for SURB unwinding.
+    SURB,
+}
+
+pub const SEND : InitialOrientation = InitialOrientation::Send;
+pub const SURB : InitialOrientation = InitialOrientation::SURB;
+*/
+
+
+
+
+
+
+
     fn map_bodies<P,F>(self, f: F) -> ScaffoldOrientation<body::BodyCipher<P>>
       where P: Params, F: FnMut(usize) -> body::BodyCipher<P> {
         let g = |bodies| bodies.iter().map( |b| f(b) ).collect();

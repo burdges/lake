@@ -355,14 +355,14 @@ impl<P: Params> HeaderCipher<P> {
     pub fn delay(&mut self) -> ::std::time::Duration {
         use rand::{ChaChaRng, SeedableRng}; // Rng, Rand
         let mut rng = {
-            let mut s = [0u32; 8];
+            let mut seed = [0u32; 8];
             fn as_bytes_mut(t: &mut [u32; 8]) -> &mut [u8; 32] {
                 unsafe { ::std::mem::transmute(t) }
             }
             self.stream.seek_to(self.chunks.delay.start as u64).unwrap();
-            self.stream.xor_read(as_bytes_mut(&mut s)).unwrap();
-            for i in s.iter_mut() { *i = u32::from_le(*i); }
-            ChaChaRng::from_seed(&s)
+            self.stream.xor_read(as_bytes_mut(&mut seed)).unwrap();
+            for i in seed.iter_mut() { *i = u32::from_le(*i); }
+            ChaChaRng::from_seed(&seed)
         };
 
         use rand::distributions::{Exp, IndependentSample};

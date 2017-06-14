@@ -8,7 +8,7 @@ use std::sync::Arc; // RwLock, RwLockReadGuard, RwLockWriteGuard
 use std::marker::PhantomData;
 use std::time::{Duration}; // SystemTime, UNIX_EPOCH
 
-use rand::{Rng, Rand};
+use rand::{Rng, Rand, ChaChaRng, SeedableRng};
 
 use ratchet::{BranchId,TwigId,Transaction,AdvanceUser}; // BRANCH_ID_LENGTH,TWIG_ID_LENGTH
 pub use ratchet::ClientState as ClientRatchetState;
@@ -19,6 +19,7 @@ use super::commands::{PreCommand,Command,Instruction};
 use super::layout::{Params,PreHeader}; // ImplParams
 use super::error::*;
 use super::*;
+
 
 
 /// World of key material in which we build a header.
@@ -35,7 +36,7 @@ pub struct World<'a,C,P> where C: Concensus+'a, P: Params {
     ratchets: &'a ClientRatchetState,
 }
 
-/// We cannot #[derive(Clone)] if we need a where clause.
+/// We cannot `#[derive(Clone)]` if we need a where clause.
 impl<'a,C,P> Clone for World<'a,C,P> where C: Concensus+'a, P: Params {
     fn clone(&self) -> World<'a,C,P> { World::new(self.concensus, self.ratchets) }
 }
@@ -48,34 +49,90 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
         }
     }
 
-    pub fn start_header<R: Rng+'a>(&self,
-          rng: &'a mut R,
-          route: RoutingName,
-          make_surb: bool,
-          capacity: usize 
-      ) -> SphinxResult<Scaffold<'a,R,C,P>>
-    {
+    pub fn build_headers<R: Rng>(&self, rng: R) -> BuildScaffold<'a,C,P,R> {
+        BuildScaffold {
+            world: self.clone(),  rng,
+            orientation: Orientation::Send { bodies: Vec::new() },
+            capacity: P::max_hops_capacity() / 2,
+        }
+    }
+}
+
+
+/// Builds the `Scaffold`s with which we build headers.
+pub struct BuildScaffold<'a,C,P,R> where C: Concensus+'a, P: Params, R: Rng {
+    pub world: World<'a,C,P>,
+
+    /// Random number generator used for building header
+    /// TODO: How should we deal with this and its seeds? 
+    pub rng: R,
+
+    /// Initial header orientation.
+    orientation: ScaffoldOrientation,
+
+    pub capacity: usize,
+}
+
+impl<'a,C,P,R> BuildScaffold<'a,C,P,R> where C: Concensus+'a, P: Params, R: Rng {
+    /// Spawns a new `Scaffold` builder with a specified random number
+    /// generator.
+    pub fn spawn<R0: Rng>(&self, rng: R0) -> BuildScaffold<'a,C,P,R0> {
+        BuildScaffold {
+            world: self.world.clone(),  rng,
+            orientation: self.orientation.clone(),
+              // No allocation here so long as `Vec::capacity()` stays zero.
+            capacity: self.capacity,
+        }
+    }
+
+    /// Spawn a new `Scaffold` builder by seeding a new `Rng` with 
+    /// output form `self.rng`.
+    pub fn fork<S, Seed, R0>(&mut self) -> (BuildScaffold<'a,C,P,R0>, Seed) 
+      where S: ?Sized,
+            Seed: Rand + AsRef<S>,
+            R0: Rng + for<'x> SeedableRng<&'x S> {
+        let seed: Seed = self.rng.gen();
+        (self.spawn(R0::from_seed(seed.as_ref())), seed)
+    }
+
+    /// Spawn a new `Scaffold` builder based on `ChaChaRng` by
+    /// first generating its `[u32; 8]` seed from `self.rng`.
+    pub fn fork_chacha(&mut self) -> (BuildScaffold<'a,C,P,ChaChaRng>, [u32; 8])
+      { self.fork::<[u32],[u32; 8],ChaChaRng>() }
+
+    /// Avoid excess allocations when preparing a sending header
+    /// that is neither a SURB itself, nor crosses over to a SURB.
+    pub fn long(mut self) -> BuildScaffold<'a,C,P,R>
+      { self.capacity = P::max_hops_capacity(); self.make_send() }
+
+    /// 
+    pub fn make_send(mut self) -> BuildScaffold<'a,C,P,R>
+      { self.orientation = Orientation::Send { bodies: Vec::new() }; self }
+
+    pub fn make_surb(mut self) -> BuildScaffold<'a,C,P,R>
+      { self.orientation = Orientation::SURB { surb_keys: Vec::new() }; self }
+
+    fn go(mut self, route: RoutingName) -> SphinxResult<Scaffold<'a,C,P,R>> {
+        let BuildScaffold { world, mut rng, mut orientation, capacity } = self;
+
         let aa = rng.gen();
         let alpha0 = ::curve::Point::from_secret(&aa).compress();
         // TODO: Any tests for alpha?  ::curve::Point::decompress(&alpha) ?;
 
-        let rp = self.concensus.routing_named(&route) ?;
+        let rp = world.concensus.routing_named(&route) ?;
         let v = Values {
             route: route..route,
             route_public: rp.clone(),
             key: None,
-            alpha0, aa, 
+            alpha0, aa, // seed,
             delay: Duration::from_secs(0),
             validity: rp.validity.clone(),
             eaten: 0, 
         };
-        let orientation = if make_surb {
-            Orientation::SURB { surb_keys: Vec::with_capacity(capacity) }
-        } else {
-            Orientation::Send { bodies: Vec::with_capacity(capacity) }
-        };
+
+        orientation.reserve(capacity);
         let mut s = Scaffold {
-            world: self.clone(),
+            world: world.clone(),
             rng, v, orientation,
             commands: Vec::with_capacity(capacity),
             advances: Vec::with_capacity(capacity),
@@ -84,32 +141,8 @@ impl<'a,C,P> World<'a,C,P> where C: Concensus+'a, P: Params {
         s.add_sphinx(route) ?;
         Ok( s )
     }
-
-    /// Prepare a sending header that does not expect to cross over to a SURB.
-    pub fn send_header_long<R: Rng+'a>(&self, rng: &'a mut R, route: RoutingName)
-      -> SphinxResult<Scaffold<'a,R,C,P>>
-    {
-        self.start_header(rng,route,false,P::max_hops_capacity())
-    }
-
-    /// Prepare a sending header that expects to cross over to a SURB.
-    pub fn send_header<R: Rng+'a>(&self, rng: &'a mut R, route: RoutingName)
-      -> SphinxResult<Scaffold<'a,R,C,P>>
-    {
-        // Divide by two since we assume a SURB oriented usage,
-        // but this costs allocations if not using SURBs.
-        let capacity = P::max_hops_capacity() / 2;
-        self.start_header(rng,route,false,capacity)
-    }
-
-    /// Prepare a SURB with which to recieve a message.
-    pub fn recieve_header<R: Rng+'a>(&self, rng: &'a mut R, route: RoutingName)
-      -> SphinxResult<Scaffold<'a,R,C,P>>
-    {
-        let capacity = P::max_hops_capacity() / 2;
-        self.start_header(rng,route,true,capacity)
-    }
 }
+
 
 
 pub trait SURBKeys { }
@@ -225,9 +258,6 @@ impl ScaffoldOrientation {
     }
 }
 
-// pub const SEND : ScaffoldOrientation = Orientation::Send { bodies: Vec::new() };
-// pub const SURB : ScaffoldOrientation = Orientation::SURB { surb_keys: Vec::new() };
-
 
 /// All singleton values mutated while building a header,
 /// except for the random number generator.  
@@ -295,21 +325,22 @@ impl<P> Clone for Values<P> where P: Params {
 }
 */
 
-/// We build `PreHeader`s using successive operations on `Scafold`.
+/// We build `PreHeader`s using successive operations on `Scaffold`.
 /// 
 /// We use our first command to set `PreHeader::route` and pad
 /// `PreHeader::beta` for usage in transmission or in aSURB, but
 /// do not encode it into `PreHeader::beta`.
-pub struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
-    world: World<'a,C,P>,
+pub struct Scaffold<'a,C,P,R>
+  where C: Concensus+'a, P: Params, R: Rng {
+    pub world: World<'a,C,P>,
 
-    rng: &'a mut R,
+    pub rng: R,
 
     /// All singleton values mutated while building a header,
     /// except for the random number generator `rng`.
     /// 
     /// In future, we should fold incorporate this directly into
-    /// `Scafold` via `..v` or whatever syntax emerges for that.
+    /// `Scaffold` via `..v` or whatever syntax emerges for that.
     v: Values<P>,
 
     /// `Commands` for `beta`.
@@ -336,8 +367,10 @@ pub struct Scaffold<'a,R,C,P> where R: Rng+'a, C: Concensus+'a, P: Params {
 }
 
 
-impl<'a,R,C,P> Scaffold<'a,R,C,P>
-  where R: Rng+'a, C: Concensus+'a, P: Params {
+impl<'a,C,P,R> Scaffold<'a,C,P,R>
+  where C: Concensus+'a, P: Params, R: Rng {
+    pub fn capacity(&self) -> usize { self.commands.capacity() }
+
     pub fn reserve(&mut self, additional: usize) {
         self.commands.reserve(additional);
         self.advances.reserve(additional);
@@ -439,7 +472,7 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
         Ok(( twig, i ) )
     }
 
-    pub fn add<'s: 'a>(&'s mut self) -> Hoist<'s,'a,R,C,P> {
+    pub fn add<'s: 'a>(&'s mut self) -> Hoist<'s,'a,C,P,R> {
         Hoist {
             saved_v: self.v.clone(),
             commands_len: self.commands.len(),
@@ -459,9 +492,10 @@ impl<'a,R,C,P> Scaffold<'a,R,C,P>
 ///
 /// We save this state as a copy of the singleton values `Values`
 /// along with lengths of all `Vec`s.
-struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
+struct Hoist<'s,'a,C,P,R>
+  where 'a: 's, C: Concensus+'a, P: Params+'s, R: Rng+'s {
     /// Our `Scaffold` to which we mutate to add commands.
-    s: &'s mut Scaffold<'a,R,C,P>,
+    s: &'s mut Scaffold<'a,C,P,R>,
 
     /// Saved singleton values `Values` components `s.v` of our
     /// `Scaffold` for roll back.
@@ -490,13 +524,13 @@ struct Hoist<'s,'a,R,C,P> where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s
 }
 
 
-impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
-  where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
+impl<'s,'a,C,P,R> Hoist<'s,'a,C,P,R>
+  where 'a: 's, C: Concensus+'a, P: Params+'s, R: Rng+'s {
     /// Add `Command`(s) corresponding to the provided `Instruction`. 
     ///
     /// TODO: We 
     pub fn instruct(&mut self, instrustion: Instruction)
-      -> SphinxResult<&mut Hoist<'s,'a,R,C,P>> {
+      -> SphinxResult<&mut Hoist<'s,'a,C,P,R>> {
         { // s
         // Destructure `self` to prevent access to saved values.
         let Hoist { ref mut s, .. } = *self;
@@ -569,8 +603,8 @@ impl<'s,'a,R,C,P> Hoist<'s,'a,R,C,P>
     }
 }
 
-impl<'s,'a,R,C,P> Drop for Hoist<'s,'a,R,C,P>
-  where 'a: 's, R: Rng+'a, C: Concensus+'a, P: Params+'s {
+impl<'s,'a,C,P,R> Drop for Hoist<'s,'a,C,P,R>
+  where 'a: 's, C: Concensus+'a, P: Params+'s, R: Rng+'s {
     /// Roll back the transaction represented by this `Hoist` if
     /// not consumed by `Hoist::approve`.
     ///
@@ -588,8 +622,8 @@ impl<'s,'a,R,C,P> Drop for Hoist<'s,'a,R,C,P>
 }
 
 
-impl<'a,R,C,P> Scaffold<'a,R,C,P>
-  where R: Rng+'a, C: Concensus+'a, P: Params {
+impl<'a,C,P,R> Scaffold<'a,C,P,R>
+  where C: Concensus+'a, P: Params, R: Rng {
     /// Write fully encrypted tails `phi` to `beta`.
     ///
     /// We place the SURB for a cross over point inside `beta` so
