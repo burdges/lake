@@ -3,21 +3,33 @@
 TESTS !!!!
 
 
+ASAP
+- Lux?? ???-PPP preliminary proposal
+- Basic tests
+  - Expand curve tests to cover scalar * scalar
+  - Invent some basic tests for stream.rs
+  - Generator framework for some nodes and routing keys
+- Paper
+  - Integrate add.txt
+  - Add Issue blocks
+  - Reliability section
+
+
 Keys
 - Make keys GNUnet compatable using features
 
 Extend client side
-- Transaction???
-- Converion from instructions into commands
-- SURB beta insertion?
-- Commands after SURB beta?
-- Abstractions for instruction length?
 - Basic TESTS !!!!
+  - SURB beta insertion?
+- Commands after SURB beta?
 
 Client API
-- Reference structs
-- Store SURBS
+- Pick route, including PKI interface
+- SURB storage dattabase
+- Non-reference World?
 - Actual API
+- Reference structs?
+- Regeneration from seed?  Route?
 
 SURBs
 - Consistent beta lengths in both implementaiton and paper

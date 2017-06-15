@@ -18,10 +18,16 @@
 %\usetikzlibrary{positioning}
 %\usetikzlibrary{calc}
 
+\def\mathcomma{,}
 \def\mathperiod{.}
 
-\def\mathcomma{}
-\def\mathperiod{}
+\newtheorem{issue}{Issue}[section]
+
+\newtheorem*{rawnamedtheorem}{\therawnamedtheorem}
+\newcommand{\therawnamedtheorem}{\error}
+\newenvironment{namedtheorem}[1]{\renewcommand{\therawnamedtheorem}{#1}
+   \begin{rawnamedtheorem}}
+  {\end{rawnamedtheorem}}
 
 
 \title{Xolotl}

@@ -121,7 +121,7 @@ impl<P: Params> SURBStore<P> {
             if packet_name == PacketName::default() { break; }
         }
 
-        return Ok( Action::Arrival { metadata } )
+        Ok( Action::Arrival { metadata } )
     }
 }
 

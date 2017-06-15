@@ -105,13 +105,15 @@ impl<'a,C,P,R> BuildScaffold<'a,C,P,R> where C: Concensus+'a, P: Params, R: Rng 
     pub fn long(mut self) -> BuildScaffold<'a,C,P,R>
       { self.capacity = P::max_hops_capacity(); self.make_send() }
 
-    /// 
+    /// Prepare a `Send` header for sending messges.
     pub fn make_send(mut self) -> BuildScaffold<'a,C,P,R>
       { self.orientation = Orientation::Send { bodies: Vec::new() }; self }
 
+    /// Prepare a `SURB` header for recieving messges.
     pub fn make_surb(mut self) -> BuildScaffold<'a,C,P,R>
       { self.orientation = Orientation::SURB { surb_keys: Vec::new() }; self }
 
+    /// Produce the `Scaffold` with which we build one header.
     fn go(mut self, route: RoutingName) -> SphinxResult<Scaffold<'a,C,P,R>> {
         let BuildScaffold { world, mut rng, mut orientation, capacity } = self;
 
@@ -142,7 +144,6 @@ impl<'a,C,P,R> BuildScaffold<'a,C,P,R> where C: Concensus+'a, P: Params, R: Rng 
         Ok( s )
     }
 }
-
 
 
 pub trait SURBKeys { }
