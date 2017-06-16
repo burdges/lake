@@ -50,27 +50,26 @@ e-mail, but tentatively exclude large file transfers.
 A central goal for our network architecture is that messaging is 
 {\bf asynchronous} and must work reliably even if sender and receiver
 are never online at the same time.  As a result, we ask that messages
-can be stored for days to months at nodes in the network.  Generally,
-the receiver will select a set of nodes to store his messages and
-select a replication level to achieve the desired level of
-reliability. While the number of replicas can be disclosed to the
-sender, the specific set of replicas is only known to the receiver.
-Replicas also do not know of each other, and even collaborating
-replicas must not be able to detect that they are storing the same
-message for the same receiver.
+can be stored for days to months at nodes in the network.  For this,
+our receiver's client selects a set of nodes called {\em aggregation
+points} to store incoming messages, and selects a replication level
+to achieve the desired level of reliability.  Senders might learn the
+number of replicas, but only the reciever knows what aggregation
+points host them.  Aggregation points do not know of each other, and
+collaborating aggregation points cannot detect that they are storing
+the same message or message for the same receiver.
 
-We assume that the sender initially has a way to securely resolve the
-recipient's address to a set of sender-specific single-use reply
-blocks (SURBs), for example using an out-of-band exchange or using
-name resolution in the GNU Name System~\cite{gns} using a private
-label.  However, once a set of SURBs has been established between
-sender and receiver, the protocol must maintain the connection
-indefinitely, or at least as long as neither sender nor receiver fail
-to be online for weeks or months at a time.  Naturally, either side
-can also choose to sever the link at any time.
-% TODO: SURBs expire too fast for this.  We need semi-public contact
-% points.  GNS would leak metadata if used for this.  
-% I use these instead of GNS in the main body of the text.
+We require that senders have a way to securely resolve a new
+recipient's address to a set of sender-specified single-use reply
+blocks (SURBs), the usualy way that mix networks provide reciever
+anonymity.  Approaches for name resolution include an out-of-band
+exchange, using name resolution in the GNU Name System~\cite{gns}
+using a private label, and other discussed below.  Once a set of
+SURBs has been established between sender and receiver, our protocol
+maintains the connection by maintianing a SURB supply so long as
+both parties remain acitve.  We employ a fall back scheme for when
+one party becomes inactive for too long, but which compramises on
+delivery assurances.  % GNS would leak metadata if used for this.  
 
 For path selection, sender and receiver require the ability to select
 ``random'' nodes for routing.  We assume that the network offers a
@@ -92,9 +91,9 @@ and thus outside of the scope of this work.
 \subsection{Cryptographic challenges}\label{subsec:challenges}
 
 We desire anonymity properties that improve on Tor in all respects,
-provided our system can achieve a similarly large user base.  In this
-vein, we want cryptographic properties that seems equivalently strong
-as well.
+provided our system can achieve a similarly large user base.  
+In this vein, we want cryptographic properties that seems equivalently
+strong as well.
 
 Low latency anonymity tools like Tor achieve {\em forward secrecy}
 by employing an ephemeral key exchange on both servers and clients.
@@ -105,14 +104,14 @@ of mix nodes, meaning they lack conventional {\em forward secrecy}.
 There is a superficial similarity between forward secrecy and
 post-quantum cryptography: As post-quantum public key primitives
 remain young, post-quantum protocols should be analyzed in a hybrid
-setting where even ephemeral keys might be compromised.  In other
-words, there is a chance that either the classical elliptic curve key
-exchange or the post-quantum key exchange might be compromised, but
-the chance of both being broken is judged lower.  We therefore wish
-to produce a scheme that combines the strengths of both classic and
-post-quantum primitives.  However, there are technical obstacles to
-deploying a post-quantum key exchange in a mix network, starting with
-the simple problem that messages tend to be larger
+setting where even ephemeral keys might be compromised.  
+In other words, there is a chance that either the classical elliptic
+curve key exchange or the post-quantum key exchange might be
+compromised, but the chance of both being broken is judged lower.  
+We therefore wish to produce a scheme that combines the strengths of
+both classic and post-quantum primitives.  However, there are technical
+obstacles to deploying a post-quantum key exchange in a mix network,
+starting with the simple problem that messages tend to be larger
 and computations more expensive.
 
 In this article, we propose Xolotl, a stateful ``ratchet'' based
