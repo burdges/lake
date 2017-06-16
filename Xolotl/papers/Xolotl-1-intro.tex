@@ -6,13 +6,18 @@ Anonymity systems based on ``onion routing''~\cite{SS03} like Tor or
 I2P are known to be vulnerable to correlation attacks by a passive
 adversary who can observe both endpoints of a
 circuit~\cite{timing-fc2004}, such as a national ISP.  Any attempt to
-defeat correlation attacks must take latency into consideration.
-% TODO: cite https://blog.torproject.org/blog/one-cell-enough
+defeat correlation attacks must increase mixing through a comination
+of higher latency and cover traffic, possibly including communication
+with recipients besides those intended.
+% TODO: George said this better.  See his Panoramix slides.
+% cite https://blog.torproject.org/blog/one-cell-enough
 
 There are several recent proposals like~\cite{Alpenhorn}
 and~\cite{Dissent} that avoid introducing much latency by instead
 introducing vast amounts of cover traffic.  There are several issues
-with this trade off:  
+with this trade off: 
+
+% TODO: Issue 0?
 
 First, if users can tolerate latency comfortably then they should
 use a protocol that does so.  An adversary can extract metadata not
@@ -28,11 +33,16 @@ cross organizational boundaries, like volunteer organizations,
 journalists' sources, whistleblowers, protest organizers, etc.
 
 We favor the opposite trade off in which we accept higher latency but
-avoid introducing excessive cover traffic. In effect, we propose to
-sacrifice use cases that require low latency like voice, while
-offering an inexpensive privacy tool that defeats correlation attacks.
+introduces less cover traffic, and so thus choose to design a
+{\em mix network} or mixnet.  % cite chaum or ?? % TODO: Add connective?
+
+We believe this choice makes more efficent usages and should better
+exploit network effects as the as usage increases.  
+In consequence, we sacrifice use cases that require low latency like
+voice, and most modern web traffic, while offering an inexpensive
+privacy tool that defeats correlation attacks.
 Our target domain includes most text messaging applications and
-e-mail, but excludes large file transfers.
+e-mail, but tentatively exclude large file transfers. 
 
 \subsection{Messaging API goals} 
 % COMMENT: This seems more line API goles than network architecture
