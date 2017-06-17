@@ -114,7 +114,7 @@ impl<'a,C,P,R> BuildScaffold<'a,C,P,R> where C: Concensus+'a, P: Params, R: Rng 
       { self.orientation = Orientation::SURB { surb_keys: Vec::new() }; self }
 
     /// Produce the `Scaffold` with which we build one header.
-    fn go(mut self, route: RoutingName) -> SphinxResult<Scaffold<'a,C,P,R>> {
+    fn go(self, route: RoutingName) -> SphinxResult<Scaffold<'a,C,P,R>> {
         let BuildScaffold { world, mut rng, mut orientation, capacity } = self;
 
         let aa = rng.gen();
@@ -245,12 +245,12 @@ impl ScaffoldOrientation {
         );
     }
 
-    fn doSendAndSURB(&mut self) -> SphinxResult<()> {
+    fn do_send_and_surb(&mut self) -> SphinxResult<()> {
         use self::Orientation::*;
         let bodies = match *self {
             // Unknown { .. } => Err("Can only transition to SendAndSURB from Send, not Unknown."),
             Send { ref mut bodies } => Ok( ::std::mem::replace(bodies, Vec::new()) ),
-            SURB { ref mut surb_keys } => Err("Can only transition to SendAndSURB from Send, not SURB."),
+            SURB { .. } => Err("Can only transition to SendAndSURB from Send, not SURB."),
             SendAndSURB { .. } => Err("Can only transition to SendAndSURB from Send, not Unknown"),
         }.map_err( |s| SphinxError::InternalError(s) ) ?;
         let surb_keys = Vec::with_capacity( bodies.capacity() ); // TODO: Assume equal!!
@@ -493,7 +493,7 @@ impl<'a,C,P,R> Scaffold<'a,C,P,R>
 ///
 /// We save this state as a copy of the singleton values `Values`
 /// along with lengths of all `Vec`s.
-struct Hoist<'s,'a,C,P,R>
+pub struct Hoist<'s,'a,C,P,R>
   where 'a: 's, C: Concensus+'a, P: Params+'s, R: Rng+'s {
     /// Our `Scaffold` to which we mutate to add commands.
     s: &'s mut Scaffold<'a,C,P,R>,

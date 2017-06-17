@@ -66,7 +66,7 @@ pub trait Concensus {
       -> KeysResult<(RoutingName,&'a RoutingPublic)> 
     {
         use arrayvec::ArrayVec;
-        let mut v: ArrayVec<[&VPnRN; super::MAX_ROUTING_PER_ISSUER]>
+        let v: ArrayVec<[&VPnRN; super::MAX_ROUTING_PER_ISSUER]>
           = rpi.iter().filter(|r| rpi_before(r,before)).collect();
         if v.len() == 0 {
             // let issuer = self.routing_named(&rpi[0])

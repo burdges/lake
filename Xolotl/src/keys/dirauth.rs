@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-use rand::{Rng, Rand};
+use rand::{Rng}; // Rand
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;

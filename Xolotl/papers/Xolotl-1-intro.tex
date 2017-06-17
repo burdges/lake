@@ -109,10 +109,11 @@ In other words, there is a chance that either the classical elliptic
 curve key exchange or the post-quantum key exchange might be
 compromised, but the chance of both being broken is judged lower.  
 We therefore wish to produce a scheme that combines the strengths of
-both classic and post-quantum primitives.  However, there are technical
+both classic and post-quantum primitives.  However, we face technical
 obstacles to deploying a post-quantum key exchange in a mix network,
-starting with the simple problem that messages tend to be larger
-and computations more expensive.
+starting with the simple engeneering issue that messages tend to be
+larger and computations more expensive, but including the absence
+of information theoretically secure blinding operations.
 
 In this article, we propose Xolotl, a stateful ``ratchet'' based
 solution, inspired by the Axolotl ratchet~\cite{TextSecure}, that
@@ -144,7 +145,7 @@ We do support both packet delays being client controlled as well as
 client side delay detection via heart beat messages.  In particular,
 there are no conflicts between our tweaks and the {\em Poisson mixes}
 of Loopix \cite{Loopix}, a recent approach to Stop-N-Go mixes.
-We adopt methods for selecting delays that enforce an expeonential
+We adopt methods for selecting delays that enforce an exponential
 distribution with client secretly influencing the rate paramater
 $\lambda$, which incidentally lets us support mixing strategies not
 controlled by the clients without packet format changes.
@@ -153,12 +154,13 @@ We introduce several new {\em commands} that Sphinx packets may give
 to mix nodes.  These may leak additional information about the
 packet's purpose to the node.  There are theoretical arguments that 
 mix networks with a stratified topology provides slightly better
-anonymity than those with a free route topology.  
+anonymity than those with a free route topology \cite{Diaz-??}.  
 Also, any weakness due to free route might compound leaks from our
-additional commands.  We therefore tentatively recommend a stratified
-network topology with these commands restricted to specific strata.  
-Again these recommendations agree with Loopix.  We make no assumption
-in our implementation that rules out a free route topology however.  
+additional commands.  We tentatively suggest that a stratified
+network topology with these commands restricted to specific strata
+might address these concerns. % which again agrees with Loopix.
+We make no assumption in our implementation that rules out a free
+route topology however.  
 
 
 
