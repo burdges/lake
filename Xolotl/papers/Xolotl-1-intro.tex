@@ -162,9 +162,23 @@ might address these concerns. % which again agrees with Loopix.
 We make no assumption in our implementation that rules out a free
 route topology however.  
 
-\subsection{Security}
+\subsection{Outline and security}
 
-We modify the Sphinx in two ways that potentially require adapting
+We structure this article around a sequence of design decisions.
+These are each highlighted by {\tt Issue} blocks and accompanied by
+a discussion of the consequences and our conclusions.  
+%
+We believe this approach will help parties with different interests
+in deploying mix networks to find the common ground to collaborate
+on one network and combine anonymity sets.
+% TODO: Anything more along the lines of Greg's joke about math
+% being the only subject that really records its own history?
+
+We discuss the Sphinx packet format from \cite{Sphinx} here in
+\S\ref{sec:sphinx}, elaborating upon the basic routing commands
+for cross over points and SURBs.
+%
+We modify Sphinx in two ways that potentially require adapting
 the security arguments given in \cite{FormalOnion}: 
 
 In \S\ref{subsec:surb_logs}, we add a {\em SURB log} field to the
@@ -182,5 +196,6 @@ generalized universal composabiltiy framework \cite{GenUC}, which
 requires a new approach to \cite{FormalOnion} that goes beyond the
 scope of this article. 
 
+...
 
 
