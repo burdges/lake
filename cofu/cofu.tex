@@ -46,11 +46,25 @@
 \newtheorem{corollary}[theorem]{Corollary}
 
 
-\title{Counting common contacts to improve trust on first use}
+\title{FoT-CoFU : Creating a fog of trust by counting common contacts to improve trust on first use}
 \author{Jeffrey Burdges \and Christian Grothoff}
 
 \begin{document}
 \maketitle
+
+\begin{abstract}
+We describe a protocol for privately computing the cardinality of 
+the intersection of two sets of public keys with one side required
+to demonstrate possesion of attestation signatures by the public
+keys on a fixed common message.  We propose a compramise between
+the trust on first use (ToFU) used by most encrypted messangers and
+the Web of Trust policy devised for PGP/GPG, which proved unusable
+and unacceptably leaks metadata.  If used correctly, our protocol
+can count common contacts when a new contact is established (CoFU)
+without revealing even the identities of common contacts, thereby
+providing a Fog of Trust (FoT).  We do not recommend replacing
+manual fingerprint verification.
+\end{abstract}
 
 
 \def\Z{\mathbb{Z}}
@@ -73,21 +87,37 @@
 \def\mathperiod{.}
 
 
-In~\cite{p4t} we proposed a protocol for private set intersection
-cardinality with signatures.  This protocol allows two participants
-to securely compute the set intersection cardinality of two sets,
-where one of the participants has his set signed by the members
-in the set.
 
-We envision using the protocol for privacy-preserving detection of
-abusive behavior in OSNs, where a large overlap between Alice's
-subscriptions and Bob's subscribers is an indicator of
-the benign nature of Bob.
+Fog of Trust
 
-One also could envision the protocol used to assess the validity of
-public keys for an entity in a privacy-enhanced variant of the
-Web-of-trust, where the users sign each other's keys but do not expose
-the resulting social graph to the world.
+We proposed a protocol for private set intersection cardinality with
+signatures in \cite{p4t}.  In this protocol, our two participants
+securely compute the cardinality of the intersection of two secret
+sets of public keys with the second participants required to
+demonstrate possesion of signatures by the public keys on a fixed
+common message.
+
+In~\cite{p4t}, we envision using the protocol for privacy-preserving
+detection of abusive behavior in an online social network, where a
+large overlap between Alice's subscriptions and Bob's subscribees
+might be an indicator of the benign nature of Bob.
+
+We also envision the protocol being useful to assess the validity of
+public keys for a contact in a privacy-enhanced alternative of the
+Web-of-trust.  In this application, users client's sign their
+contacts public keys but do not expose, usually automatically, but
+their contacts only use the resulting signatures in our protocol.
+As these signatures are never exposed, even privately, the social
+graph remains hidden. 
+
+There is an serious risk that counting contacts can expose a
+contact's identity if the first party's includes only that contact
+in their set.  In particular, we cannot prevent new users from
+learning some of the social graph around their early contacts.
+We do however require the application restrict when the protocol
+can be run, and explain this risk of exposure to users.
+% TODO: Ammend the protocol to require that Alice add a proof of
+% possesing enough contacts?
 
 We will now briefly sketch the new protocol (which is yet to be
 implemented).
