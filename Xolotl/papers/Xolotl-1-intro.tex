@@ -133,8 +133,8 @@ making mix node keys too juicy of a target for adversaries.
 
 \subsection{Mixing strategy and topology}
 
-We are agnostic to mixing strategy and mix network topology in this
-article. 
+We are mostly agnostic to mixing strategy and mix network topology in
+this article and accompanying software library.
 
 A priori, SURBs conflict with some approaches to {\em Stop-N-Go mixes}
 \cite{StopNGo} in which mixes drop packets that fall outside of client
@@ -161,6 +161,26 @@ network topology with these commands restricted to specific strata
 might address these concerns. % which again agrees with Loopix.
 We make no assumption in our implementation that rules out a free
 route topology however.  
+
+\subsection{Security}
+
+We modify the Sphinx in two ways that potentially require adapting
+the security arguments given in \cite{FormalOnion}: 
+
+In \S\ref{subsec:surb_logs}, we add a {\em SURB log} field to the
+header to support a recipient {\em unwinding} more than one SURB
+applied to the header.  At first blush, the SURB log appears rather
+frightening but it should not impact security arguments too much.
+
+A prioi, our scheme for processing {\em commands} does not represent
+a significant change to the Sphinx format, but some new commands do.
+In particular, the ratchet we introduce in \S\ref{sec:forward-sec}
+for forward security and hybrid post-quantum anonymity introduces a
+dramatic amount of state and radically alters the threat model.
+Arguably, any formal security arguments for this should emply the 
+generalized universal composabiltiy framework \cite{GenUC}, which
+requires a new approach to \cite{FormalOnion} that goes beyond the
+scope of this article. 
 
 
 
