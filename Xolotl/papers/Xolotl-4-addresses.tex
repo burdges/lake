@@ -14,19 +14,24 @@ We divide contact points according to the issues they address,
 as determined by how they authorize the sender,
 
 We observed in \S\ref{subsec:challenges}, and shall discuss more in
-the next section, that mix node keys must rotate for forward secrecy,
-but that doing so limits SURB lifetimes.  As a result, clients would
-only posses SURBs for contacts they have corresponded with recently.
-We cannot even propose that clients message all their contacts within
-each key epoch clients may go offline for extended periods.
+\S\ref{sec:forward-sec}, that mix node keys must rotate for forward
+secrecy, but that doing so limits SURB lifetimes.  
+As a result, clients shall only posses SURBs for contacts with whom
+they have corresponded recently.  We cannot even propose that clients
+message all their contacts within each key epoch clients may go
+offline for extended periods.
+
+\begin{issue}
+How should senders reach recipients who have not messaged them recently?
+\end{issue}
 
 Instead, we need contact points that restrict the senders to existing
 contacts of the recipient.  Recipients can simply inform all their
-senders about these contact points and keep the supply of SURBs held
-by those contact points updated.  These contact points require
+senders about these contact points and then keep the supply of SURBs
+held by those contact points updated.  These contact points require
 authentication credentials to be provided in the command they extract
-from $\beta$.  Recipients must communicate the authentication
-credentials required by their contact points to their senders of course.
+from $\beta$, so recipients must also communicate the authentication
+credentials required by their contact points to their senders.
 We note that recipients should still provide senders with SURBs so
 that frequent senders do not exhaust the SURBs held by contact points,
 as well as for faster communications with frequent contacts.
@@ -34,6 +39,10 @@ as well as for faster communications with frequent contacts.
 We could deploy many different authentication credentials ranging 
 from single-use tokens as in \cite{agl-pond-hmac}, or
  group signatures~\cite{BBS,VLR}, to a simple shared secret.
+
+\begin{issue}
+What credentials should contact points employ to authenticate valid senders?
+\end{issue}
 
 We think VLR group signatures \cite{VLR} provide an interesting
 option for two reasons.  Firstly, SURBs already provide a single-use
@@ -72,12 +81,20 @@ provides verification after the fact.
 
 \subsection{New contacts}
 
+% \begin{issue}
+% What about new contacts?
+% \end{issue}
+
 We do want special contact points called {\em greeting points} that
 do not restrict senders to existing contacts.  A priori, these sound
 vulnerable to denial-of-service attacks, and might suffer from SPAM.
-We hope that simply moving the advertised greeting points frequently
+We hope that simply moving the advertised greeting points occasionally
 works, so long as existing contacts never need them thanks to other
 contact points.
+
+% \begin{issue}
+% How do users introduce one another for group messaging?
+% \end{issue}
 
 We need a facility for users to introduce other users to one another.
 because doing so seems essential for group communication.  If Alice 

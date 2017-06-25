@@ -103,7 +103,10 @@ We must bound the length $k$ or else the recipient could prevent
 the sender from adding enough hops themselves, what we call a
 long SURB attack.
 
-\smallskip 
+\begin{issue}
+Should cross over points run two Sphinx decoding oeprations,
+one for the sender and one for the reciever?
+\end{issue}
 
 We could increase the total route length by one if we added a next
 hop $X''$ to the {\tt cross over} command, built the tail of $\beta''$
@@ -145,10 +148,13 @@ then $X''$ might discover its position as the hop after a cross over
 point.  We could have a more oblivious hop at the cost of adding a
 few bytes to the header.
 
-\smallskip
+\begin{issue}
+How should the SURB be encoded into the packet?
+\end{issue}
 
-There are two alternative approaches to encoding the SURB in the 
-packet:  
+We have encoded the SURB into a {\tt cross over} command that lies
+in $\beta$.  There are two alternative approaches to encoding the
+SURB in the packet though: 
 
 First, the SURB could be placed into a special segment called
 $\epsilon$, thus avoiding the long SURB attack check.
