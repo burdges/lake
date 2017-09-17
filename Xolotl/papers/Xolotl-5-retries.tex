@@ -31,19 +31,19 @@ throughout the network.
 
 \subsection{Garlic retries}\label{subsec:garlic_retries}
 
-We cannot necessarily much bandwidth available on the channel
-between the client and the mix network.  As an example, Pond
-clients support only about 288 messages per day because they
-wait on average 5 minutes between messages.
+We do not necessarily have much bandwidth available on the channel
+between the client and the mix network.  As an example, Pond clients
+support only about 288 messages per day because they wait on average
+5 minutes between messages.
 
 We can reduce the need for duplicate messages on this link if
-we tell our cross over point to send them instead, but this requires
-providing  it with multiple SURBs so that retries do no violate
-replay protection.
+we tell our cross over points to send retries instead, but this
+requires providing it with multiple SURBs so that retries do no
+violate replay protection.
 
 In \S\ref{subsec:crossover}, we considered storing SURBs inside
-$\delta$, instead of $\beta$, because $\delta$ has no more layers of
-onion encryption from Sphinx after a cross over point decrypts it. 
+$\delta$, instead of $\beta$, because $\delta$ has no remaining layers
+of onion encryption from Sphinx after a cross over point decrypts it. 
 As $\delta$ is large, we may encode several SURBs into $\delta$,
 so as to send the same message to multiple recipients, or to send
 the same message to the same recipient multiple times.  
@@ -60,12 +60,12 @@ sends the packet on to yet another hop.  The SURB executing command
 routes the packet back to the cross over point, where it executes a
 {\tt delete} command that deletes any pending retries.
 
-All this works fine if we use a contact point that supplies holds
-SURBs itself, as in \S\ref{subsec:contact_points}, instead of using
-a cross over point.  In any case, recipients should supply the SURBs
-in groups for {\tt delete} commands to work.
+All this works fine if we use a contact point that holds the SURBs
+itself, as in \S\ref{subsec:contact_points}, instead of using a
+vanilla cross over point.  In any case, recipients should supply the
+SURBs in groups for {\tt delete} commands to work.
 
-We notes this scheme increases our vulnerability to attacks by the
+We note this scheme increases our vulnerability to attacks by the
 cross over point:  At best, this {\tt delete} command reveals
 dangerous information about what nodes were reachable and that our
 message was being sent with redundancy, as opposed to multiple 
@@ -78,12 +78,12 @@ We shall discuss situations where this may be acceptable in the next section.
 \subsection{Email integration}\label{subsec:LEAP}
 
 We have focused on designing an asynchronous messaging architecture
-with extremely strong possible privacy properties, including
-anonymity for both sender and recipient, even from one another, and
-anti-discovery measures for recipients' aggregation points.  
+with extremely strong privacy properties, including anonymity for both
+sender and recipient, even from one another, and anti-discovery
+measures for recipients' aggregation points.  
 %
 We consider this distributed architecture preferable overall, but
-we recognize these protections verge on excessive for many users,
+we recognize that these protections verge on excessive for many users,
 that email is tricky to replace, and that email providers may have
 benevolent political reasons to remain involved.
 

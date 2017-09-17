@@ -17,20 +17,19 @@ mix nodes must rotate their keys periodically.  These keys should be
 destroyed when no longer used to provide a measure of forward security.
 
 In principle, we could rotate keys quickly so that the compromise
-window for each key stays short.  However, we also must
-support single-use reply blocks (SURBs) so that anonymous users can
-receive messages.  As SURBs are built to a specific set of node
-keys they cannot outlive the key rotation schedule.  This creates
-a tension between forward security and usability.
+window for each key stays short.  However, we must also support
+single-use reply blocks (SURBs) so that anonymous users can receive
+messages.  As SURBs are built to a specific set of node keys they
+cannot outlive the key rotation schedule.  This creates a tension
+between forward security and usability.
 
 We could rotate node keys slow enough for our usability goals, but add
 a faster rotating identity-based epoch key issued by a collective of
 trusted nodes, and deform the SURB's key material to account for this
 rotating identity-based epoch key.
 % FIXME: citation needed (I assume somebody published this atrocity?)
-This buys use forward security
-assuming at least some trusted node does not get compromised, but
-would be difficult to deploy in practice. 
+This buys use forward security, assuming at least some trusted node
+does not get compromised, but would be difficult to deploy in practice.
 
 We could use punctured encryption~\cite{libforwardsec} for our
 mix nodes key, so that mix nodes who correctly puncture their key
@@ -43,8 +42,8 @@ There are techniques for epoch based puncturing that make $n$ less
 than the number of packets.  In a mix network, these are either
 equivelent to shortening node key lifetimes, or else require
 deforming SURBs.  Any scheme for deforming SURBs requires a delicate
-proof of security because several mix network packet formats based
-on malleable key material were broken~\cite{Danezis2006}. 
+proof of security because mix network packet formats based on more
+malleable key material tends to be broken~\cite{Danezis2006}. 
 Also, these ideas all require slower pairing-based cryptography that
 would increase our mix node's vulnerability to denial of service attacks. 
 
@@ -123,13 +122,12 @@ must not reveal the image of any known $p$-torsion points.
 As a result, current attempts to blind SIDH keys for signature schemes
 add another torsion prime beyond 2 or 3, increasing the size of the
 base field.  In Sphinx, we could invent new shared $p$-torsion guide
-points for blinding, thus avoiding
-% FIXME: avoiding WHAT? correlation attacks?
-because blinding happens after the key exchange
-establishes confidentiality, but doing so requires building confidence
-in this new cryptographic operation.  Worse, there are currently open
-questions around key validation in SIDH that prevent using long term
-keys~\cite{SIDH-NoValidation}, which Sphinx requires.
+points for computing the blinding isogeny, thus avoiding these issues.
+We expect SIDH remains quite new and blinding in this way is unheard of,
+so doing this reuqires time to build confidence in these operation.  
+Worse, there are currently open questions around key validation in
+SIDH that prevent using long term keys~\cite{SIDH-NoValidation}, which
+Sphinx requires.
 
 In Ring-LWE, there is enough flexibility for blinding constructions
 that increase the key size, fully homomorphic encryption schemes that
@@ -159,12 +157,12 @@ this assumption does not suffice and blinding scalars must be chosen
 from a uniform distribution.
 
 There are similar assumptions underlying both Ring-LWE and SIDH.
-We believe they should be viewed as stronger than simply assuming the
-security of the key exchange scheme itself, partially due to their
-youth, but also because the underlying operations cannot so easily
-yield a uniform distribution on public keys.  We believe further
-research into signature schemes might help build our confidence in
-blinding operation with Ring-LWE and SIDH, but this will take time.
+We believe these assumptions should be viewed as stronger than simply
+assuming the security of the key exchange scheme itself, partially
+due to their youth, but also because the underlying operations cannot
+so easily yield a uniform distribution on public keys.  We believe
+further research into signature schemes might help build our confidence
+in blinding operation with Ring-LWE and SIDH, but this will take time.
 
 As these schemes remain young, we want post-quantum public key
 systems to be used in a hybrid protocol with an elliptic curve scheme,
@@ -181,9 +179,9 @@ incoming $\alpha$ and outgoing $\alpha'$.  Any $b_{\alpha,\alpha'}$
 with high bit zero cannot be correct, thus giving the adversary at
 least a 50\% advantage in guessing packet routes correctly.
 
-We can theoretically correct this by using a scalar multiplication that does not
-zero the high bit in the scalar.  In doing so, we must keep the
-multiplication by the cofactor so that the adversary cannot tag
+We can theoretically correct this by using a scalar multiplication that
+does not zero the high bit in the scalar.  In doing so, we must keep
+the multiplication by the cofactor so that the adversary cannot tag
 packets by injecting small subgroup elements that do not impact the
 key exchange itself.  These are standard moves in elliptic curve 
 cryptography that work since the scalar multiplication is bijective.
