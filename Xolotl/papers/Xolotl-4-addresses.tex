@@ -84,35 +84,55 @@ provides verification after the fact.
 % \begin{issue}
 % What about new contacts?
 % \end{issue}
+% TODO: This seems kinda silly?!?
 
-We do want special contact points called {\em greeting points} that
+We want special contact points called {\em greeting points} that
 do not restrict senders to existing contacts.  A priori, these sound
 vulnerable to denial-of-service attacks, and might suffer from SPAM.
 We hope that simply moving the advertised greeting points occasionally
 works, so long as existing contacts never need them thanks to other
 contact points.
 
-% \begin{issue}
-% How do users introduce one another for group messaging?
-% \end{issue}
-
 We need a facility for users to introduce other users to one another.
 because doing so seems essential for group communication.  If Alice 
 knows both Bob and Carol then Alice can introduce Bob and Carol by
 providing each with either a SURB if the introduction should happen
-in a timely fashion, or with authentication credentials for each
-others' contact points.  
+in a timely fashion, or with authentication credentials for each others'
+contact points.  
+
+\begin{issue}
+How do users introduce one another for group messaging?
+\end{issue}
 
 We require that Alice does not compromise her ability to contact
 either Bob or Carol by doing the introduction and that Bob and Carol
 can each distinguish the others' messages' from Alice. 
-Alice can share single-use token from Bob and Carol of course.
-In a VLR scheme, Alice creates the delivery authorization signature
-that Bob and Carol must use.
-Also, we recall that $\delta$ must be encrypted at the cross over
-point, so Alice can supply Bob and Carol with authentication tokens 
-that must live inside $\delta$ and that require verification before
-fully decrypting $\delta$.  
+
+We observe that introductions cannot only work by sharing SURBs since
+contacts do not always posses SURBs for one another.  Introductions
+that share SURBs must also account for the faster SURB depletion rate.
+We shall therefore focus on schemes that merely supply authentication
+credentials for contact points.
+
+In contact points use single-use tokens, then Alice can easily share
+single-use tokens from Bob and Carol of course.  These tokens could
+hint that an introduction will take place.
+
+If contact points use a VLR scheme, then Alice creates the delivery
+authorization signature that Bob and Carol must use.  In this case,
+we could employ a second VLR identity, or some tweak facility, to
+provide a hint about the message being an introduction. 
+
+We recall that $\delta$ must be encrypted at the cross over point.
+In principle, Alice could supply Bob and Carol with the bottom layer
+encryption and authentication keys for $\delta$, as well as the
+initial root key state for their new Axolotl ratchet.  In this scheme,
+both Bob and Carol must receive the introduction from Alice though.  
+Instead, we suggest that $\delta$ itself employ a public key encryption
+scheme.
+
+% Axolotl-SKPQ can still supply ...
+
 
 % TODO: How much do we wish to explain here? 
 % TODO: Our TOFU protocol even?  \cite{tofu} 
