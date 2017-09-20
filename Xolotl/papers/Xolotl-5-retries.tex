@@ -10,7 +10,7 @@ aggregation points.
 
 There are however techniques that help address aggregation points
 becoming unavailable, like senders sending duplicate messages,
- or aggregation points must mirror one another.
+ or aggregation points mirroring one another.
 We view mirroring as an interesting approach, but feel it goes far
 beyond the scope of our current project, as mirroring well might
 entail reencryption.  Also, duplicate messages help reliability
@@ -19,7 +19,7 @@ throughout the network.
 
 \subsection{ACKs}
 
-...
+... Cyclic ACKs for George ..
 
 
 \subsection{Duplicate messages}
@@ -48,17 +48,18 @@ As $\delta$ is large, we may encode several SURBs into $\delta$,
 so as to send the same message to multiple recipients, or to send
 the same message to the same recipient multiple times.  
 
-In fact, we can achieve this must more easily than sending to
-multiple recipients because the recipient can supply several SURBs
-with the same cross over point.
+In fact, we can achieve this more easily than sending to multiple
+recipients because the recipient can supply several SURBs with the
+same cross over point.
 
 These SURBs can have different delays of course, but we can also
 provide retries:  Instead of delivery to an aggregation point being
 the end of our messages' path, we use a {\tt drop off} command that
-delivers the packet to the aggregation point as usual, but also
-sends the packet on to yet another hop.  The SURB executing command
-routes the packet back to the cross over point, where it executes a
-{\tt delete} command that deletes any pending retries.
+delivers the packet to the aggregation point as usual, but also sends
+the packet on to yet another hop, after possibly replacing the body.
+The SURB executing command routes the packet back to the cross over
+point, where it executes a {\tt delete} command that deletes any
+pending retries.
 
 All this works fine if we use a contact point that holds the SURBs
 itself, as in \S\ref{subsec:contact_points}, instead of using a
