@@ -1,5 +1,6 @@
 
 
+/*
 // TODO: Write flexible macro for tuple structs.
 macro_rules! impl_Display_as_hex_for_WrapperStruct {
     ($t:ident) => {
@@ -10,6 +11,7 @@ macro_rules! impl_Display_as_hex_for_WrapperStruct {
         }
     }
 }
+*/
 
 
 #[derive(Debug, Default)]

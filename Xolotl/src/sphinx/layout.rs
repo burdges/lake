@@ -79,8 +79,8 @@ pub trait Params: Sized+Clone+Copy {
     }
 
     fn max_hops_capacity() -> usize {
-        /// Rust bug: https://github.com/rust-lang/rust/issues/26264
-        /// Write CommandNode::Transmit here when fixed.
+        // Rust bug: https://github.com/rust-lang/rust/issues/26264
+        // Write CommandNode::Transmit here when fixed.
         let c = Command::Transmit::<Gamma,usize> {
             route: RoutingName([0u8; ROUTING_NAME_LENGTH]),
             gamma: Gamma([0u8; GAMMA_LENGTH]),
@@ -176,17 +176,17 @@ impl<'a,T> DerefMut for HideMut<'a,T> where T: ?Sized {
 /// Create by applying `new_sliced` to `&mut [u8]` slice of the
 /// correct length, like that created by `boxed_zeroed_header`.
 /// We check all lengths in `new_sliced` so that methods and
-/// functions using `HeaderRefs` may assume all header lengths to
+/// functions using `HeaderMuts` may assume all header lengths to
 /// be correct, and even that the slices are contiguious.
 ///
-/// We mostly handle `HeaderRefs` via mutable borrows so that we may
+/// We mostly handle `HeaderMuts` via mutable borrows so that we may
 /// change the referred to values without interrior mutability. 
 /// We thus do not make the slice references themselves non-public
 /// because accessor methods would borrow the whole struct.  
 /// As a result, any caller could invalidate our requirement that 
 /// slices be contiguous.  If desired, this could be prevented using
 /// the `HideMut` struct above.  See http://stackoverflow.com/a/42376165/667457
-pub struct HeaderRefs<'a,P> where P: Params {
+pub struct HeaderMuts<'a,P> where P: Params {
     params: PhantomData<P>,
     pub route: &'a mut RoutingNameBytes,
     pub alpha: &'a mut AlphaBytes,
@@ -195,7 +195,7 @@ pub struct HeaderRefs<'a,P> where P: Params {
     pub surb_log: &'a mut [u8],
 }
 
-impl<'a,P> HeaderRefs<'a,P> where P: Params {
+impl<'a,P> HeaderMuts<'a,P> where P: Params {
 /*
     pub fn alpha(&'a self) -> &'a AlphaBytes { self.alpha }
     pub fn gamma(&'a self) -> &'a GammaBytes { self.gamma }
@@ -208,12 +208,12 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
     pub fn surb_log_mut(&'a mut self) -> &'a mut [u8] { self.surb_log }
 */
 
-    /// Borrow a mutable slice `&mut [u8]` as a `HeaderRefs` consisting.
+    /// Borrow a mutable slice `&mut [u8]` as a `HeaderMuts` consisting.
     /// of subspices for the various header components.  You may mutate
     /// these freely so that after the borrow ends the original slice
     /// contains the new header. 
     ///
-    pub fn new_sliced<'s>(mut header: &'s mut [u8]) -> SphinxResult<HeaderRefs<'s,P>>
+    pub fn new_sliced<'s>(mut header: &'s mut [u8]) -> SphinxResult<HeaderMuts<'s,P>>
     {
         // Prevent configurations that support long SURB attacks.
         if 2*P::MAX_SURB_BETA_LENGTH > P::BETA_LENGTH - ALPHA_LENGTH + GAMMA_LENGTH {
@@ -229,7 +229,7 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
         if orig_len < P::header_length() {
             return Err( SphinxError::BadLength("Header is too short",orig_len) );
         }
-        let hr = HeaderRefs {
+        let hr = HeaderMuts {
             params: PhantomData,
             route: reserve_fixed_mut!(&mut header,ROUTING_NAME_LENGTH),
             alpha: reserve_fixed_mut!(&mut header,ALPHA_LENGTH),
@@ -294,14 +294,14 @@ impl<'a,P> HeaderRefs<'a,P> where P: Params {
 }
 
 // TODO: Consider using owning_refs crate to provide
-// pub fn new_sliced_header(&self) -> SphinxResult<OwningHandle<Box<[u8]>,HeaderRefs>> { }
+// pub fn new_sliced_header(&self) -> SphinxResult<OwningHandle<Box<[u8]>,HeaderMuts>> { }
 // ref.  https://kimundi.github.io/owning-ref-rs/owning_ref/struct.OwningHandle.html
 
 /*
 
 pub struct HeaderIter<'a,P: Params> {
     offset: usize,
-    header_refs: HeaderRefs<'a>,
+    header_refs: HeaderMuts<'a>,
 }
 
 impl<'a,P: Params> Iterator for HeaderIter<'a,P> {
@@ -334,7 +334,7 @@ impl<'a, P: Params> Iterator ExactSizeIterator for HeaderIter<'a> {
     // fn is_empty(&self) -> bool { false }
 }
 
-impl<'a, P: Params> IntoIterator for HeaderRefs<'a,P> {
+impl<'a, P: Params> IntoIterator for HeaderMuts<'a,P> {
     type Item=u8;
     type IntoIter = HeaderIter<'a>;
     fn into_iter(self) -> HeaderIter<'a> {
@@ -396,7 +396,7 @@ pub fn encode_header<P: Params,R: Rng>(rng: &mut Rng, preheader: PreHeader)
     }
     let mut h = P::boxed_zeroed_header();
     {
-        let mut refs = HeaderRefs::<P>::new_sliced(h.borrow_mut()).unwrap();
+        let refs = HeaderMuts::<P>::new_sliced(h.borrow_mut()).unwrap();
         *refs.route = preheader.route.0;
         *refs.alpha = preheader.alpha;
         *refs.gamma = preheader.gamma.0;
@@ -415,7 +415,7 @@ pub fn encode_header<P: Params,R: Rng>(rng: &mut Rng, preheader: PreHeader)
 /// Reads a `PacketName` from the SURB log and trims the SURB log
 /// to removing it.  Used in SURB unwinding.
 ///
-/// We avoid making this a method to `HeaderRefs` because it trims
+/// We avoid making this a method to `HeaderMuts` because it trims
 /// the SURB log by shortening the slice, violating the inveriant
 /// assumed by `HeaderRef`.
 ///

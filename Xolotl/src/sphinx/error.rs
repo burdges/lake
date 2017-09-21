@@ -132,7 +132,6 @@ impl<'a> From<RatchetError> for SphinxError {
 }
 
 
-
 macro_rules! impl_SphinxPoisonError {
     ($l:ident, $t:ident) => {
         impl<'a> From<::std::sync::PoisonError<$l<'a, $t>>> for SphinxError {

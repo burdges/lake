@@ -76,7 +76,7 @@ impl ChaChaKnN {
     /// mode so that we have more and different mixing.
     pub fn header_cipher<P: Params>(&self) -> SphinxResult<HeaderCipher<P>> {
         let mut chacha = ChaCha20::new_ietf(&self.key, &self.nonce);
-        let mut r = &mut [0u8; HOP_EATS];
+        let r = &mut [0u8; HOP_EATS];
         chacha.xor_read(r).unwrap();  // No KeystreamError::EndReached here.
         let (packet_name,replay_code,gamma_key) = array_refs![r,16,16,32];
 
@@ -303,7 +303,7 @@ impl<P: Params> HeaderCipher<P> {
 
     /// Returns the curve25519 scalar for blinding alpha in Sphinx.
     pub fn blinding(&mut self) -> ::curve::Scalar {
-        let mut b = &mut [0u8; 64];
+        let b = &mut [0u8; 64];
         self.stream.seek_to(self.chunks.blinding.start as u64).unwrap();
         self.stream.xor_read(b).unwrap();
         ::curve::Scalar::make(b)

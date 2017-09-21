@@ -54,7 +54,7 @@ impl RoutingPublic {
         r
     }
     pub fn from_bytes(b: &[u8; ROUTING_PUBLIC_LENGTH]) -> RoutingPublic {
-        use curve25519_dalek::curve::CompressedEdwardsY;
+        // use curve25519_dalek::edwards::CompressedEdwardsY;
         let (public,validity,issuer,signature)
           = array_refs![b,32,16,32,64];
         RoutingPublic {
@@ -140,31 +140,27 @@ impl IssuerPublicKeyInfo {
 #[derive(Debug)]  // Clone, Copy
 pub struct IssuerSecret {
     pub validity: ValidityPeriod,
-    pub public: IssuerPublicKey,  // ed25519::PublicKey
-    pub secret: ed25519::SecretKey,
+    pub keys: ed25519::Keypair,
 }
 
 impl IssuerSecret {
-    pub fn new<R: ::rand::Rng>(rng: &mut R, validity: ValidityPeriod) -> IssuerSecret {
+    pub fn new<R: Rng>(rng: &mut R, validity: ValidityPeriod) -> IssuerSecret {
         let keys = ed25519::Keypair::generate::<Ed25519Hash>(rng);
-        IssuerSecret {
-            validity: validity,
-            public: IssuerPublicKey(keys.public.to_bytes()),
-            secret: keys.secret,
-        }
+        IssuerSecret { validity, keys }
     }
 
     pub fn public(&self) -> (IssuerPublicKey,IssuerPublicKeyInfo) {
-        let m = issuer_signable(&self.public,&self.validity);
-        let signature = self.secret.sign::<Ed25519Hash>(&m);
-        ( self.public, 
+        let ipk = IssuerPublicKey(self.keys.public.to_bytes());
+        let m = issuer_signable(&ipk,&self.validity);
+        let signature = self.keys.sign::<Ed25519Hash>(&m);
+        ( ipk,
           IssuerPublicKeyInfo {
             validity: self.validity.clone(),
             signature: signature,
         })
     }
 
-    pub fn issue<R: ::rand::Rng>(&self, rng: &mut R, validity: ValidityPeriod)
+    pub fn issue<R: Rng>(&self, rng: &mut R, validity: ValidityPeriod)
       -> (RoutingName,RoutingPublic,RoutingSecret) {
         let mut s = RoutingSecret {
             name: RoutingName([0u8; 16]),
@@ -174,11 +170,11 @@ impl IssuerSecret {
         let mut p = RoutingPublic {
             public: curve::Point::from_secret(&s.secret).compress(),
             validity: validity,
-            issuer: self.public,
+            issuer: IssuerPublicKey(self.keys.public.to_bytes()),
             signature: ed25519::Signature([0u8; 64]),
         };
         let b = p.to_bytes();
-        p.signature = self.secret.sign::<Ed25519Hash>(&b[..ROUTING_SECRET_LENGTH-64]);
+        p.signature = self.keys.sign::<Ed25519Hash>(&b[..ROUTING_SECRET_LENGTH-64]);
         s.name = p.name();
         (s.name,p,s)
     }

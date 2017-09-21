@@ -11,7 +11,7 @@ use std::fmt;
 
 
 use super::branch::*;
-use super::error::{RatchetError,RatchetResult};
+use super::error::{RatchetResult};  // RatchetError
 
 
 /// We store only a 128-2 = 126 bit secret symetric keys in a hash

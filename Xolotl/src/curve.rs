@@ -9,7 +9,9 @@ use std::fmt;
 use rand::{Rng, Rand};
 
 use curve25519_dalek::scalar;
-use curve25519_dalek::curve::{CompressedEdwardsY,ExtendedPoint,ScalarMult,BasepointMult};
+use curve25519_dalek::edwards;
+use curve25519_dalek::constants;
+// ::{CompressedEdwardsY,ExtendedPoint,ScalarMult,BasepointMult};
 
 use sphinx::SphinxSecret;
 use sphinx::error::*;
@@ -91,14 +93,14 @@ pub const ALPHA_LENGTH : usize = 32;
 
 /// Sphinx packet or node public key consisting of a curve25519 point
 /// represented in the compressed Edwards Y cordinate form given by
-/// `CompressedEdwardsY`, as opposed to the compressed Montgomery U form
-/// for the `curve25519()` Diffie-Hellman key exchange function Sphinx
-/// usually uses.
+/// `edwards::CompressedEdwardsY`, as opposed to the compressed Montgomery U
+/// form for the `curve25519()` Diffie-Hellman key exchange function
+/// Sphinx usually uses.
 pub type AlphaBytes = [u8; ALPHA_LENGTH];
 
 
 /// Sphinx packet or node public key consisting of a curve25519 point
-/// represented as an `ExtendedPoint` in 𝗣³(𝔽ₚ) for efficent computations.
+/// represented as an `edwards::ExtendedPoint` in 𝗣³(𝔽ₚ) for efficent computations.
 ///
 /// Warning: A `Point` almost always represnets public key material supplied
 /// by another parts, so one must multiply by the cofactor 8 when combining
@@ -106,12 +108,12 @@ pub type AlphaBytes = [u8; ALPHA_LENGTH];
 /// in ℤ/8lℤ with their low three bits zeroed to achieve this, but we require
 /// scalars in ℤ/lℤ where l = 2^252 + 27742317777372353535851937790883648493.
 #[derive(Clone)] // Copy, PartialEq, Eq, Hash
-pub struct Point(ExtendedPoint);
+pub struct Point(edwards::ExtendedPoint);
 
 impl Point {
     /// Create a packet or node public key from a secret key scalar.
     pub fn from_secret(s: &Scalar) -> Point {
-        Point( ExtendedPoint::basepoint_mult(&s.0) )
+        Point( &constants::ED25519_BASEPOINT_TABLE * &s.0 )
     }
 
     /// Compress a point into bytes for either transmission as a
@@ -133,7 +135,7 @@ impl Point {
     /// See https://research.kudelskisecurity.com/2017/04/25/should-ecdh-keys-be-validated/
     pub fn decompress(alpha_bytes: &AlphaBytes) -> SphinxResult<Point> {
         // let f = if trusted { |p| Point(p) } else { |p| Point(p.mult_by_cofactor()) };
-        CompressedEdwardsY(*alpha_bytes).decompress()
+        edwards::CompressedEdwardsY(*alpha_bytes).decompress()
             .map(|p| Point(p.mult_by_cofactor()))
             .ok_or( SphinxError::BadAlpha(*alpha_bytes) )
     }
@@ -145,7 +147,7 @@ impl Point {
     /// it by cofactor 8 here, so this should only be used when we know
     /// both parties know the blinding factor.
     pub fn blind(&self, blinding: &Scalar) -> Point {
-        Point( self.0.scalar_mult(&blinding.0) )
+        Point( &self.0 * &blinding.0 )
     }
 
     /// Multiply a curve25519 public key `Point` by a private key `Scalar`
@@ -159,7 +161,7 @@ impl Point {
     /// require that the scalar multiplicaiton operation has constant time.
     pub fn key_exchange(&self, private_key: &Scalar) -> SphinxSecret {
         SphinxSecret(
-            self.0.scalar_mult(&private_key.0)
+            ( &self.0 * &private_key.0 )
                 .compress_edwards().to_bytes()
         )
     }
@@ -253,13 +255,13 @@ mod tests {
                 Scalar::rand(&mut r).0
             };
             let x = rc_curve25519::ge_scalarmult_base(&a.0);
-            let y = curve::ExtendedPoint::basepoint_mult(&a).compress_edwards().to_bytes();
+            let y = (&constants::ED25519_BASEPOINT_TABLE * &a).compress_edwards().to_bytes();
             assert_eq!(x.to_bytes(),y);
             let z = Point::from_secret(&Scalar(a));
             assert_eq!(y,z.compress());
 
             let mut b = Scalar::rand(&mut r).0;
-            // let z = curve::ExtendedPoint::scalar_mult(??,&s).compress_edwards().to_bytes();
+            // let z = edwards::ExtendedPoint::scalar_mult(??,&s).compress_edwards().to_bytes();
             // assert_eq!(z,y);
 
             let zero = scalar::Scalar::zero();

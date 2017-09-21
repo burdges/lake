@@ -16,7 +16,7 @@ pub use ratchet::{TwigId,TWIG_ID_LENGTH,Transaction,AdvanceNode};
 pub use ratchet::State as RatchetState;
 
 use super::commands::{Command};
-use super::layout::{Params,ImplParams,HeaderRefs};
+use super::layout::{Params,ImplParams,HeaderMuts};
 use super::mailbox::*;
 // use super::slice::*;
 use super::error::*;
@@ -85,7 +85,7 @@ impl<P: Params> Router<P> {
     /// Invokes ratchet and cross over functionality itself, but
     /// must return an `Action` for functionality that requires
     /// ownership of the header and/or body.
-    fn do_crypto(&self, mut refs: HeaderRefs<P>, body: &mut [u8])
+    fn do_crypto(&self, mut refs: HeaderMuts<P>, body: &mut [u8])
       -> SphinxResult<(PacketName,Action)> {
         // Try SURB unwinding based on alpha contents
         // .. self.surbs.try_unwind_surbs_on_arivial(hop.packet_name(), refs.surb_log, body); ..
@@ -235,7 +235,7 @@ impl<P: Params> Router<P> {
 
         P::check_body_length(body.len()) ?; // BadLength
         let (packet, action) = {
-            let refs = HeaderRefs::<P>::new_sliced(header.borrow_mut()) ?;  // BadLength
+            let refs = HeaderMuts::<P>::new_sliced(header.borrow_mut()) ?;  // BadLength
             self.do_crypto(refs,body.borrow_mut()) ? 
         };
         match action {

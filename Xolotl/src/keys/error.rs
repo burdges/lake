@@ -3,8 +3,8 @@
 //! Errors arising from key material functions.
 
 use std::error::Error;
-use std::convert::From;
 use std::fmt;
+// use std::convert::From;
 
 
 #[derive(Debug, Clone)]

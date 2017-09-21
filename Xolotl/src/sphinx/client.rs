@@ -86,7 +86,7 @@ impl<'a,C,P,R> BuildScaffold<'a,C,P,R> where C: Concensus+'a, P: Params, R: Rng 
     }
 
     /// Spawn a new `Scaffold` builder by seeding a new `Rng` with 
-    /// output form `self.rng`.
+    /// output form `self.rng`. 
     pub fn fork<S, Seed, R0>(&mut self) -> (BuildScaffold<'a,C,P,R0>, Seed) 
       where S: ?Sized,
             Seed: Rand + AsRef<S>,
@@ -102,6 +102,7 @@ impl<'a,C,P,R> BuildScaffold<'a,C,P,R> where C: Concensus+'a, P: Params, R: Rng 
 
     /// Avoid excess allocations when preparing a sending header
     /// that is neither a SURB itself, nor crosses over to a SURB.
+    /// We set capacity to half this by default in `build_headers`.
     pub fn long(mut self) -> BuildScaffold<'a,C,P,R>
       { self.capacity = P::max_hops_capacity(); self.make_send() }
 
@@ -646,7 +647,7 @@ impl<'a,C,P,R> Scaffold<'a,C,P,R>
     /// returning a `Vec<Vec<u8>>` of seperate tails here, and making
     /// `create_gamma` take beta in two parts, and refactoring
     /// everything else acordingly.
-    fn do_beta_tails(&mut self, mut offset: usize, mut beta_tail: &mut [u8])
+    fn do_beta_tails(&mut self, mut offset: usize, beta_tail: &mut [u8])
       -> SphinxResult<()> {
         let mut length = beta_tail.len() - self.v.eaten;
         let mut tail = 0;
@@ -749,7 +750,8 @@ impl<'a,C,P,R> Scaffold<'a,C,P,R>
 }
 
 
-struct NewHeader<P: Params> {
+// Do we want to expose HeaderOrientation like this?
+pub struct NewHeader<P: Params> {
     preheader: PreHeader,
     orientation: HeaderOrientation<P>,
 }

@@ -5,7 +5,7 @@
 
 use std::time::SystemTime;
 
-use rand::{Rng, Rand};
+use rand::{Rng};  // Rand
 
 use super::RoutingName;
 use super::certs::*;
