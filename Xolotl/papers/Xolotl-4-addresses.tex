@@ -79,7 +79,7 @@ provides verification after the fact.
 %TODO: Explain why we cannot simply move the contact points under DoS.
 
 
-\subsection{New contacts}
+\subsection{New contacts}\label{subsec:greeting_points}
 
 % \begin{issue}
 % What about new contacts?
@@ -126,10 +126,10 @@ provide a hint about the message being an introduction.
 We recall that $\delta$ must be encrypted at the cross over point.
 In principle, Alice could supply Bob and Carol with the bottom layer
 encryption and authentication keys for $\delta$, as well as the
-initial root key state for their new Axolotl ratchet.  In this scheme,
-both Bob and Carol must receive the introduction from Alice though.  
-Instead, we suggest that $\delta$ itself employ a public key encryption
-scheme.
+initial root key state for their new Axolotl ratchet.  % \S\ref{subsec:crossover}
+In this scheme, both Bob and Carol must receive the introduction
+from Alice though.  Instead, we suggest that $\delta$ itself employ
+a public key encryption scheme.
 
 % Axolotl-SKPQ can still supply ...
 

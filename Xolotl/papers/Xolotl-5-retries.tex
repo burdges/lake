@@ -8,16 +8,61 @@ publishing their new routing keys, so that more reliable nodes can
 be placed into more critical network strata, especially the
 aggregation points.
 
-There are however techniques that help address aggregation points
-becoming unavailable, like senders sending duplicate messages,
- or aggregation points mirroring one another.
+There are however techniques that help address nodes, or even
+aggregation points becoming unavailable, like senders sending
+duplicate messages, or aggregation points mirroring one another.
 We view mirroring as an interesting approach, but feel it goes far
 beyond the scope of our current project, as mirroring well might
 entail reencryption.  Also, duplicate messages help reliability
 throughout the network.
 
 
-\subsection{ACKs}
+\subsection{Acknowledgements}
+
+We cannot ensure reliable message delivery with network level
+measures that operate only between adjacent hops.  Indeed, any node
+may disappear from our network at any time, including with inbound
+packets, and our PKI cannot even reflect the current state of the
+network.
+
+In consequence, we require acknowledgements (ACKs) that operate above
+the mix network layer.  We therefore envision integrate ACKs with the
+Axolotl ratchet from \S\ref{subsec:crossover} that lies above the mix
+network and below applications, although one might push this higher
+up into yet another layer that erasure codes data into the messages,
+or even into the applications themselves. We therefore leave such 
+final reliability measures as an unspecified problem for further
+research.
+
+Instead, we discuss here only incomplete reliably measures that
+improve operation of the mix networks.  In particular, we observe
+that relying only upon application layer acknowledgements could
+dramatically increase our latency.  We should ``spend'' latency on
+anonymity instead of reliability whenever possible.
+
+\begin{issue}
+How do different reliability measures impact latency?
+\end{issue}
+
+As a first step, adjacent hops should utilize a reliable transport,
+meaning a hop should continue attempting to deliver a message until
+it confirms the next hop received the message.  
+
+There are several tricky issues here, like if hops report messages
+dropped due to replay protection, so the exact form this takes
+remains an open question \cite{??cite??all??the??things??}
+
+...
+
+
+\subsection{Cross over ACKs}
+
+Above network level ACKs, we have an interesting mechanism for ACKs
+to traverse a cross over point.  
+
+...
+
+
 
 ... Cyclic ACKs for George ..
 
