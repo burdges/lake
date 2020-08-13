@@ -2,7 +2,7 @@
 
 \section{Key compromises and forward secrecy}\label{sec:forward-sec}
 
-We have observed that high latency anonymity schemes depends upon
+We have observed that high latency anonymity schemes depend upon
 nodes using non-ephemeral key material, thus opening them to key
 compromise attacks that do not impact onion routers like Tor.
 There are several natural ways one might harden mix networks against
@@ -40,10 +40,10 @@ decryption where $n$ is the number of punctures so far.
 
 There are techniques for epoch based puncturing that make $n$ less
 than the number of packets.  In a mix network, these are either
-equivelent to shortening node key lifetimes, or else require
+equivalent to shortening node key lifetimes, or else require
 deforming SURBs.  Any scheme for deforming SURBs requires a delicate
 proof of security because mix network packet formats based on more
-malleable key material tends to be broken~\cite{Danezis2006}. 
+malleable key material tend to be broken~\cite{Danezis2006}. 
 Also, these ideas all require slower pairing-based cryptography that
 would increase our mix node's vulnerability to denial of service attacks. 
 
@@ -51,7 +51,7 @@ After ruling out these solutions, our question remains unresolved :
 
 \begin{issue}
 Is there a forward secrecy mechanism to reduce the risk of mix node
-keys being compramized after messages traverse the network?
+keys being compromised after messages traverse the network?
 \end{issue}
 
 
@@ -131,7 +131,7 @@ add another torsion prime beyond 2 or 3, increasing the size of the
 base field.  In Sphinx, we could invent new shared $p$-torsion guide
 points for computing the blinding isogeny, thus avoiding these issues.
 We expect SIDH remains quite new and blinding in this way is unheard of,
-so doing this reuqires time to build confidence in these operation.  
+so doing this requires time to build confidence in these operation.  
 Worse, there are currently open questions around key validation in
 SIDH that prevent using long term keys~\cite{SIDH-NoValidation}, which
 Sphinx requires.
@@ -205,7 +205,7 @@ theoretic security, so attacks on the post-quantum component must be
 expected to yield an advantage in guessing packet routes.
 
 \begin{issue}
-Is there a post-quantum key exhange suitable for usage Sphinx or
+Is there a post-quantum key exhange suitable for usage with Sphinx or
 another mechanism of introducing post-quantum key material?
 \end{issue}
 
@@ -245,7 +245,7 @@ These fs-mixes could be viewed as a form of ``ratchet'' not wholly
 unlike off-the-record (OtR) messaging ratchet~\cite{OtR}, sometimes
 described as a three-step Diffie-Hellman ratchet.
 We shall extend fs-mixes to provide stronger protection and be more
-reliable, while retaining their feature of introducing key matierial
+reliable, while retaining their feature of introducing key material
 not directly derived from the current packet's public key exchange.  
 Intuitively this parallels how the Axolotl ratchet extends
 OtR with a hash iteration ratchet.

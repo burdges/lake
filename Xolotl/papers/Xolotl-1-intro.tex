@@ -6,7 +6,7 @@ Anonymity systems based on ``onion routing''~\cite{SS03} like Tor or
 I2P are known to be vulnerable to correlation attacks by a passive
 adversary who can observe both endpoints of a
 circuit~\cite{timing-fc2004}, such as a national ISP.  Any attempt to
-defeat correlation attacks must increase mixing through a comination
+defeat correlation attacks must increase mixing through a combination
 of higher latency and cover traffic, possibly including communication
 with recipients besides those intended.
 % TODO: George said this better.  See his Panoramix slides.
@@ -33,11 +33,11 @@ cross organizational boundaries, like volunteer organizations,
 journalists' sources, whistleblowers, protest organizers, etc.
 
 We favor the opposite trade off in which we accept higher latency but
-introduces less cover traffic, and so thus choose to design a
+introduce less cover traffic, and thus choose to design a
 {\em mix network} or mixnet.  % cite chaum or ?? % TODO: Add connective?
 
 We believe this choice makes more efficent usages and should better
-exploit network effects as the as usage increases.  
+exploit network effects as the usage increases.  
 In consequence, we sacrifice use cases that require low latency like
 voice, and most modern web traffic, while offering an inexpensive
 privacy tool that defeats correlation attacks.
@@ -54,21 +54,21 @@ can be stored for days to months at nodes in the network.  For this,
 our receiver's client selects a set of nodes called {\em aggregation
 points} to store incoming messages, and selects a replication level
 to achieve the desired level of reliability.  Senders might learn the
-number of replicas, but only the reciever knows what aggregation
+number of replicas, but only the receiver knows what aggregation
 points host them.  Aggregation points do not know of each other, and
 collaborating aggregation points cannot detect that they are storing
 the same message or message for the same receiver.
 
 We require that senders have a way to securely resolve a new
 recipient's address to a set of sender-specified single-use reply
-blocks (SURBs), the usualy way that mix networks provide reciever
+blocks (SURBs), the usualy way that mix networks provide receiver
 anonymity.  Approaches for name resolution include an out-of-band
 exchange, using name resolution in the GNU Name System~\cite{gns}
 using a private label, and other discussed below.  Once a set of
 SURBs has been established between sender and receiver, our protocol
-maintains the connection by maintianing a SURB supply so long as
+maintains the connection by maintaining a SURB supply so long as
 both parties remain acitve.  We employ a fall back scheme for when
-one party becomes inactive for too long, but which compramises on
+one party becomes inactive for too long, but which compromises on
 delivery assurances.  % GNS would leak metadata if used for this.  
 
 For path selection, sender and receiver require the ability to select
@@ -191,7 +191,7 @@ a significant change to the Sphinx format, but some new commands do.
 In particular, the ratchet we introduce in \S\ref{sec:forward-sec}
 for forward security and hybrid post-quantum anonymity introduces a
 dramatic amount of state and radically alters the threat model.
-Arguably, any formal security arguments for this should emply the 
+Arguably, any formal security arguments for this should employ the 
 generalized universal composabiltiy framework \cite{GenUC}, which
 requires a new approach to \cite{FormalOnion} that goes beyond the
 scope of this article. 
